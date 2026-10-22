@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Build outputs
+backend/dist/
+backend/coverage/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+.idea/
+
+# OS & Temp
+.DS_Store
+Thumbs.db
+*.log
+.android-sdk/

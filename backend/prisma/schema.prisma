@@ -1,0 +1,474 @@
+// ============================================================================
+// ContentSync — Modelo Relacional PostgreSQL Normalizado en 3FN
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS DEL DOMINIO
+// ----------------------------------------------------------------------------
+
+enum RoleCode {
+  ADMIN_GENERAL
+  AGENCIA
+  CLIENTE
+}
+
+enum SocialProvider {
+  GOOGLE
+  FACEBOOK
+  GITHUB
+}
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+}
+
+enum PlatformConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum ScheduleStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  COMPLETED
+}
+
+enum VideoWorkflowStatus {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  REJECTED
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+}
+
+enum ApprovalDecision {
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+}
+
+enum PublicationStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
+enum PrivacyLevel {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+enum NotificationType {
+  NEW_SCHEDULE
+  VIDEO_IN_REVIEW
+  VIDEO_APPROVED
+  VIDEO_CHANGES_REQUESTED
+  VIDEO_REJECTED
+  PUBLICATION_SUCCESS
+  PUBLICATION_FAILED
+}
+
+// ----------------------------------------------------------------------------
+// 1. ROLES Y USUARIOS (3FN: Rol separado en su catálogo, sin atributos redundantes)
+// ----------------------------------------------------------------------------
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        RoleCode @unique
+  name        String   @db.VarChar(80)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                   String    @id @default(uuid()) @db.Uuid
+  roleId               String    @map("role_id") @db.Uuid
+  email                String    @unique @db.VarChar(180)
+  passwordHash         String?   @map("password_hash") @db.VarChar(255)
+  fullName             String    @map("full_name") @db.VarChar(150)
+  timezone             String    @default("America/Argentina/Buenos_Aires") @db.VarChar(80)
+  emailVerified        Boolean   @default(false) @map("email_verified")
+  verificationToken    String?   @map("verification_token") @db.VarChar(128)
+  passwordResetToken   String?   @map("password_reset_token") @db.VarChar(128)
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  fcmToken             String?   @map("fcm_token") @db.VarChar(512)
+  isActive             Boolean   @default(true) @map("is_active")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+
+  role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  authSessions       AuthSession[]
+  socialAuthAccounts SocialAuthAccount[]
+  ownedAgency        Agency?             @relation("AgencyOwner")
+  clientProfile      Client?             @relation("ClientUser")
+  createdSchedules   Schedule[]          @relation("ScheduleCreator")
+  uploadedVideos     Video[]             @relation("VideoUploader")
+  approvalsReviewed  Approval[]          @relation("ApprovalReviewer")
+  comments           VideoComment[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+
+  @@index([email])
+  @@index([roleId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  tokenFamily      String    @map("token_family") @db.Uuid
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(255)
+  deviceInfo       String?   @map("device_info") @db.VarChar(255)
+  ipAddress        String?   @map("ip_address") @db.VarChar(64)
+  isRevoked        Boolean   @default(false) @map("is_revoked")
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  rotatedAt        DateTime? @map("rotated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenFamily])
+  @@map("auth_sessions")
+}
+
+model SocialAuthAccount {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  provider       SocialProvider
+  providerUserId String         @map("provider_user_id") @db.VarChar(180)
+  email          String         @db.VarChar(180)
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@index([email])
+  @@map("social_auth_accounts")
+}
+
+// ----------------------------------------------------------------------------
+// 2. AGENCIAS Y CLIENTES (Jerarquía multi-tenant sin dependencias transitivas)
+// ----------------------------------------------------------------------------
+
+model Agency {
+  id           String    @id @default(uuid()) @db.Uuid
+  ownerUserId  String    @unique @map("owner_user_id") @db.Uuid
+  name         String    @db.VarChar(150)
+  taxId        String    @unique @map("tax_id") @db.VarChar(40)
+  contactPhone String?   @map("contact_phone") @db.VarChar(40)
+  website      String?   @db.VarChar(255)
+  isSuspended  Boolean   @default(false) @map("is_suspended")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  ownerUser User     @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  clients   Client[]
+
+  @@index([isSuspended])
+  @@index([deletedAt])
+  @@map("agencies")
+}
+
+model Client {
+  id          String    @id @default(uuid()) @db.Uuid
+  agencyId    String    @map("agency_id") @db.Uuid
+  userId      String    @unique @map("user_id") @db.Uuid
+  companyName String    @map("company_name") @db.VarChar(150)
+  industry    String?   @db.VarChar(100)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  user                User                 @relation("ClientUser", fields: [userId], references: [id], onDelete: Restrict)
+  platformConnections PlatformConnection[]
+  schedules           Schedule[]
+  videos              Video[]
+
+  @@index([agencyId])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("clients")
+}
+
+// ----------------------------------------------------------------------------
+// 3. CONEXIONES OAUTH DE PLATAFORMAS (Separadas del login social)
+// ----------------------------------------------------------------------------
+
+model PlatformConnection {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  clientId              String                   @map("client_id") @db.Uuid
+  platform              SocialPlatform
+  externalAccountId     String                   @map("external_account_id") @db.VarChar(180)
+  accountHandle         String                   @map("account_handle") @db.VarChar(120)
+  encryptedAccessToken  String                   @map("encrypted_access_token") @db.Text
+  encryptedRefreshToken String?                  @map("encrypted_refresh_token") @db.Text
+  tokenExpiresAt        DateTime?                @map("token_expires_at")
+  scopes                String?                  @db.VarChar(500)
+  status                PlatformConnectionStatus @default(ACTIVE)
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, platform])
+  @@index([clientId])
+  @@index([status])
+  @@map("platform_connections")
+}
+
+// ----------------------------------------------------------------------------
+// 4. VIDEOS, HASHTAGS Y TARGETS POR PLATAFORMA (1FN, 2FN, 3FN estrictas)
+// ----------------------------------------------------------------------------
+
+model Video {
+  id               String              @id @default(uuid()) @db.Uuid
+  clientId         String              @map("client_id") @db.Uuid
+  uploadedByUserId String              @map("uploaded_by_user_id") @db.Uuid
+  title            String              @db.VarChar(150)
+  description      String              @db.Text
+  storageKey       String              @map("storage_key") @db.VarChar(500)
+  thumbnailKey     String?             @map("thumbnail_key") @db.VarChar(500)
+  durationSeconds  Int                 @map("duration_seconds")
+  sizeBytes        BigInt              @map("size_bytes")
+  mimeType         String              @default("video/mp4") @map("mime_type") @db.VarChar(60)
+  aspectRatio      String              @default("9:16") @map("aspect_ratio") @db.VarChar(16)
+  workflowStatus   VideoWorkflowStatus @default(DRAFT) @map("workflow_status")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  deletedAt        DateTime?           @map("deleted_at")
+
+  client          Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  uploadedByUser  User                  @relation("VideoUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  platformTargets VideoPlatformTarget[]
+  hashtags        VideoHashtag[]
+  scheduleItems   ScheduleItem[]
+  approvals       Approval[]
+  comments        VideoComment[]
+  publications    Publication[]
+
+  @@index([clientId, workflowStatus])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("videos")
+}
+
+model VideoHashtag {
+  id        String   @id @default(uuid()) @db.Uuid
+  videoId   String   @map("video_id") @db.Uuid
+  tag       String   @db.VarChar(80)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, tag])
+  @@index([tag])
+  @@map("video_hashtags")
+}
+
+model VideoPlatformTarget {
+  id                String         @id @default(uuid()) @db.Uuid
+  videoId           String         @map("video_id") @db.Uuid
+  platform          SocialPlatform
+  customTitle       String?        @map("custom_title") @db.VarChar(150)
+  customDescription String?        @map("custom_description") @db.Text
+  privacyLevel      PrivacyLevel   @default(PUBLIC) @map("privacy_level")
+  shareToFeed       Boolean        @default(true) @map("share_to_feed")
+  allowComments     Boolean        @default(true) @map("allow_comments")
+  allowDuetStitch   Boolean        @default(true) @map("allow_duet_stitch")
+  madeForKids       Boolean        @default(false) @map("made_for_kids")
+  categoryId        String?        @default("22") @map("category_id") @db.VarChar(20)
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, platform])
+  @@index([videoId])
+  @@map("video_platform_targets")
+}
+
+// ----------------------------------------------------------------------------
+// 5. CRONOGRAMAS SEMANALES Y FLUJO DE APROBACIÓN
+// ----------------------------------------------------------------------------
+
+model Schedule {
+  id              String         @id @default(uuid()) @db.Uuid
+  clientId        String         @map("client_id") @db.Uuid
+  createdByUserId String         @map("created_by_user_id") @db.Uuid
+  weekStartDate   DateTime       @map("week_start_date") @db.Date
+  weekEndDate     DateTime       @map("week_end_date") @db.Date
+  title           String         @db.VarChar(150)
+  summaryNotes    String?        @map("summary_notes") @db.Text
+  status          ScheduleStatus @default(DRAFT)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdByUser User           @relation("ScheduleCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items         ScheduleItem[]
+
+  @@unique([clientId, weekStartDate])
+  @@index([clientId, weekStartDate])
+  @@index([status])
+  @@map("schedules")
+}
+
+model ScheduleItem {
+  id               String         @id @default(uuid()) @db.Uuid
+  scheduleId       String         @map("schedule_id") @db.Uuid
+  videoId          String         @map("video_id") @db.Uuid
+  dayOfWeek        Int            @map("day_of_week") // 1 (Lun) .. 7 (Dom)
+  plannedPublishAt DateTime       @map("planned_publish_at")
+  notes            String?        @db.VarChar(500)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, videoId])
+  @@index([scheduleId, dayOfWeek])
+  @@index([plannedPublishAt])
+  @@map("schedule_items")
+}
+
+model Approval {
+  id             String           @id @default(uuid()) @db.Uuid
+  videoId        String           @map("video_id") @db.Uuid
+  reviewerUserId String           @map("reviewer_user_id") @db.Uuid
+  decision       ApprovalDecision
+  feedbackNotes  String?          @map("feedback_notes") @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  video        Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  reviewerUser User  @relation("ApprovalReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([videoId, createdAt])
+  @@map("approvals")
+}
+
+model VideoComment {
+  id           String   @id @default(uuid()) @db.Uuid
+  videoId      String   @map("video_id") @db.Uuid
+  authorUserId String   @map("author_user_id") @db.Uuid
+  message      String   @db.Text
+  timestampSec Int?     @map("timestamp_sec")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  video      Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  authorUser User  @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([videoId, createdAt])
+  @@map("video_comments")
+}
+
+// ----------------------------------------------------------------------------
+// 6. PUBLICACIONES MULTIPLATAFORMA E INTENTOS
+// ----------------------------------------------------------------------------
+
+model Publication {
+  id               String            @id @default(uuid()) @db.Uuid
+  videoId          String            @map("video_id") @db.Uuid
+  platform         SocialPlatform
+  scheduledFor     DateTime          @map("scheduled_for")
+  publishedAt      DateTime?         @map("published_at")
+  status           PublicationStatus @default(PENDING)
+  bullJobId        String?           @map("bull_job_id") @db.VarChar(120)
+  externalPostId   String?           @map("external_post_id") @db.VarChar(180)
+  externalPostUrl  String?           @map("external_post_url") @db.VarChar(500)
+  lastErrorMessage String?           @map("last_error_message") @db.Text
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  video    Video                @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  attempts PublicationAttempt[]
+
+  @@unique([videoId, platform])
+  @@index([status, scheduledFor])
+  @@index([platform, status])
+  @@map("publications")
+}
+
+model PublicationAttempt {
+  id            String   @id @default(uuid()) @db.Uuid
+  publicationId String   @map("publication_id") @db.Uuid
+  attemptNumber Int      @map("attempt_number")
+  isSuccess     Boolean  @map("is_success")
+  errorCode     String?  @map("error_code") @db.VarChar(80)
+  errorDetail   String?  @map("error_detail") @db.Text
+  durationMs    Int      @default(0) @map("duration_ms")
+  attemptedAt   DateTime @default(now()) @map("attempted_at")
+
+  publication Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@unique([publicationId, attemptNumber])
+  @@index([publicationId])
+  @@map("publication_attempts")
+}
+
+// ----------------------------------------------------------------------------
+// 7. NOTIFICACIONES Y LOGS DE AUDITORÍA
+// ----------------------------------------------------------------------------
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @map("user_id") @db.Uuid
+  type        NotificationType
+  title       String           @db.VarChar(160)
+  body        String           @db.Text
+  referenceId String?          @map("reference_id") @db.Uuid
+  isRead      Boolean          @default(false) @map("is_read")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(120)
+  entityType String   @map("entity_type") @db.VarChar(80)
+  entityId   String?  @map("entity_id") @db.VarChar(80)
+  ipAddress  String?  @map("ip_address") @db.VarChar(64)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  metadata   String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
