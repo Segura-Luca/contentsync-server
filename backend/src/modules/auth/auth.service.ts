@@ -454,8 +454,7 @@ export class AuthService {
 
     const textBody = `Hola ${fullName},\n\nTu código de recuperación de ContentSync es: ${code}\nExpira en 30 minutos.\n\nSi no fuiste vos, ignora este mensaje.`;
     const webhookUrl = this.configService.get<string>('GMAIL_HTTPS_WEBHOOK_URL');
-    const webhookSecret =
-      this.configService.get<string>('GMAIL_WEBHOOK_SECRET') || 'cs_mail_relay_2026_x9k2';
+    const webhookSecret = this.configService.get<string>('GMAIL_WEBHOOK_SECRET') || '';
 
     if (webhookUrl) {
       try {

@@ -115,8 +115,7 @@ export class ClientsService {
 
     const textBody = `Hola ${params.fullName},\n\nLa agencia ${params.agencyName} solicitó vincularte como cliente de ${params.companyName}.\n\nPara confirmar ("Sí, soy yo"): ${acceptUrl}\nPara rechazar: ${rejectUrl}`;
     const webhookUrl = this.configService?.get<string>('GMAIL_HTTPS_WEBHOOK_URL');
-    const webhookSecret =
-      this.configService?.get<string>('GMAIL_WEBHOOK_SECRET') || 'cs_mail_relay_2026_x9k2';
+    const webhookSecret = this.configService?.get<string>('GMAIL_WEBHOOK_SECRET') || '';
 
     if (webhookUrl) {
       try {
