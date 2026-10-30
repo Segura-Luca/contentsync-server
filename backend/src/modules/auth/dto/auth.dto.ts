@@ -40,6 +40,12 @@ export class RegisterDto {
   @MaxLength(150)
   fullName!: string;
 
+  @ApiPropertyOptional({ example: 'Nova Media Studio' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  agencyName?: string;
+
   @ApiPropertyOptional({ enum: RoleCode, default: RoleCode.AGENCIA })
   @IsOptional()
   @IsEnum(RoleCode)
@@ -84,19 +90,18 @@ export class SocialLoginDto {
   @IsNotEmpty()
   idToken!: string;
 
-  @ApiProperty({ example: 'usuario@gmail.com' })
-  @IsEmail()
-  email!: string;
-
-  @ApiProperty({ example: 'google_uid_10928374' })
+  /** Ignorados: la identidad real se obtiene verificando el token ante el proveedor. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  providerUserId!: string;
+  email?: string;
 
-  @ApiProperty({ example: 'Lucas Herrera' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  fullName!: string;
+  providerUserId?: string;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8 Pro - Android 15' })
   @IsOptional()

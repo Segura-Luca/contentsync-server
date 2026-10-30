@@ -1,20 +1,47 @@
 package com.contentsync.app.presentation.users
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.contentsync.app.core.designsystem.EmptyStateCard
+import com.contentsync.app.core.designsystem.StudioSectionHeader
+import com.contentsync.app.core.designsystem.StudioTheme
+import com.contentsync.app.core.designsystem.shortCode
 import com.contentsync.app.domain.model.SocialPlatform
 import com.contentsync.app.domain.model.UserRole
 import com.contentsync.app.presentation.ContentSyncUiState
@@ -26,216 +53,271 @@ fun UsersAndAgenciesScreen(
     viewModel: MainViewModel
 ) {
     val role = uiState.session?.role ?: return
+    val palette = StudioTheme.colors
+
     var showCreateAgencyForm by remember { mutableStateOf(false) }
     var showCreateClientForm by remember { mutableStateOf(false) }
 
-    // Campos Agencia
     var agencyName by remember { mutableStateOf("") }
     var agencyTaxId by remember { mutableStateOf("") }
     var agencyOwnerName by remember { mutableStateOf("") }
     var agencyOwnerEmail by remember { mutableStateOf("") }
     var agencyPhone by remember { mutableStateOf("") }
 
-    // Campos Cliente
     var clientCompany by remember { mutableStateOf("") }
     var clientIndustry by remember { mutableStateOf("") }
     var clientContactName by remember { mutableStateOf("") }
     var clientContactEmail by remember { mutableStateOf("") }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // GOBIERNO MULTI-TENANT DE AGENCIAS (EXCLUSIVO ADMIN_GENERAL)
         if (role == UserRole.ADMIN_GENERAL) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "ABM de Agencias (Exclusivo Admin General)",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    FilledTonalButton(onClick = { showCreateAgencyForm = !showCreateAgencyForm }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Nueva Agencia")
+                StudioSectionHeader(
+                    eyebrow = "GOBIERNO MULTI-TENANT · ADMIN GENERAL",
+                    title = "Registro de Agencias",
+                    subtitle = "Gestioná las agencias, su CUIT y si están activas.",
+                    trailing = {
+                        Surface(
+                            color = palette.signalAccent,
+                            shape = RoundedCornerShape(3.dp),
+                            modifier = Modifier.clickable { showCreateAgencyForm = !showCreateAgencyForm }
+                        ) {
+                            Text(
+                                text = if (showCreateAgencyForm) "CERRAR" else "+ ALTA AGENCIA",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = palette.onSignalAccent,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
-                }
+                )
             }
 
             if (showCreateAgencyForm) {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("Registrar Nueva Agencia", fontWeight = FontWeight.Bold)
-                            OutlinedTextField(
-                                value = agencyName,
-                                onValueChange = { agencyName = it },
-                                label = { Text("Nombre de Agencia") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = agencyTaxId,
-                                onValueChange = { agencyTaxId = it },
-                                label = { Text("CUIT / Tax ID (UNIQUE)") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = agencyOwnerName,
-                                onValueChange = { agencyOwnerName = it },
-                                label = { Text("Responsable") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = agencyOwnerEmail,
-                                onValueChange = { agencyOwnerEmail = it },
-                                label = { Text("Email corporativo") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Button(
-                                onClick = {
-                                    if (agencyName.isNotBlank() && agencyTaxId.isNotBlank()) {
-                                        viewModel.createAgency(
-                                            agencyName,
-                                            agencyTaxId,
-                                            agencyOwnerName,
-                                            agencyOwnerEmail,
-                                            agencyPhone
-                                        )
-                                        agencyName = ""
-                                        agencyTaxId = ""
-                                        showCreateAgencyForm = false
-                                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, palette.borderStrong, RoundedCornerShape(4.dp))
+                            .background(palette.stage, RoundedCornerShape(4.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "NUEVA AGENCIA",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = palette.textPrimary
+                        )
+                        OutlinedTextField(
+                            value = agencyName,
+                            onValueChange = { agencyName = it },
+                            label = { Text("Razón social / Estudio") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = agencyTaxId,
+                            onValueChange = { agencyTaxId = it },
+                            label = { Text("CUIT") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = agencyOwnerName,
+                            onValueChange = { agencyOwnerName = it },
+                            label = { Text("Director responsable") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = agencyOwnerEmail,
+                            onValueChange = { agencyOwnerEmail = it },
+                            label = { Text("Correo corporativo") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        Button(
+                            onClick = {
+                                if (agencyName.isNotBlank() && agencyTaxId.isNotBlank()) {
+                                    viewModel.createAgency(
+                                        agencyName,
+                                        agencyTaxId,
+                                        agencyOwnerName,
+                                        agencyOwnerEmail,
+                                        agencyPhone
+                                    )
+                                    agencyName = ""
+                                    agencyTaxId = ""
+                                    showCreateAgencyForm = false
                                 }
-                            ) {
-                                Text("Guardar Agencia")
-                            }
+                            },
+                            shape = RoundedCornerShape(3.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = palette.signalAccent,
+                                contentColor = palette.onSignalAccent
+                            )
+                        ) {
+                            Text("CREAR AGENCIA", style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
             }
 
-            items(uiState.agencies, key = { it.id }) { agency ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+            items(uiState.agencies, key = { "ag-${it.id}" }) { agency ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, palette.hairline, RoundedCornerShape(3.dp))
+                        .background(palette.stage, RoundedCornerShape(3.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = agency.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = palette.textPrimary
+                        )
+                        Text(
+                            text = "CUIT ${agency.taxId} · ${agency.ownerEmail}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = palette.textMuted
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val statusColor = if (agency.isSuspended) palette.tallyFault else palette.tallyLive
+                        val statusBg = if (agency.isSuspended) palette.tallyFaultBg else palette.tallyLiveBg
+                        Surface(
+                            color = statusBg,
+                            shape = RoundedCornerShape(2.dp),
+                            border = BorderStroke(1.dp, statusColor),
+                            modifier = Modifier.clickable { viewModel.toggleAgencySuspension(agency.id) }
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = agency.name,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "Tax ID: ${agency.taxId} • ${agency.ownerEmail}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            AssistChip(
-                                onClick = { viewModel.toggleAgencySuspension(agency.id) },
-                                label = {
-                                    Text(if (agency.isSuspended) "Suspendida (Reactivar)" else "Activa (Suspender)")
-                                }
+                            Text(
+                                text = if (agency.isSuspended) "SUSPENDIDA · REACTIVAR" else "ACTIVA · SUSPENDER",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
-                            IconButton(onClick = { viewModel.deleteAgency(agency.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar agencia")
-                            }
+                        }
+                        IconButton(onClick = { viewModel.deleteAgency(agency.id) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = "Baja lógica de agencia",
+                                tint = palette.textMuted
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Sección de Clientes y Conexiones OAuth de Publicación
+        // PATCHBAY DE CUENTAS CLIENTE & CONEXIONES OAUTH AES-256-GCM
         item {
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (role == UserRole.AGENCIA) "Mis Clientes y Conexiones OAuth" else "Clientes Registrados",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Solo ves y administras clientes dentro del alcance de tu rol.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (role != UserRole.CLIENTE) {
-                    FilledTonalButton(onClick = { showCreateClientForm = !showCreateClientForm }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Nuevo Cliente")
+            Spacer(modifier = Modifier.height(4.dp))
+            StudioSectionHeader(
+                eyebrow = "CUENTAS DE MARCA",
+                title = if (role == UserRole.AGENCIA) "Tus clientes y redes" else "Cuentas conectadas",
+                subtitle = "Cada marca mantiene sus propios tokens cifrados para Instagram Reels, TikTok y YouTube Shorts.",
+                trailing = if (role != UserRole.CLIENTE) {
+                    {
+                        Surface(
+                            color = palette.elevated,
+                            shape = RoundedCornerShape(3.dp),
+                            border = BorderStroke(1.dp, palette.borderStrong),
+                            modifier = Modifier.clickable { showCreateClientForm = !showCreateClientForm }
+                        ) {
+                            Text(
+                                text = if (showCreateClientForm) "CERRAR" else "+ NUEVO CLIENTE",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = palette.textPrimary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
-                }
-            }
+                } else null
+            )
         }
 
         if (showCreateClientForm && role != UserRole.CLIENTE) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text("Crear Cliente para mi Agencia", fontWeight = FontWeight.Bold)
-                        OutlinedTextField(
-                            value = clientCompany,
-                            onValueChange = { clientCompany = it },
-                            label = { Text("Empresa / Marca") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = clientIndustry,
-                            onValueChange = { clientIndustry = it },
-                            label = { Text("Rubro / Industria") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = clientContactName,
-                            onValueChange = { clientContactName = it },
-                            label = { Text("Nombre del Contacto") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = clientContactEmail,
-                            onValueChange = { clientContactEmail = it },
-                            label = { Text("Email del Cliente (acceso a la app)") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Button(
-                            onClick = {
-                                if (clientCompany.isNotBlank() && clientContactEmail.isNotBlank()) {
-                                    viewModel.createClient(
-                                        clientCompany,
-                                        clientIndustry,
-                                        clientContactName,
-                                        clientContactEmail
-                                    )
-                                    clientCompany = ""
-                                    clientIndustry = ""
-                                    clientContactName = ""
-                                    clientContactEmail = ""
-                                    showCreateClientForm = false
-                                }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, palette.borderStrong, RoundedCornerShape(4.dp))
+                        .background(palette.stage, RoundedCornerShape(4.dp))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "AGREGAR CLIENTE",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = palette.textPrimary
+                    )
+                    OutlinedTextField(
+                        value = clientCompany,
+                        onValueChange = { clientCompany = it },
+                        label = { Text("Marca / Razón comercial") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = clientIndustry,
+                        onValueChange = { clientIndustry = it },
+                        label = { Text("Vertical / Industria") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = clientContactName,
+                        onValueChange = { clientContactName = it },
+                        label = { Text("Responsable de visado") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = clientContactEmail,
+                        onValueChange = { clientContactEmail = it },
+                        label = { Text("Email de acceso para aprobación") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            if (clientCompany.isNotBlank() && clientContactEmail.isNotBlank()) {
+                                viewModel.createClient(
+                                    clientCompany,
+                                    clientIndustry,
+                                    clientContactName,
+                                    clientContactEmail
+                                )
+                                clientCompany = ""
+                                clientIndustry = ""
+                                clientContactName = ""
+                                clientContactEmail = ""
+                                showCreateClientForm = false
                             }
-                        ) {
-                            Text("Crear Cliente")
-                        }
+                        },
+                        shape = RoundedCornerShape(3.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = palette.signalAccent,
+                            contentColor = palette.onSignalAccent
+                        )
+                    ) {
+                        Text("CREAR CUENTA DE MARCA", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -244,86 +326,119 @@ fun UsersAndAgenciesScreen(
         if (uiState.clients.isEmpty()) {
             item {
                 EmptyStateCard(
-                    title = "Sin clientes asignados",
-                    subtitle = "Agrega tu primer cliente para gestionar sus cronogramas y redes."
+                    title = "Sin marcas vinculadas",
+                    subtitle = "Incorporá tu primer cliente para abrir pautas semanales y conectar sus redes."
                 )
             }
         }
 
-        items(uiState.clients, key = { it.id }) { client ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+        items(uiState.clients, key = { "cl-${it.id}" }) { client ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, palette.hairline, RoundedCornerShape(4.dp))
+                    .background(palette.stage, RoundedCornerShape(4.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "${client.industry.uppercase()} · AGENCIA ${client.agencyName.uppercase()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = palette.textMuted
+                        )
+                        Text(
+                            text = client.companyName,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = palette.textPrimary
+                        )
+                        Text(
+                            text = "Aprueba: ${client.contactFullName} (${client.contactEmail})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = palette.textSecondary
+                        )
+                    }
+                    if (role != UserRole.CLIENTE) {
+                        IconButton(onClick = { viewModel.deleteClient(client.id) }) {
                             Icon(
-                                Icons.Default.Business,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
+                                imageVector = Icons.Outlined.DeleteOutline,
+                                contentDescription = "Eliminar cliente",
+                                tint = palette.textMuted
                             )
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = client.companyName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "${client.industry} • Agencia: ${client.agencyName}",
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                Text(
-                                    text = "Contacto: ${client.contactFullName} (${client.contactEmail})",
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
-                        if (role != UserRole.CLIENTE) {
-                            IconButton(onClick = { viewModel.deleteClient(client.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Eliminar cliente")
-                            }
                         }
                     }
+                }
 
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    Text(
-                        text = "Conexiones OAuth de Publicación (Tokens cifrados AES-256-GCM en BD):",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SocialPlatform.entries.forEach { platform ->
-                            val conn = client.connections.find { it.platform == platform }
-                            val isConnected = conn?.isConnected == true
-                            FilterChip(
-                                selected = isConnected,
-                                onClick = {
+                HorizontalDivider(thickness = 1.dp, color = palette.hairline)
+
+                Text(
+                    text = "REDES (TOCÁ UNA PARA CONECTAR O DESCONECTAR)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = palette.textMuted
+                )
+
+                // Matriz de 3 bahías OAuth (IG · TT · YT)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SocialPlatform.entries.forEach { platform ->
+                        val conn = client.connections.find { it.platform == platform }
+                        val connected = conn?.isConnected == true
+                        val borderCol = if (connected) palette.tallyLive.copy(alpha = 0.65f) else palette.hairline
+                        val dotCol = if (connected) palette.tallyLive else palette.textMuted
+
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .border(1.dp, borderCol, RoundedCornerShape(3.dp))
+                                .background(
+                                    if (connected) palette.tallyLiveBg.copy(alpha = 0.35f) else palette.canvas,
+                                    RoundedCornerShape(3.dp)
+                                )
+                                .clickable {
                                     viewModel.togglePlatformOAuth(
                                         client.id,
                                         platform,
-                                        conn?.accountHandle ?: "@cuenta"
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Link,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        "${platform.name}: ${if (isConnected) conn?.accountHandle else "Conectar OAuth"}",
-                                        style = MaterialTheme.typography.labelSmall
+                                        conn?.accountHandle ?: "@${client.companyName.lowercase().replace(" ", "")}"
                                     )
                                 }
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = platform.shortCode,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = palette.textPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(dotCol, RoundedCornerShape(1.dp))
+                                )
+                            }
+                            Text(
+                                text = if (connected) (conn?.accountHandle ?: "@conectado") else "Sin enlace",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (connected) palette.textPrimary else palette.textMuted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (connected) "CONECTADO" else "CONECTAR →",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = dotCol
                             )
                         }
                     }

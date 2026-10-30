@@ -7,6 +7,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { AgenciesModule } from './modules/agencies/agencies.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
+import { IdeasModule } from './modules/ideas/ideas.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PlatformsModule } from './modules/platforms/platforms.module';
 import { PublicationsModule } from './modules/publications/publications.module';
@@ -22,13 +23,14 @@ import { VideosModule } from './modules/videos/videos.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 120,
+        limit: 200,
       },
     ]),
     PrismaModule,
     AuthModule,
     AgenciesModule,
     ClientsModule,
+    IdeasModule,
     VideosModule,
     SchedulesModule,
     PlatformsModule,

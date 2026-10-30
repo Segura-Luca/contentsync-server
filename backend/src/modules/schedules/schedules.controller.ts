@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -17,12 +19,15 @@ import {
 import {
   AddScheduleItemDto,
   AddVideoCommentDto,
+  CreateScheduleBlockDto,
   CreateScheduleDto,
+  DuplicateScheduleDto,
   ReviewVideoDecisionDto,
+  UpdateScheduleBlockDto,
 } from './dto/schedule-approval.dto';
 import { SchedulesService } from './schedules.service';
 
-@ApiTags('Cronogramas Semanales y Aprobaciones de Cliente')
+@ApiTags('Plan Semanal (Lunes a Viernes), Bloques y Duplicación')
 @ApiBearerAuth('jwt-auth')
 @Controller('schedules')
 export class SchedulesController {
@@ -31,7 +36,7 @@ export class SchedulesController {
   @Get()
   @ApiOperation({
     summary:
-      'Listar cronogramas semanales con sus ítems por día y plataforma según el rol del usuario',
+      'Listar planes semanales de Lunes a Viernes con sus bloques de colores y videos según el rol del usuario',
   })
   @ApiQuery({ name: 'clientId', required: false })
   findAll(
@@ -41,18 +46,80 @@ export class SchedulesController {
     return this.schedulesService.listSchedules(user, clientId);
   }
 
+  @Get('duplication-logs')
+  @ApiOperation({
+    summary: 'Consultar el registro histórico de semanas duplicadas',
+  })
+  @ApiQuery({ name: 'clientId', required: false })
+  listDuplicationLogs(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.schedulesService.listDuplicationLogs(user, clientId);
+  }
+
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post()
-  @ApiOperation({ summary: 'Crear cronograma semanal de contenido para un cliente' })
+  @ApiOperation({ summary: 'Crear nuevo plan semanal (Lunes a Viernes) para un cliente confirmado' })
   create(@Body() dto: CreateScheduleDto, @CurrentUser() user: AuthenticatedUser) {
     return this.schedulesService.createSchedule(dto, user);
   }
 
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
-  @Post(':scheduleId/items')
+  @Post(':scheduleId/blocks')
   @ApiOperation({
     summary:
-      'Asignar un video a un día/hora del cronograma semanal y enviarlo a revisión del cliente',
+      'Agregar un bloque con nota de color, horario y video opcional configurado a un día de la semana',
+  })
+  createBlock(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Body() dto: CreateScheduleBlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.schedulesService.createBlock(scheduleId, dto, user);
+  }
+
+  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
+  @Patch('blocks/:blockId')
+  @ApiOperation({
+    summary: 'Editar bloque del día (color, nota, horario o video configurado)',
+  })
+  updateBlock(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: UpdateScheduleBlockDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.schedulesService.updateBlock(blockId, dto, user);
+  }
+
+  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
+  @Delete('blocks/:blockId')
+  @ApiOperation({ summary: 'Eliminar un bloque del plan semanal' })
+  deleteBlock(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.schedulesService.deleteBlock(blockId, user);
+  }
+
+  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
+  @Post(':scheduleId/duplicate')
+  @ApiOperation({
+    summary:
+      'Duplicar una semana completa hacia otra fecha dejando constancia en el registro de duplicaciones',
+  })
+  duplicateSchedule(
+    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
+    @Body() dto: DuplicateScheduleDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.schedulesService.duplicateSchedule(scheduleId, dto, user);
+  }
+
+  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
+  @Post(':scheduleId/items')
+  @ApiOperation({
+    summary: 'Asignar un video existente a un día/hora del cronograma semanal',
   })
   addItem(
     @Param('scheduleId', ParseUUIDPipe) scheduleId: string,

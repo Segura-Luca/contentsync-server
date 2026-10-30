@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -34,12 +35,12 @@ export class RequestPresignedUrlDto {
 
   @ApiProperty({ example: 28500000 })
   @IsInt()
-  @Min(1024)
+  @Min(1)
   sizeBytes!: number;
 
   @ApiProperty({ example: 45 })
   @IsInt()
-  @Min(3)
+  @Min(1)
   @Max(900)
   durationSeconds!: number;
 
@@ -108,25 +109,25 @@ export class CreateVideoDto {
   @IsNotEmpty()
   description!: string;
 
-  @ApiProperty({ example: 'clients/uuid/17296_cold_brew.mp4' })
+  @ApiProperty({ example: '/uploads/videos/17296_cold_brew.mp4' })
   @IsString()
   @IsNotEmpty()
   storageKey!: string;
 
-  @ApiPropertyOptional({ example: 'clients/uuid/17296_thumb.jpg' })
+  @ApiPropertyOptional({ example: '/uploads/videos/17296_thumb.jpg' })
   @IsOptional()
   @IsString()
   thumbnailKey?: string;
 
   @ApiProperty({ example: 45 })
   @IsInt()
-  @Min(3)
+  @Min(1)
   @Max(900)
   durationSeconds!: number;
 
   @ApiProperty({ example: 28500000 })
   @IsInt()
-  @Min(1024)
+  @Min(1)
   sizeBytes!: number;
 
   @ApiProperty({ example: 'video/mp4' })
@@ -149,4 +150,14 @@ export class CreateVideoDto {
   @ValidateNested({ each: true })
   @Type(() => PlatformTargetInputDto)
   platformTargets!: PlatformTargetInputDto[];
+
+  @ApiPropertyOptional({
+    enum: ['DRAFT', 'REVIEW', 'DIRECT'],
+    default: 'DRAFT',
+    description:
+      'DRAFT: queda guardado. REVIEW: se envía al cliente para aprobación. DIRECT: la agencia lo deja listo para publicar/programar sin pasar por el Plan.',
+  })
+  @IsOptional()
+  @IsIn(['DRAFT', 'REVIEW', 'DIRECT'])
+  publishMode?: 'DRAFT' | 'REVIEW' | 'DIRECT';
 }

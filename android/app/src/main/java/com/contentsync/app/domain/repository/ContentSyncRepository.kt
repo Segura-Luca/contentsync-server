@@ -14,8 +14,9 @@ interface ContentSyncRepository {
 
     suspend fun loginWithEmail(email: String, password: String): Result<UserSession>
     suspend fun registerAccount(fullName: String, email: String, password: String, role: UserRole): Result<UserSession>
-    suspend fun loginWithSocial(provider: SocialAuthProvider, email: String, fullName: String): Result<UserSession>
+    suspend fun loginWithSocial(provider: SocialAuthProvider, idToken: String): Result<UserSession>
     suspend fun requestPasswordRecovery(email: String): Result<String>
+    suspend fun resetPassword(token: String, newPassword: String): Result<String>
     suspend fun logout()
     suspend fun setThemeMode(mode: ThemeModePreference)
 

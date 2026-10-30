@@ -16,6 +16,21 @@ import javax.inject.Singleton
 
 data class LoginRequestDto(val email: String, val password: String, val deviceInfo: String = "Android App")
 data class RefreshRequestDto(val refreshToken: String)
+data class RegisterRequestDto(val email: String, val password: String, val fullName: String, val role: String? = null)
+data class SocialLoginRequestDto(val provider: String, val idToken: String, val deviceInfo: String = "Android App")
+data class ForgotPasswordRequestDto(val email: String)
+data class ForgotPasswordResponseDto(
+    val message: String? = null,
+    val resetToken: String? = null,
+    val resetTokenMock: String? = null
+)
+data class ResetPasswordRequestDto(
+    val token: String,
+    val newPassword: String
+)
+data class ResetPasswordResponseDto(
+    val message: String? = null
+)
 data class AuthUserDto(
     val id: String,
     val email: String,
@@ -52,6 +67,18 @@ data class PublishVideoRequestDto(val videoId: String, val scheduledFor: String?
 interface ContentSyncApiService {
     @POST("auth/login")
     suspend fun login(@Body body: LoginRequestDto): AuthResponseDto
+
+    @POST("auth/register")
+    suspend fun register(@Body body: RegisterRequestDto): AuthResponseDto
+
+    @POST("auth/social")
+    suspend fun socialLogin(@Body body: SocialLoginRequestDto): AuthResponseDto
+
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body body: ForgotPasswordRequestDto): ForgotPasswordResponseDto
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body body: ResetPasswordRequestDto): ResetPasswordResponseDto
 
     @POST("auth/refresh")
     suspend fun refresh(@Body body: RefreshRequestDto): AuthResponseDto
@@ -101,16 +128,7 @@ class TokenRefreshAuthenticator @Inject constructor(
         if (response.request.header("X-Retry-Auth") != null) {
             return null
         }
-        val refreshToken = sessionStorage.getRefreshToken() ?: return null
-        val newSimulatedAccess = "rotated_jwt_${refreshToken.takeLast(8)}_${System.currentTimeMillis()}"
-        sessionStorage.saveTokens(
-            accessToken = newSimulatedAccess,
-            refreshToken = "rotated_refresh_${System.currentTimeMillis()}",
-            expiresAtEpochMs = System.currentTimeMillis() + 900_000L
-        )
-        return response.request.newBuilder()
-            .header("Authorization", "Bearer $newSimulatedAccess")
-            .header("X-Retry-Auth", "true")
-            .build()
+        // Sin renovación local simulada: ante un 401 el usuario debe volver a ingresar.
+        return null
     }
 }

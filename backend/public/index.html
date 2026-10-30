@@ -1,0 +1,4045 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContentSync — Planificación, Ideas y Publicación Multired</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html[data-theme="dark"] {
+      --canvas: #0B0C0E;
+      --stage: #111318;
+      --inspector: #151820;
+      --elevated: #1B1F29;
+      --hairline: #232732;
+      --border-strong: #373E4E;
+      --text-primary: #F2F3F5;
+      --text-secondary: #9DA4B3;
+      --text-muted: #6E7687;
+      --signal: #D4F238;
+      --on-signal: #0B0C0E;
+      --signal-subtle-bg: #20250F;
+      --signal-subtle-fg: #E0F85E;
+      --tally-live: #34D399;
+      --tally-live-bg: #0A291F;
+      --tally-warn: #FBBF24;
+      --tally-warn-bg: #2B1D07;
+      --tally-fault: #F87171;
+      --tally-fault-bg: #2D1114;
+      --scrim: rgba(5, 6, 8, 0.78);
+
+      --note-amber-fg: #FBBF24; --note-amber-bg: rgba(251, 191, 36, 0.10);
+      --note-emerald-fg: #34D399; --note-emerald-bg: rgba(52, 211, 153, 0.10);
+      --note-sky-fg: #38BDF8; --note-sky-bg: rgba(56, 189, 248, 0.10);
+      --note-rose-fg: #FB7185; --note-rose-bg: rgba(251, 113, 133, 0.10);
+      --note-violet-fg: #A78BFA; --note-violet-bg: rgba(167, 139, 250, 0.11);
+      --note-lime-fg: #D4F238; --note-lime-bg: rgba(212, 242, 56, 0.10);
+    }
+
+    html[data-theme="light"] {
+      --canvas: #F4F3EF;
+      --stage: #FAF9F6;
+      --inspector: #EEECE5;
+      --elevated: #E4E1D8;
+      --hairline: #D4D0C5;
+      --border-strong: #9C9689;
+      --text-primary: #141518;
+      --text-secondary: #484C56;
+      --text-muted: #6B707B;
+      --signal: #141518;
+      --on-signal: #FAF9F6;
+      --signal-subtle-bg: #E3F191;
+      --signal-subtle-fg: #2A3800;
+      --tally-live: #065F46;
+      --tally-live-bg: #D1FAE5;
+      --tally-warn: #92400E;
+      --tally-warn-bg: #FEF3C7;
+      --tally-fault: #991B1B;
+      --tally-fault-bg: #FEE2E2;
+      --scrim: rgba(20, 21, 24, 0.54);
+
+      --note-amber-fg: #B45309; --note-amber-bg: #FEF3C7;
+      --note-emerald-fg: #047857; --note-emerald-bg: #D1FAE5;
+      --note-sky-fg: #0369A1; --note-sky-bg: #E0F2FE;
+      --note-rose-fg: #BE123C; --note-rose-bg: #FFE4E6;
+      --note-violet-fg: #6D28D9; --note-violet-bg: #EDE9FE;
+      --note-lime-fg: #3F6212; --note-lime-bg: #ECFCCB;
+    }
+
+    html, body { max-width: 100%; overflow-x: hidden; }
+
+    body {
+      background: var(--canvas);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .mono {
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    .eyebrow {
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    h1, h2, h3, .display-tight {
+      letter-spacing: -0.025em;
+      line-height: 1.18;
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field label {
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .input {
+      width: 100%;
+      background: var(--canvas);
+      color: var(--text-primary);
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 9px 11px;
+      font-size: 14px;
+      transition: border-color 120ms ease;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: var(--signal-subtle-fg);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 8px 13px;
+      border-radius: 4px;
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border: 1px solid transparent;
+      transition: opacity 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
+      white-space: nowrap;
+    }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { opacity: 0.42; cursor: not-allowed; }
+
+    .btn-signal { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
+    .btn-signal:hover:not(:disabled) { opacity: 0.9; }
+
+    .btn-live { background: var(--tally-live); color: #FFFFFF; border-color: var(--tally-live); }
+    html[data-theme="dark"] .btn-live { color: #042414; }
+
+    .btn-outline { background: var(--stage); color: var(--text-primary); border-color: var(--border-strong); }
+    .btn-outline:hover:not(:disabled) { background: var(--elevated); }
+
+    .btn-warn { background: var(--tally-warn-bg); color: var(--tally-warn); border-color: var(--tally-warn); }
+    .btn-fault { background: var(--tally-fault-bg); color: var(--tally-fault); border-color: var(--tally-fault); }
+
+    .brand-mark { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 18px; }
+    .brand-mark span {
+      width: 3px;
+      background: var(--signal-subtle-fg);
+      display: block;
+      transform-origin: bottom center;
+      transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease;
+    }
+    html[data-theme="light"] .brand-mark span { background: var(--text-primary); }
+    .brand-mark span:nth-child(1) { height: 18px; }
+    .brand-mark span:nth-child(2) { height: 11px; opacity: 0.72; }
+    .brand-mark span:nth-child(3) { height: 16px; }
+    .topbar:hover .brand-mark span:nth-child(1), .brand-mark.active span:nth-child(1) { animation: studioEq1 1.3s ease-in-out infinite alternate; }
+    .topbar:hover .brand-mark span:nth-child(2), .brand-mark.active span:nth-child(2) { animation: studioEq2 1.1s ease-in-out infinite alternate; }
+    .topbar:hover .brand-mark span:nth-child(3), .brand-mark.active span:nth-child(3) { animation: studioEq3 1.45s ease-in-out infinite alternate; }
+
+    .tally-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      vertical-align: middle;
+      animation: tallyBreath 3.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    .tally-dot.static { animation: none; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      border: 1px solid var(--border-strong);
+      background: var(--elevated);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .badge-review { background: var(--signal-subtle-bg); color: var(--signal-subtle-fg); border-color: var(--signal-subtle-fg); }
+    .badge-live { background: var(--tally-live-bg); color: var(--tally-live); border-color: var(--tally-live); }
+    .badge-warn { background: var(--tally-warn-bg); color: var(--tally-warn); border-color: var(--tally-warn); }
+    .badge-fault { background: var(--tally-fault-bg); color: var(--tally-fault); border-color: var(--tally-fault); }
+
+    .tri-conduit {
+      display: inline-flex;
+      align-items: center;
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tri-node {
+      padding: 2px 5px;
+      border-radius: 2px;
+      border: 1px solid var(--border-strong);
+      background: var(--elevated);
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+    .tri-node.off { background: transparent; border-color: var(--hairline); color: var(--text-muted); font-weight: 400; }
+    .tri-node.live { background: var(--tally-live-bg); border-color: var(--tally-live); color: var(--tally-live); }
+    .tri-node.warn { background: var(--tally-warn-bg); border-color: var(--tally-warn); color: var(--tally-warn); }
+    .tri-node.fault { background: var(--tally-fault-bg); border-color: var(--tally-fault); color: var(--tally-fault); }
+    .tri-wire {
+      position: relative;
+      width: 8px;
+      height: 1px;
+      background: var(--border-strong);
+      display: inline-block;
+      overflow: hidden;
+    }
+    .tri-wire.flowing::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent 0%, var(--signal-subtle-fg) 55%, transparent 100%);
+      animation: wirePacket 2.6s linear infinite;
+    }
+
+    .reel-frame {
+      position: relative;
+      aspect-ratio: 9 / 16;
+      border-radius: 4px;
+      border: 1px solid var(--border-strong);
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px;
+      color: #F8FAFC;
+    }
+    .reel-tag {
+      position: relative;
+      z-index: 2;
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      line-height: 1.1;
+      padding: 2px 5px;
+      border-radius: 2px;
+      background: rgba(8, 10, 14, 0.78);
+      color: #F8FAFC;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--stage);
+      border-bottom: 1px solid var(--hairline);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .feedback-bar {
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .feedback-bar.ok { background: var(--signal-subtle-bg); color: var(--signal-subtle-fg); }
+    .feedback-bar.err { background: var(--tally-fault-bg); color: var(--tally-fault); }
+
+    .security-confirm-banner {
+      background: var(--tally-warn-bg);
+      border-bottom: 2px solid var(--tally-warn);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .studio-shell {
+      display: flex;
+      min-height: calc(100vh - 57px);
+    }
+
+    .side-rail {
+      width: 196px;
+      flex-shrink: 0;
+      background: var(--stage);
+      border-right: 1px solid var(--hairline);
+      padding: 14px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .rail-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 16px;
+      text-align: left;
+      color: var(--text-muted);
+      border-left: 3px solid transparent;
+      font-size: 13px;
+      transition: background 120ms ease, color 120ms ease;
+    }
+    .rail-item:hover { background: var(--inspector); color: var(--text-primary); }
+    .rail-item.active {
+      background: var(--inspector);
+      color: var(--text-primary);
+      font-weight: 600;
+      border-left-color: var(--signal-subtle-fg);
+    }
+    html[data-theme="light"] .rail-item.active { border-left-color: var(--text-primary); }
+
+    .workspace-content { flex: 1; min-width: 0; }
+    .bottom-bar { display: none; }
+
+    /* ==========================================================================
+       CUADRÍCULA SEMANAL LUNES A VIERNES (SECCIÓN PLAN)
+       ========================================================================== */
+    .plan-page {
+      padding: 20px 22px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .week-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--stage);
+      border: 1px solid var(--hairline);
+      border-radius: 5px;
+      padding: 12px 15px;
+    }
+
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(210px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .day-column {
+      background: var(--stage);
+      border: 1px solid var(--hairline);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      min-height: 410px;
+      transition: border-color 150ms ease;
+    }
+    .day-column:hover { border-color: var(--border-strong); }
+
+    .day-col-header {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--inspector);
+      border-radius: 5px 5px 0 0;
+    }
+
+    .day-blocks-list {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .day-col-footer {
+      padding: 8px 10px 10px;
+      border-top: 1px dashed var(--hairline);
+    }
+
+    .plan-block-card {
+      position: relative;
+      border-radius: 4px;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--note-fg, var(--signal-subtle-fg));
+      background: var(--note-bg, var(--elevated));
+      padding: 10px 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      cursor: pointer;
+      text-align: left;
+      transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease;
+    }
+    .plan-block-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--note-fg, var(--border-strong));
+    }
+
+    .color-AMBER   { --note-fg: var(--note-amber-fg);   --note-bg: var(--note-amber-bg); }
+    .color-EMERALD { --note-fg: var(--note-emerald-fg); --note-bg: var(--note-emerald-bg); }
+    .color-SKY     { --note-fg: var(--note-sky-fg);     --note-bg: var(--note-sky-bg); }
+    .color-ROSE    { --note-fg: var(--note-rose-fg);    --note-bg: var(--note-rose-bg); }
+    .color-VIOLET  { --note-fg: var(--note-violet-fg);  --note-bg: var(--note-violet-bg); }
+    .color-LIME    { --note-fg: var(--note-lime-fg);    --note-bg: var(--note-lime-bg); }
+
+    .swatch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .swatch-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--hairline);
+      background: var(--canvas);
+      font-size: 12px;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+    .swatch-btn.active {
+      border-color: var(--note-fg);
+      background: var(--note-bg);
+      font-weight: 600;
+    }
+    .swatch-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--note-fg);
+      display: inline-block;
+    }
+
+    /* ==========================================================================
+       IDEAS DE CONTENIDO (PRIVADO DE AGENCIA)
+       ========================================================================== */
+    .ideas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(295px, 1fr));
+      gap: 14px;
+    }
+    .idea-card {
+      background: var(--stage);
+      border: 1px solid var(--hairline);
+      border-top: 3px solid var(--note-fg, var(--border-strong));
+      border-radius: 5px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 150ms ease, transform 160ms ease;
+    }
+    .idea-card:hover {
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    /* ==========================================================================
+       MODALES DEL ESTUDIO (CERO ALERTS DEL NAVEGADOR)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 65;
+      background: var(--scrim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      overflow-y: auto;
+    }
+    .modal-panel {
+      width: 100%;
+      max-width: 660px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--stage);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      animation: stageReveal 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .dropzone-video {
+      border: 1px dashed var(--border-strong);
+      background: var(--canvas);
+      border-radius: 5px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 140ms ease, background 140ms ease;
+    }
+    .dropzone-video:hover {
+      border-color: var(--signal-subtle-fg);
+      background: var(--inspector);
+    }
+
+    .auth-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: calc(100vh - 57px);
+    }
+    .auth-manifesto {
+      background: var(--stage);
+      border-right: 1px solid var(--hairline);
+      padding: 44px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .auth-console-wrap {
+      padding: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .seed-pass-card {
+      padding: 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      text-align: left;
+      background: var(--stage);
+      transition: background 160ms ease, border-color 160ms ease, transform 180ms ease;
+    }
+    .seed-pass-card:hover {
+      background: var(--elevated);
+      border-color: var(--signal-subtle-fg);
+      transform: translateY(-1px);
+    }
+
+    .router-schematic {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--hairline);
+      background: var(--inspector);
+      border-radius: 4px;
+      max-width: 480px;
+    }
+    .router-master-box {
+      padding: 6px 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--stage);
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .router-svg { flex: 1; min-width: 72px; height: 44px; display: block; }
+    .router-trace-base { fill: none; stroke: var(--border-strong); stroke-width: 1.2; }
+    .router-trace-pulse {
+      fill: none;
+      stroke: var(--signal-subtle-fg);
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-dasharray: 18 110;
+      animation: routerFlow 3.2s linear infinite;
+    }
+    html[data-theme="light"] .router-trace-pulse { stroke: var(--tally-live); }
+    .router-trace-pulse.t2 { animation-delay: -0.45s; }
+    .router-trace-pulse.t3 { animation-delay: -0.9s; }
+
+    .s3-progress-fill {
+      height: 100%;
+      background-color: var(--signal-subtle-fg);
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.22) 0px,
+        rgba(255, 255, 255, 0.22) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      background-size: 17px 17px;
+      animation: s3Scan 0.8s linear infinite;
+      transition: width 90ms linear;
+    }
+
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--hairline);
+      background: var(--stage);
+      border-radius: 4px;
+    }
+    .stat-cell {
+      padding: 10px 14px;
+      border-right: 1px solid var(--hairline);
+    }
+    .stat-cell:last-child { border-right: none; }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .filter-tab {
+      padding: 6px 11px;
+      border-radius: 3px;
+      border: 1px solid var(--hairline);
+      background: var(--stage);
+      color: var(--text-secondary);
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      font-size: 11px;
+      text-transform: uppercase;
+      transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+    }
+    .filter-tab:hover { border-color: var(--border-strong); color: var(--text-primary); }
+    .filter-tab.active {
+      background: var(--signal-subtle-bg);
+      color: var(--signal-subtle-fg);
+      border-color: var(--signal-subtle-fg);
+      font-weight: 600;
+    }
+
+    .patchbay-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .patchbay-slot {
+      text-align: left;
+      padding: 11px;
+      border-radius: 4px;
+      background: var(--canvas);
+      transition: border-color 160ms ease, background 160ms ease;
+    }
+    .patchbay-slot:hover { background: var(--inspector); }
+
+    .page-pad {
+      max-width: 1100px;
+      padding: 22px;
+    }
+
+    .stage-enter { animation: stageReveal 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    .feedback-enter { animation: bannerSlide 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+    @keyframes tallyBreath { 0%, 100% { opacity: 0.42; } 50% { opacity: 1; } }
+    @keyframes wirePacket { 0% { transform: translateX(0); } 100% { transform: translateX(200%); } }
+    @keyframes routerFlow { 0% { stroke-dashoffset: 128; } 100% { stroke-dashoffset: 0; } }
+    @keyframes studioEq1 { 0% { transform: scaleY(0.68); } 100% { transform: scaleY(1); } }
+    @keyframes studioEq2 { 0% { transform: scaleY(1.25); } 100% { transform: scaleY(0.65); } }
+    @keyframes studioEq3 { 0% { transform: scaleY(0.75); } 100% { transform: scaleY(1.05); } }
+    @keyframes stageReveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes bannerSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes s3Scan { from { background-position: 0 0; } to { background-position: 17px 0; } }
+
+    @media (max-width: 959px) {
+      .side-rail { display: none; }
+      .studio-shell { display: block; width: 100%; padding-bottom: 70px; }
+      .auth-split { grid-template-columns: minmax(0, 1fr); }
+      .auth-manifesto { padding: 22px 14px; border-right: none; border-bottom: 1px solid var(--hairline); }
+      .auth-console-wrap { padding: 22px 14px; }
+      .seed-passes-grid { grid-template-columns: 1fr !important; }
+      .plan-page { padding: 14px; }
+      .week-grid { grid-template-columns: minmax(0, 1fr); }
+      .day-column { min-height: auto; }
+      .stats-strip { grid-template-columns: repeat(2, 1fr); }
+      .page-pad { padding: 14px; width: 100%; }
+      .patchbay-grid { grid-template-columns: minmax(0, 1fr); }
+      .bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 35;
+        display: flex;
+        background: var(--stage);
+        border-top: 1px solid var(--hairline);
+      }
+      .bottom-item {
+        flex: 1;
+        min-width: 0;
+        padding: 7px 2px 9px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        color: var(--text-muted);
+        border-top: 2px solid transparent;
+        font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+        font-size: 11px;
+      }
+      .bottom-item.active {
+        color: var(--text-primary);
+        font-weight: 700;
+        border-top-color: var(--signal-subtle-fg);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const PLATFORM_LIMITS = {
+      INSTAGRAM: { code: 'IG', name: 'Instagram Reels', maxSec: 900, maxMb: 1024 },
+      TIKTOK:    { code: 'TT', name: 'TikTok',          maxSec: 600, maxMb: 500 },
+      YOUTUBE:   { code: 'YT', name: 'YouTube Shorts',  maxSec: 180, maxMb: 2048 }
+    };
+
+    const WEEKDAYS = [
+      { num: 1, code: 'LUN', full: 'Lunes' },
+      { num: 2, code: 'MAR', full: 'Martes' },
+      { num: 3, code: 'MIÉ', full: 'Miércoles' },
+      { num: 4, code: 'JUE', full: 'Jueves' },
+      { num: 5, code: 'VIE', full: 'Viernes' }
+    ];
+
+    const NOTE_COLORS = [
+      { code: 'AMBER',   label: 'Ámbar' },
+      { code: 'EMERALD', label: 'Verde' },
+      { code: 'SKY',     label: 'Azul' },
+      { code: 'ROSE',    label: 'Coral' },
+      { code: 'VIOLET',  label: 'Violeta' },
+      { code: 'LIME',    label: 'Lima' }
+    ];
+
+    const REEL_PALETTES = [
+      'linear-gradient(165deg, #2E1E18 0%, #5D3A29 55%, #0F1014 100%)',
+      'linear-gradient(165deg, #172722 0%, #2D5245 55%, #0D1210 100%)',
+      'linear-gradient(165deg, #292216 0%, #6B5129 55%, #12100C 100%)',
+      'linear-gradient(165deg, #1B2130 0%, #374563 55%, #0E1017 100%)'
+    ];
+
+    const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000/api/v1' : '/api/v1';
+
+    const state = {
+      theme: 'dark',
+      apiOnline: false,
+      jwtToken: null,
+      session: null,
+      activeTab: 'schedules',
+      banner: null,
+      loadingData: false,
+
+      // Auth
+      authRegister: false,
+      authRecover: false,
+      authRecoverStep: 1,
+      recoveryCode: '',
+      recoveryNewPass: '',
+      authEmail: '',
+      authPass: '',
+      authName: '',
+      authAgencyName: '',
+
+      // Confirmación "Sí, soy yo" pendiente del cliente logueado
+      pendingConfirmation: null,
+
+      // Datos sincronizados desde MySQL
+      agencies: [],
+      clients: [],
+      schedules: [],
+      duplicationLogs: [],
+      ideaSections: [],
+      ideas: [],
+      videos: [],
+      notifications: [],
+
+      // Estado de Plan Semanal (Lunes a Viernes)
+      selectedClientId: null,
+      selectedScheduleId: null,
+
+      // Subida de video individual (fuera del Plan)
+      upClientId: '',
+      upFile: null,
+      upPreviewUrl: '',
+      upTitle: '',
+      upDesc: '',
+      upTags: '',
+      upDur: 30,
+      upSizeBytes: 0,
+      upMime: 'video/mp4',
+      upPlatIG: true,
+      upPlatTT: true,
+      upPlatYT: true,
+      upMode: 'NOW',
+      upWhen: '',
+      upProgress: 0,
+      upSaving: false,
+      upError: '',
+      showNewWeekModal: false,
+      newWeekStart: '',
+      newWeekTitle: '',
+      newWeekNotes: '',
+
+      showDuplicateModal: false,
+      dupTargetStart: '',
+      dupTitle: '',
+      dupIncludeVideos: true,
+      dupNotes: '',
+      showDuplicationLogs: false,
+
+      // Modal de Bloque del Día (+ Subida de video desde Plan)
+      blockModalOpen: false,
+      editingBlockId: null,
+      blkDay: 1,
+      blkTime: '18:00',
+      blkColor: 'AMBER',
+      blkTitle: '',
+      blkNotes: '',
+      blkAttachVideo: false,
+      blkAutoPublish: true,
+      blkVideoFile: null,
+      blkVideoPreviewUrl: '',
+      blkExistingStorageKey: '',
+      blkVideoTitle: '',
+      blkVideoDesc: '',
+      blkVideoTags: '#contenido #reels #shorts',
+      blkVideoDur: 30,
+      blkVideoSizeBytes: 12000000,
+      blkVideoMime: 'video/mp4',
+      blkPlatIG: true,
+      blkPlatTT: true,
+      blkPlatYT: true,
+      blkShareFeed: true,
+      blkAllowComments: true,
+      blkAllowDuet: true,
+      blkUploadProgress: 0,
+      blkSaving: false,
+      blkError: '',
+
+      // Modal de Inspección / Visado de Bloque (Cliente y Agencia)
+      inspectBlockId: null,
+      confirmDeleteBlockId: null,
+
+      // Estado de Ideas de Contenido (Privadas de Agencia)
+      ideaSectionFilter: 'ALL',
+      ideaClientFilter: 'ALL',
+      ideaSearch: '',
+      showNewSectionForm: false,
+      newSectionName: '',
+      newSectionColor: 'SKY',
+      confirmDeleteSectionId: null,
+
+      ideaModalOpen: false,
+      editingIdeaId: null,
+      ideaFormSectionId: '',
+      ideaFormClientId: '',
+      ideaFormTitle: '',
+      ideaFormContent: '',
+      ideaFormRefUrl: '',
+      ideaFormPlatIG: true,
+      ideaFormPlatTT: true,
+      ideaFormPlatYT: true,
+      ideaFormPinned: false,
+      confirmDeleteIdeaId: null,
+
+      // Clientes y Agencias
+      showNewAgencyForm: false,
+      showNewClientForm: false,
+      confirmDeleteClientId: null,
+
+      // Historial
+      histQuery: '',
+      histPlatform: null
+    };
+
+    const motionState = {
+      lastTab: null,
+      lastBanner: null,
+      animateStage: true,
+      animateBanner: false
+    };
+
+    // =========================================================================
+    // UTILIDADES Y FORMATEADORES
+    // =========================================================================
+    function esc(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function fmtTimecode(sec) {
+      const s = Math.max(0, parseInt(sec || 0, 10));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
+    }
+
+    function reelBg(title) {
+      let h = 0;
+      const t = String(title || 'reel');
+      for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
+      return REEL_PALETTES[h % REEL_PALETTES.length];
+    }
+
+    function getMondayOf(dateObj) {
+      const d = new Date(dateObj);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return d.toISOString().slice(0, 10);
+    }
+
+    function addDaysIso(isoDateStr, days) {
+      const base = new Date(isoDateStr.slice(0, 10) + 'T12:00:00Z');
+      base.setUTCDate(base.getUTCDate() + days);
+      return base.toISOString().slice(0, 10);
+    }
+
+    function fmtShortDate(isoStr, plusDays = 0) {
+      if (!isoStr) return '';
+      const d = new Date(String(isoStr).slice(0, 10) + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() + plusDays);
+      const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      return `${String(d.getUTCDate()).padStart(2, '0')} ${months[d.getUTCMonth()]}`;
+    }
+
+    function fmtDateTimeHuman(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return String(isoStr);
+      return d.toLocaleString('es-AR', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function workflowMeta(status) {
+      switch (status) {
+        case 'IN_REVIEW':         return { label: 'EN REVISIÓN', cls: 'badge-review' };
+        case 'APPROVED':          return { label: 'APROBADO',    cls: 'badge-live' };
+        case 'SCHEDULED':         return { label: 'PROGRAMADO',  cls: 'badge-live' };
+        case 'PUBLISHED':         return { label: 'PUBLICADO',   cls: 'badge-live' };
+        case 'CHANGES_REQUESTED': return { label: 'AJUSTES',     cls: 'badge-warn' };
+        case 'REJECTED':          return { label: 'RECHAZADO',   cls: 'badge-fault' };
+        default:                  return { label: 'BORRADOR',    cls: '' };
+      }
+    }
+
+    function setBanner(msg, isErr = false) {
+      state.banner = { msg, isErr };
+      render();
+    }
+
+    function setTheme(next) {
+      state.theme = next;
+      document.documentElement.setAttribute('data-theme', next);
+      render();
+    }
+
+    // =========================================================================
+    // CLIENTE HTTP AUTENTICADO + HIDRATACIÓN DESDE MYSQL
+    // =========================================================================
+    async function apiFetch(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+      }
+      if (state.jwtToken) {
+        headers['Authorization'] = 'Bearer ' + state.jwtToken;
+      }
+      try {
+        const res = await fetch(API_BASE + path, { ...options, headers });
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, status: res.status, data };
+      } catch (_) {
+        return {
+          ok: false,
+          status: 0,
+          data: { message: 'No pudimos conectar con el servidor.' }
+        };
+      }
+    }
+
+    function friendlyError(body, status) {
+      const m = body && body.message;
+      if (Array.isArray(m)) return m[0];
+      if (typeof m === 'string' && m.trim()) return m;
+      if (status === 401) return 'Correo o contraseña incorrectos.';
+      if (status === 429) return 'Demasiados intentos. Esperá unos segundos.';
+      return 'No pudimos completar la acción. Intentá nuevamente.';
+    }
+
+    async function hydrateFromApi() {
+      if (!state.jwtToken || !state.session) return;
+      state.loadingData = true;
+      render();
+
+      const role = state.session.role;
+      const calls = [
+        apiFetch('/clients/pending-confirmation'),
+        apiFetch('/clients'),
+        apiFetch('/schedules'),
+        apiFetch('/schedules/duplication-logs'),
+        apiFetch('/videos'),
+        apiFetch('/notifications'),
+      ];
+
+      if (role !== 'CLIENTE') {
+        calls.push(apiFetch('/ideas/sections'));
+        calls.push(apiFetch('/ideas'));
+      }
+      if (role === 'ADMIN_GENERAL') {
+        calls.push(apiFetch('/agencies'));
+      }
+
+      const results = await Promise.all(calls);
+      const [pendRes, clRes, schRes, dupRes, vidRes, notRes] = results;
+
+      if (clRes.status === 401 && schRes.status === 401) {
+        state.loadingData = false;
+        logoutSession();
+        setBanner('Tu sesión expiró. Volvé a iniciar sesión.');
+        return;
+      }
+
+      state.pendingConfirmation = (pendRes.ok && pendRes.data?.pendingClient) || null;
+
+      if (clRes.ok && Array.isArray(clRes.data)) {
+        state.clients = clRes.data.map(normalizeClientFromApi);
+      }
+      if (schRes.ok && Array.isArray(schRes.data)) {
+        state.schedules = schRes.data;
+      }
+      if (dupRes.ok && Array.isArray(dupRes.data)) {
+        state.duplicationLogs = dupRes.data;
+      }
+      if (vidRes.ok && Array.isArray(vidRes.data)) {
+        state.videos = vidRes.data;
+      }
+      if (notRes.ok && Array.isArray(notRes.data)) {
+        state.notifications = notRes.data;
+      }
+
+      if (role !== 'CLIENTE') {
+        const secRes = results[6];
+        const idRes = results[7];
+        if (secRes?.ok && Array.isArray(secRes.data)) state.ideaSections = secRes.data;
+        if (idRes?.ok && Array.isArray(idRes.data)) state.ideas = idRes.data;
+      }
+      if (role === 'ADMIN_GENERAL') {
+        const agRes = results[8];
+        if (agRes?.ok && Array.isArray(agRes.data)) state.agencies = agRes.data;
+      }
+
+      // Seleccionar cliente y semana activos por defecto
+      const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      if (!state.selectedClientId || !confirmedClients.some(c => c.id === state.selectedClientId)) {
+        state.selectedClientId = confirmedClients[0]?.id || state.clients[0]?.id || null;
+      }
+      syncSelectedScheduleForClient();
+
+      state.loadingData = false;
+      render();
+    }
+
+    function normalizeClientFromApi(c) {
+      const conns = {
+        INSTAGRAM: { connected: false, handle: '' },
+        TIKTOK:    { connected: false, handle: '' },
+        YOUTUBE:   { connected: false, handle: '' }
+      };
+      (c.platformConnections || []).forEach(pc => {
+        if (conns[pc.platform] && pc.status === 'ACTIVE') {
+          conns[pc.platform] = { connected: true, handle: pc.accountHandle };
+        }
+      });
+      return {
+        id: c.id,
+        agencyId: c.agencyId,
+        agencyName: c.agency?.name || 'Agencia',
+        companyName: c.companyName,
+        industry: c.industry || 'Marca',
+        confirmationStatus: c.confirmationStatus || 'CONFIRMED',
+        confirmedAt: c.confirmedAt,
+        contactFullName: c.user?.fullName || 'Contacto',
+        contactEmail: c.user?.email || '',
+        connections: conns
+      };
+    }
+
+    function syncSelectedScheduleForClient() {
+      const clientSchedules = state.schedules.filter(s => s.clientId === state.selectedClientId);
+      if (!clientSchedules.some(s => s.id === state.selectedScheduleId)) {
+        state.selectedScheduleId = clientSchedules[0]?.id || null;
+      }
+    }
+
+    // =========================================================================
+    // AUTENTICACIÓN, REGISTRO, GOOGLE/FACEBOOK Y RECUPERACIÓN POR EMAIL
+    // =========================================================================
+    const authUi = { error: '', busy: false, cfg: null, googleReady: false, facebookReady: false };
+
+    async function applyServerSession(data, welcome) {
+      state.jwtToken = data.accessToken;
+      state.apiOnline = true;
+      const u = data.user || {};
+      state.session = {
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName || u.email,
+        role: u.role,
+        timezone: u.timezone || 'America/Argentina/Buenos_Aires',
+        agencyId: u.agencyId || null,
+        clientId: u.clientId || null
+      };
+      try {
+        localStorage.setItem('cs_jwt', state.jwtToken);
+        localStorage.setItem('cs_user', JSON.stringify(state.session));
+        sessionStorage.setItem('cs_jwt', state.jwtToken);
+        sessionStorage.setItem('cs_user', JSON.stringify(state.session));
+      } catch (_) {}
+
+      authUi.error = '';
+      authUi.busy = false;
+      const first = String(state.session.fullName || '').split(' ')[0];
+      state.banner = { msg: welcome || ('Hola, ' + first + '. Tu espacio está sincronizado.'), isErr: false };
+      await hydrateFromApi();
+    }
+
+    function logoutSession() {
+      if (state.jwtToken) {
+        apiFetch('/auth/logout', { method: 'POST' });
+      }
+      state.session = null;
+      state.jwtToken = null;
+      state.pendingConfirmation = null;
+      try {
+        localStorage.removeItem('cs_jwt');
+        localStorage.removeItem('cs_user');
+        sessionStorage.removeItem('cs_jwt');
+        sessionStorage.removeItem('cs_user');
+      } catch (_) {}
+      setBanner('Cerraste sesión correctamente.');
+    }
+
+    function setAuthError(msg) {
+      authUi.error = msg;
+      authUi.busy = false;
+      render();
+    }
+
+    async function performLogin(email, password) {
+      if (authUi.busy) return;
+      email = String(email || '').trim();
+      if (!email || !password) { setAuthError('Ingresá tu correo y tu contraseña.'); return; }
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+      if (r.ok) { await applyServerSession(r.data); return; }
+      setAuthError(friendlyError(r.data, r.status));
+    }
+
+    async function performRegister() {
+      if (authUi.busy) return;
+      const fullName = String(state.authName || '').trim();
+      const email = String(state.authEmail || '').trim();
+      const password = state.authPass || '';
+      if (fullName.length < 2) { setAuthError('Contanos tu nombre completo.'); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setAuthError('Ingresá un correo válido.'); return; }
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(password)) {
+        setAuthError('La contraseña debe tener 8 o más caracteres, con mayúscula, minúscula, número y un símbolo.');
+        return;
+      }
+      authUi.busy = true; authUi.error = ''; render();
+      const agencyName = String(state.authAgencyName || '').trim();
+      const r = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, fullName, agencyName: agencyName || undefined })
+      });
+      if (r.ok) {
+        await applyServerSession(r.data, 'Agencia creada con éxito. ¡Bienvenido/a, ' + fullName.split(' ')[0] + '!');
+        return;
+      }
+      setAuthError(friendlyError(r.data, r.status));
+    }
+
+    async function submitSocialToken(provider, token) {
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/social', {
+        method: 'POST',
+        body: JSON.stringify({ provider, idToken: token, deviceInfo: 'Web' })
+      });
+      if (r.ok) { await applyServerSession(r.data); return; }
+      setAuthError(friendlyError(r.data, r.status));
+    }
+
+    function loadExternalScript(src) {
+      return new Promise((resolve, reject) => {
+        if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = src; s.async = true; s.defer = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('load'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function initSocialProviders() {
+      if (window.location.protocol === 'file:') return;
+      if (!authUi.cfg) {
+        try {
+          const r = await fetch(API_BASE + '/auth/social/config');
+          authUi.cfg = await r.json();
+        } catch (_) { authUi.cfg = {}; return; }
+      }
+      if (authUi.cfg.googleClientId && !authUi.googleReady) {
+        try {
+          await loadExternalScript('https://accounts.google.com/gsi/client');
+          window.google.accounts.id.initialize({
+            client_id: authUi.cfg.googleClientId,
+            callback: (resp) => { if (resp && resp.credential) submitSocialToken('GOOGLE', resp.credential); },
+            ux_mode: 'popup'
+          });
+          authUi.googleReady = true;
+        } catch (_) {}
+      }
+      if (authUi.cfg.facebookAppId && !authUi.facebookReady) {
+        try {
+          await loadExternalScript('https://connect.facebook.net/es_LA/sdk.js');
+          window.FB.init({ appId: authUi.cfg.facebookAppId, cookie: false, xfbml: false, version: 'v19.0' });
+          authUi.facebookReady = true;
+        } catch (_) {}
+      }
+      mountSocialButtons();
+    }
+
+    window.__onAndroidGoogleToken = function(idToken, errMsg) {
+      if (idToken) {
+        submitSocialToken('GOOGLE', idToken);
+      } else if (errMsg) {
+        setAuthError(errMsg);
+      }
+    };
+
+    function mountSocialButtons() {
+      const slot = document.getElementById('google-btn-slot');
+      if (slot && window.ContentSyncAndroid && typeof window.ContentSyncAndroid.signInWithGoogle === 'function') {
+        if (!slot.hasChildNodes()) {
+          slot.innerHTML = `
+            <button type="button" class="btn btn-outline" style="width:100%;height:42px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;"
+              onclick="window.ContentSyncAndroid.signInWithGoogle()">
+              <span style="font-weight:800;font-size:15px;color:#4285F4;">G</span>
+              <span>Continuar con Google</span>
+            </button>
+          `;
+        }
+      } else if (slot && authUi.googleReady && !slot.hasChildNodes()) {
+        const light = document.documentElement.getAttribute('data-theme') === 'light';
+        window.google.accounts.id.renderButton(slot, {
+          type: 'standard', theme: light ? 'outline' : 'filled_black', size: 'large',
+          text: 'continue_with', shape: 'rectangular', locale: 'es', width: 376
+        });
+      }
+      const fb = document.getElementById('facebook-btn');
+      if (fb) fb.style.display = (authUi.facebookReady && !window.ContentSyncAndroid) ? 'flex' : 'none';
+    }
+
+    function facebookLogin() {
+      if (!authUi.facebookReady || authUi.busy) return;
+      window.FB.login((resp) => {
+        if (resp && resp.authResponse && resp.authResponse.accessToken) {
+          submitSocialToken('FACEBOOK', resp.authResponse.accessToken);
+        } else {
+          setAuthError('No se completó el acceso con Facebook.');
+        }
+      }, { scope: 'public_profile,email' });
+    }
+
+    async function requestRecoveryCode() {
+      if (authUi.busy) return;
+      const email = String(state.authEmail || '').trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        setAuthError('Ingresá un correo electrónico válido.');
+        return;
+      }
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      authUi.busy = false;
+      if (r.ok) {
+        state.authRecoverStep = 2;
+        state.recoveryCode = '';
+        state.recoveryNewPass = '';
+        authUi.error = '';
+        render();
+      } else {
+        setAuthError(friendlyError(r.data, r.status));
+      }
+    }
+
+    async function submitPasswordReset() {
+      if (authUi.busy) return;
+      const token = String(state.recoveryCode || '').trim();
+      const newPassword = state.recoveryNewPass || '';
+      if (!token) { setAuthError('Ingresá el código de recuperación de 6 dígitos.'); return; }
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(newPassword)) {
+        setAuthError('La nueva contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un símbolo.');
+        return;
+      }
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, newPassword })
+      });
+      authUi.busy = false;
+      if (r.ok) {
+        state.authRecover = false;
+        state.authRecoverStep = 1;
+        state.authPass = newPassword;
+        state.recoveryCode = '';
+        state.recoveryNewPass = '';
+        authUi.error = '';
+        setBanner('¡Contraseña actualizada! Ya podés iniciar sesión con tu nueva clave.');
+      } else {
+        setAuthError(friendlyError(r.data, r.status));
+      }
+    }
+
+    // =========================================================================
+    // ACCIONES DE DOMINIO: PLAN LUNES-VIERNES, BLOQUES, VIDEOS, DUPLICACIÓN
+    // =========================================================================
+    function allowedDestinations() {
+      if (!state.session) return [];
+      const role = state.session.role;
+      if (role === 'CLIENTE') {
+        return [
+          { id: 'schedules', code: '01', label: 'Plan semanal' },
+          { id: 'accounts',  code: '02', label: 'Mi marca' },
+          { id: 'history',   code: '03', label: 'Avisos' },
+          { id: 'settings',  code: '04', label: 'Ajustes' }
+        ];
+      }
+      return [
+        { id: 'schedules', code: '01', label: 'Plan' },
+        { id: 'upload',    code: '02', label: 'Subir video' },
+        { id: 'ideas',     code: '03', label: 'Ideas de contenido' },
+        { id: 'accounts',  code: '04', label: 'Clientes' },
+        { id: 'history',   code: '05', label: 'Historial' },
+        { id: 'settings',  code: '06', label: 'Ajustes' }
+      ];
+    }
+
+    function getActiveSchedule() {
+      return state.schedules.find(s => s.id === state.selectedScheduleId) || null;
+    }
+
+    function openNewWeekModal() {
+      const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      if (confirmed.length === 0) {
+        setBanner('Primero necesitás un cliente con identidad confirmada ("Sí, soy yo") para armarle un plan.', true);
+        return;
+      }
+      if (!state.selectedClientId || !confirmed.some(c => c.id === state.selectedClientId)) {
+        state.selectedClientId = confirmed[0].id;
+      }
+      const clientScheds = state.schedules.filter(s => s.clientId === state.selectedClientId);
+      let suggestedMonday = getMondayOf(new Date());
+      if (clientScheds.length > 0) {
+        const latest = clientScheds[0].weekStartDate;
+        suggestedMonday = addDaysIso(latest, 7);
+      }
+      state.newWeekStart = suggestedMonday;
+      state.newWeekTitle = 'Plan Lunes a Viernes · ' + fmtShortDate(suggestedMonday);
+      state.newWeekNotes = '';
+      state.showNewWeekModal = true;
+      render();
+    }
+
+    async function submitNewWeek() {
+      if (!state.selectedClientId || !state.newWeekStart) return;
+      const mondayIso = getMondayOf(new Date(state.newWeekStart + 'T12:00:00Z'));
+      const fridayIso = addDaysIso(mondayIso, 4);
+      const title = state.newWeekTitle.trim() || ('Semana ' + fmtShortDate(mondayIso));
+
+      const r = await apiFetch('/schedules', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId: state.selectedClientId,
+          weekStartDate: mondayIso,
+          weekEndDate: fridayIso,
+          title,
+          summaryNotes: state.newWeekNotes.trim() || undefined
+        })
+      });
+
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+
+      state.showNewWeekModal = false;
+      await hydrateFromApi();
+      state.selectedScheduleId = r.data.id;
+      setBanner('Nueva semana creada y visible para el cliente.');
+    }
+
+    function openDuplicateWeekModal() {
+      const sched = getActiveSchedule();
+      if (!sched) return;
+      const clientScheds = state.schedules.filter(s => s.clientId === sched.clientId);
+      const latestStart = clientScheds[0]?.weekStartDate || sched.weekStartDate;
+      const nextMonday = addDaysIso(latestStart, 7);
+
+      state.dupTargetStart = nextMonday;
+      state.dupTitle = sched.title.replace(/\s*\(Duplicada.*\)$/i, '') + ' · ' + fmtShortDate(nextMonday);
+      state.dupIncludeVideos = true;
+      state.dupNotes = 'Estructura semanal duplicada desde "' + sched.title + '"';
+      state.showDuplicateModal = true;
+      render();
+    }
+
+    async function submitDuplicateWeek() {
+      const sched = getActiveSchedule();
+      if (!sched || !state.dupTargetStart) return;
+      const mondayIso = getMondayOf(new Date(state.dupTargetStart + 'T12:00:00Z'));
+
+      const r = await apiFetch(`/schedules/${sched.id}/duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({
+          targetWeekStartDate: mondayIso,
+          title: state.dupTitle.trim() || undefined,
+          includeVideos: state.dupIncludeVideos,
+          notes: state.dupNotes.trim() || undefined
+        })
+      });
+
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+
+      state.showDuplicateModal = false;
+      const createdId = r.data.schedule?.id;
+      await hydrateFromApi();
+      if (createdId) state.selectedScheduleId = createdId;
+      state.showDuplicationLogs = true;
+      setBanner('Semana duplicada con éxito y asentada en el registro de duplicaciones.');
+    }
+
+    function openBlockModal(dayNum = 1, block = null) {
+      const sched = getActiveSchedule();
+      if (!sched) {
+        openNewWeekModal();
+        return;
+      }
+      state.blkError = '';
+      state.blkUploadProgress = 0;
+      state.blkSaving = false;
+      state.blkVideoFile = null;
+
+      if (block) {
+        state.editingBlockId = block.id;
+        state.blkDay = block.dayOfWeek;
+        state.blkTime = block.plannedTime || '18:00';
+        state.blkColor = block.noteColor || 'AMBER';
+        state.blkTitle = block.blockTitle || '';
+        state.blkNotes = block.notes || '';
+        state.blkAutoPublish = block.autoPublish !== false;
+
+        if (block.video) {
+          const v = block.video;
+          const plats = (v.platformTargets || []).map(pt => pt.platform);
+          state.blkAttachVideo = true;
+          state.blkExistingStorageKey = v.storageKey || '';
+          state.blkVideoPreviewUrl = (v.publicVideoUrl && v.publicVideoUrl.startsWith('/uploads/')) ? v.publicVideoUrl : '';
+          state.blkVideoTitle = v.title || block.blockTitle;
+          state.blkVideoDesc = v.description || '';
+          state.blkVideoTags = (v.hashtags || []).map(h => '#' + h.tag).join(' ') || '#reels';
+          state.blkVideoDur = v.durationSeconds || 30;
+          state.blkVideoSizeBytes = Number(v.sizeBytes || 12000000);
+          state.blkVideoMime = v.mimeType || 'video/mp4';
+          state.blkPlatIG = plats.includes('INSTAGRAM');
+          state.blkPlatTT = plats.includes('TIKTOK');
+          state.blkPlatYT = plats.includes('YOUTUBE');
+          state.blkShareFeed = true;
+          state.blkAllowComments = true;
+          state.blkAllowDuet = true;
+        } else {
+          resetBlockVideoFields();
+        }
+      } else {
+        state.editingBlockId = null;
+        state.blkDay = dayNum;
+        state.blkTime = '18:00';
+        state.blkColor = NOTE_COLORS[(dayNum - 1) % NOTE_COLORS.length].code;
+        state.blkTitle = '';
+        state.blkNotes = '';
+        state.blkAutoPublish = true;
+        resetBlockVideoFields();
+      }
+
+      state.inspectBlockId = null;
+      state.blockModalOpen = true;
+      render();
+    }
+
+    function resetBlockVideoFields() {
+      state.blkAttachVideo = false;
+      state.blkVideoFile = null;
+      state.blkVideoPreviewUrl = '';
+      state.blkExistingStorageKey = '';
+      state.blkVideoTitle = '';
+      state.blkVideoDesc = '';
+      state.blkVideoTags = '#contenido #reels #shorts';
+      state.blkVideoDur = 30;
+      state.blkVideoSizeBytes = 12000000;
+      state.blkVideoMime = 'video/mp4';
+      state.blkPlatIG = true;
+      state.blkPlatTT = true;
+      state.blkPlatYT = true;
+      state.blkShareFeed = true;
+      state.blkAllowComments = true;
+      state.blkAllowDuet = true;
+    }
+
+    function handleBlockVideoFileSelected(inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      state.blkVideoFile = file;
+      state.blkVideoSizeBytes = file.size || 1000000;
+      state.blkVideoMime = file.type || 'video/mp4';
+      if (!state.blkVideoTitle.trim()) {
+        state.blkVideoTitle = (state.blkTitle.trim() || file.name.replace(/\.[^.]+$/, '')).slice(0, 140);
+      }
+      if (state.blkVideoPreviewUrl && state.blkVideoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(state.blkVideoPreviewUrl);
+      }
+      const blobUrl = URL.createObjectURL(file);
+      state.blkVideoPreviewUrl = blobUrl;
+
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        if (probe.duration && isFinite(probe.duration)) {
+          state.blkVideoDur = Math.max(1, Math.round(probe.duration));
+        }
+        render();
+      };
+      probe.src = blobUrl;
+      render();
+    }
+
+    function uploadFileWithProgress(file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const form = new FormData();
+        form.append('file', file);
+
+        xhr.open('POST', API_BASE + '/videos/upload-file');
+        if (state.jwtToken) {
+          xhr.setRequestHeader('Authorization', 'Bearer ' + state.jwtToken);
+        }
+
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            const pctVal = Math.max(5, Math.round((ev.loaded / ev.total) * 100));
+            if (onProgress) { onProgress(pctVal); return; }
+            state.blkUploadProgress = pctVal;
+            const fill = document.getElementById('blk-upload-bar');
+            const pct = document.getElementById('blk-upload-pct');
+            if (fill) fill.style.width = state.blkUploadProgress + '%';
+            if (pct) pct.textContent = state.blkUploadProgress + '%';
+          }
+        };
+
+        xhr.onload = () => {
+          try {
+            const parsed = JSON.parse(xhr.responseText || '{}');
+            if (xhr.status >= 200 && xhr.status < 300) resolve(parsed);
+            else reject(new Error(parsed.message || 'No se pudo subir el archivo de video.'));
+          } catch (_) {
+            reject(new Error('Respuesta inesperada al subir el video.'));
+          }
+        };
+        xhr.onerror = () => reject(new Error('Error de red subiendo el archivo de video.'));
+        xhr.send(form);
+      });
+    }
+
+    async function submitBlockModal() {
+      if (state.blkSaving) return;
+      const sched = getActiveSchedule();
+      if (!sched) return;
+
+      const blockTitle = state.blkTitle.trim();
+      if (!blockTitle) {
+        state.blkError = 'Escribí qué contenido se debe subir ese día.';
+        render();
+        return;
+      }
+
+      let inlineVideo = undefined;
+      let removeVideo = false;
+
+      if (state.blkAttachVideo) {
+        const platforms = [];
+        if (state.blkPlatIG) platforms.push('INSTAGRAM');
+        if (state.blkPlatTT) platforms.push('TIKTOK');
+        if (state.blkPlatYT) platforms.push('YOUTUBE');
+
+        if (platforms.length === 0) {
+          state.blkError = 'Seleccioná al menos una plataforma (Instagram, TikTok o YouTube).';
+          render();
+          return;
+        }
+
+        const dur = Math.max(1, parseInt(state.blkVideoDur || 30, 10));
+        const mb = state.blkVideoSizeBytes / (1024 * 1024);
+        const violation = platforms.find(p => dur > PLATFORM_LIMITS[p].maxSec || mb > PLATFORM_LIMITS[p].maxMb);
+        if (violation) {
+          const lim = PLATFORM_LIMITS[violation];
+          state.blkError = `${lim.name} admite hasta ${lim.maxSec} seg y ${lim.maxMb} MB.`;
+          render();
+          return;
+        }
+
+        state.blkSaving = true;
+        state.blkError = '';
+        render();
+
+        let storageKey = state.blkExistingStorageKey;
+        let finalSize = state.blkVideoSizeBytes;
+        let finalMime = state.blkVideoMime || 'video/mp4';
+
+        if (state.blkVideoFile) {
+          try {
+            state.blkUploadProgress = 8;
+            render();
+            const uploaded = await uploadFileWithProgress(state.blkVideoFile);
+            storageKey = uploaded.storageKey;
+            finalSize = uploaded.sizeBytes || finalSize;
+            finalMime = uploaded.mimeType || finalMime;
+          } catch (e) {
+            state.blkSaving = false;
+            state.blkUploadProgress = 0;
+            state.blkError = e.message || 'No pudimos subir el video.';
+            render();
+            return;
+          }
+        } else if (!storageKey) {
+          storageKey = `clients/${sched.clientId}/plan_${Date.now()}.mp4`;
+        }
+
+        const tags = String(state.blkVideoTags || '')
+          .split(/[\s,]+/)
+          .map(x => x.replace(/^#/, '').trim())
+          .filter(Boolean);
+
+        inlineVideo = {
+          storageKey,
+          title: (state.blkVideoTitle.trim() || blockTitle).slice(0, 150),
+          description: state.blkVideoDesc.trim() || state.blkNotes.trim() || blockTitle,
+          hashtags: tags,
+          platforms,
+          durationSeconds: dur,
+          sizeBytes: Math.max(1024, Math.round(finalSize)),
+          mimeType: finalMime.includes('webm') && platforms.includes('INSTAGRAM') ? 'video/mp4' : finalMime,
+          shareToFeed: state.blkShareFeed,
+          allowComments: state.blkAllowComments,
+          allowDuetStitch: state.blkAllowDuet,
+          madeForKids: false
+        };
+      } else if (state.editingBlockId) {
+        removeVideo = true;
+      }
+
+      state.blkSaving = true;
+      state.blkError = '';
+      render();
+
+      const payload = {
+        dayOfWeek: state.blkDay,
+        blockTitle,
+        noteColor: state.blkColor,
+        notes: state.blkNotes.trim() || '',
+        plannedTime: state.blkTime || '18:00',
+        autoPublish: state.blkAutoPublish,
+        ...(inlineVideo ? { inlineVideo } : {}),
+        ...(removeVideo ? { removeVideo: true } : {})
+      };
+
+      const url = state.editingBlockId
+        ? `/schedules/blocks/${state.editingBlockId}`
+        : `/schedules/${sched.id}/blocks`;
+      const method = state.editingBlockId ? 'PATCH' : 'POST';
+
+      const r = await apiFetch(url, {
+        method,
+        body: JSON.stringify(payload)
+      });
+
+      state.blkSaving = false;
+      state.blkUploadProgress = 0;
+
+      if (!r.ok) {
+        state.blkError = friendlyError(r.data, r.status);
+        render();
+        return;
+      }
+
+      state.blockModalOpen = false;
+      await hydrateFromApi();
+      setBanner(
+        state.editingBlockId
+          ? 'Bloque del plan actualizado correctamente.'
+          : (inlineVideo
+              ? `Bloque y video guardados para el ${WEEKDAYS.find(w => w.num === state.blkDay)?.full || 'día'} a las ${state.blkTime} hs.`
+              : 'Bloque agregado al cronograma semanal.')
+      );
+    }
+
+    async function deleteBlockConfirmed(blockId) {
+      const r = await apiFetch(`/schedules/blocks/${blockId}`, { method: 'DELETE' });
+      state.confirmDeleteBlockId = null;
+      state.inspectBlockId = null;
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Bloque eliminado del plan.');
+    }
+
+    async function submitVideoReview(videoId, decision) {
+      const noteEl = document.getElementById('inspect-review-note');
+      const feedbackNotes = noteEl ? noteEl.value.trim() : '';
+      if ((decision === 'CHANGES_REQUESTED' || decision === 'REJECTED') && feedbackNotes.length < 3) {
+        setBanner('Dejá un breve comentario indicando qué cambios necesitás antes de solicitar ajustes o rechazar.', true);
+        return;
+      }
+      const r = await apiFetch(`/schedules/videos/${videoId}/review`, {
+        method: 'POST',
+        body: JSON.stringify({ decision, feedbackNotes: feedbackNotes || undefined })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Tu revisión fue registrada y notificada a la agencia.');
+    }
+
+    async function submitVideoComment(videoId) {
+      const noteEl = document.getElementById('inspect-review-note');
+      const message = noteEl ? noteEl.value.trim() : '';
+      if (!message) return;
+      const r = await apiFetch(`/schedules/videos/${videoId}/comments`, {
+        method: 'POST',
+        body: JSON.stringify({ message })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      if (noteEl) noteEl.value = '';
+      await hydrateFromApi();
+    }
+
+    async function publishVideoNow(videoId) {
+      const r = await apiFetch('/publications/publish', {
+        method: 'POST',
+        body: JSON.stringify({ videoId })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Video emitido exitosamente en las redes seleccionadas.');
+    }
+
+    // =========================================================================
+    // ACCIONES DE DOMINIO: SUBIR VIDEO INDIVIDUAL (FUERA DEL PLAN)
+    // =========================================================================
+    function handleUploadFileSelected(inputEl) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      state.upFile = file;
+      state.upSizeBytes = file.size || 1000000;
+      state.upMime = file.type || 'video/mp4';
+      state.upError = '';
+      if (!state.upTitle.trim()) {
+        state.upTitle = file.name.replace(/\.[^.]+$/, '').slice(0, 140);
+      }
+      if (state.upPreviewUrl && state.upPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(state.upPreviewUrl);
+      }
+      const blobUrl = URL.createObjectURL(file);
+      state.upPreviewUrl = blobUrl;
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      probe.onloadedmetadata = () => {
+        if (probe.duration && isFinite(probe.duration)) {
+          state.upDur = Math.max(1, Math.round(probe.duration));
+        }
+        render();
+      };
+      probe.src = blobUrl;
+      render();
+    }
+
+    function resetUploadForm() {
+      if (state.upPreviewUrl && state.upPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(state.upPreviewUrl);
+      }
+      Object.assign(state, {
+        upFile: null, upPreviewUrl: '', upTitle: '', upDesc: '', upTags: '',
+        upDur: 30, upSizeBytes: 0, upMime: 'video/mp4',
+        upPlatIG: true, upPlatTT: true, upPlatYT: true,
+        upMode: 'NOW', upWhen: '', upProgress: 0, upSaving: false, upError: ''
+      });
+    }
+
+    async function submitIndividualUpload() {
+      if (state.upSaving) return;
+      const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      const clientId = state.upClientId || confirmed[0]?.id;
+      const fail = (msg) => { state.upError = msg; render(); };
+
+      if (!clientId) return fail('Primero necesitás un cliente que haya confirmado su cuenta.');
+      if (!state.upFile) return fail('Elegí el archivo de video que querés subir.');
+      const title = state.upTitle.trim();
+      if (!title) return fail('Escribí un título para la publicación.');
+      const platforms = [];
+      if (state.upPlatIG) platforms.push('INSTAGRAM');
+      if (state.upPlatTT) platforms.push('TIKTOK');
+      if (state.upPlatYT) platforms.push('YOUTUBE');
+      if (platforms.length === 0) return fail('Elegí al menos una red social.');
+      const tooLong = platforms.find(p => state.upDur > PLATFORM_LIMITS[p].maxSec);
+      if (tooLong) {
+        return fail(`El video dura ${state.upDur}s y ${PLATFORM_LIMITS[tooLong].name} admite hasta ${PLATFORM_LIMITS[tooLong].maxSec}s.`);
+      }
+
+      let scheduledFor;
+      if (state.upMode === 'LATER') {
+        if (!state.upWhen) return fail('Elegí la fecha y la hora de publicación.');
+        const when = new Date(state.upWhen);
+        if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
+          return fail('La fecha de publicación tiene que ser posterior a este momento.');
+        }
+        scheduledFor = when.toISOString();
+      }
+
+      state.upSaving = true;
+      state.upError = '';
+      state.upProgress = 5;
+      render();
+
+      let uploaded;
+      try {
+        uploaded = await uploadFileWithProgress(state.upFile, (pct) => {
+          state.upProgress = pct;
+          const fill = document.getElementById('up-progress-bar');
+          const lbl = document.getElementById('up-progress-pct');
+          if (fill) fill.style.width = pct + '%';
+          if (lbl) lbl.textContent = pct + '%';
+        });
+      } catch (e) {
+        state.upSaving = false;
+        state.upProgress = 0;
+        return fail(e.message || 'No pudimos subir el video.');
+      }
+
+      const tags = String(state.upTags || '')
+        .split(/[\s,]+/)
+        .map(x => x.replace(/^#/, '').trim())
+        .filter(Boolean);
+
+      const created = await apiFetch('/videos', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId,
+          title: title.slice(0, 150),
+          description: state.upDesc.trim() || title,
+          storageKey: uploaded.storageKey,
+          durationSeconds: state.upDur,
+          sizeBytes: Math.max(1024, Math.round(uploaded.sizeBytes || state.upSizeBytes)),
+          mimeType: uploaded.mimeType || state.upMime || 'video/mp4',
+          hashtags: tags,
+          platformTargets: platforms.map(p => ({ platform: p })),
+          publishMode: state.upMode === 'DRAFT' ? 'DRAFT' : 'DIRECT'
+        })
+      });
+
+      if (!created.ok) {
+        state.upSaving = false;
+        state.upProgress = 0;
+        return fail(friendlyError(created.data, created.status));
+      }
+
+      if (state.upMode !== 'DRAFT') {
+        const pub = await apiFetch('/publications/publish', {
+          method: 'POST',
+          body: JSON.stringify({
+            videoId: created.data.id,
+            ...(scheduledFor ? { scheduledFor } : {}),
+            userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          })
+        });
+        if (!pub.ok) {
+          state.upSaving = false;
+          state.upProgress = 0;
+          return fail('El video se guardó, pero no pudimos programarlo: ' + friendlyError(pub.data, pub.status));
+        }
+      }
+
+      const mode = state.upMode;
+      const whenTxt = scheduledFor ? fmtDateTimeHuman(scheduledFor) : '';
+      resetUploadForm();
+      await hydrateFromApi();
+      setBanner(
+        mode === 'DRAFT'
+          ? 'Video guardado como borrador.'
+          : mode === 'LATER'
+            ? `Video programado para el ${whenTxt}.`
+            : 'Video enviado a publicar en las redes seleccionadas.'
+      );
+    }
+
+    function renderUploadScreen() {
+      const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      if (!state.upClientId || !confirmed.some(c => c.id === state.upClientId)) {
+        state.upClientId = confirmed[0]?.id || '';
+      }
+      const mb = (state.upSizeBytes / (1024 * 1024)).toFixed(1);
+      const dur = state.upDur;
+      const minWhen = new Date(Date.now() + 5 * 60000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const recent = state.videos.slice(0, 6);
+
+      if (confirmed.length === 0) {
+        return `
+          <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
+            <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+              <div class="eyebrow">PUBLICACIÓN INDIVIDUAL</div>
+              <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Subir video</h2>
+            </div>
+            <div style="border:1px solid var(--hairline);background:var(--stage);padding:18px;border-radius:4px;color:var(--text-secondary);font-size:14px;">
+              Todavía no tenés clientes con la cuenta confirmada. Creá un cliente en la sección <strong>Clientes</strong> y esperá a que presione "Sí, soy yo".
+            </div>
+          </div>`;
+      }
+
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;max-width:880px;">
+          <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+            <div class="eyebrow">PUBLICACIÓN INDIVIDUAL</div>
+            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Subir video</h2>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
+              Publicá un video suelto, sin necesidad de agregarlo al Plan semanal.
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Cliente / marca</label>
+            <select class="input" onchange="state.upClientId=this.value;render();" ${state.upSaving ? 'disabled' : ''}>
+              ${confirmed.map(c => `<option value="${c.id}" ${c.id === state.upClientId ? 'selected' : ''}>${esc(c.companyName)}</option>`).join('')}
+            </select>
+          </div>
+
+          <label class="dropzone-video">
+            <input type="file" accept="video/mp4,video/quicktime,video/webm" style="display:none;"
+              onchange="handleUploadFileSelected(this)" ${state.upSaving ? 'disabled' : ''} />
+            <div style="font-weight:600;color:var(--signal-subtle-fg);">
+              ${state.upFile
+                ? '✓ ' + esc(state.upFile.name) + ' (' + mb + ' MB · ' + dur + 's) · Hacé clic para cambiarlo'
+                : '📂 Hacé clic acá para elegir el video (.mp4 / .mov) desde tu equipo'}
+            </div>
+          </label>
+
+          ${state.upPreviewUrl ? `
+            <div style="display:flex;justify-content:center;background:#000;border-radius:4px;overflow:hidden;max-height:300px;">
+              <video src="${esc(state.upPreviewUrl)}" controls style="max-height:300px;max-width:100%;"></video>
+            </div>
+          ` : ''}
+
+          <div class="field">
+            <label>Redes donde se publicará</label>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+              ${[
+                { key: 'INSTAGRAM', prop: 'upPlatIG' },
+                { key: 'TIKTOK',    prop: 'upPlatTT' },
+                { key: 'YOUTUBE',   prop: 'upPlatYT' }
+              ].map(p => {
+                const active = state[p.prop];
+                const lim = PLATFORM_LIMITS[p.key];
+                const ok = !state.upFile || dur <= lim.maxSec;
+                return `
+                  <button type="button" style="padding:9px 10px;border-radius:4px;text-align:left;background:var(--canvas);border:1px solid ${active ? (ok ? 'var(--tally-live)' : 'var(--tally-fault)') : 'var(--hairline)'};"
+                    onclick="state.${p.prop}=!state.${p.prop};render();">
+                    <div style="font-weight:700;font-size:12px;color:${active ? 'var(--text-primary)' : 'var(--text-muted)'};">${active ? '✓ ' : ''}${lim.name}</div>
+                    <div style="font-size:11px;color:${!active ? 'var(--text-muted)' : (ok ? 'var(--tally-live)' : 'var(--tally-fault)')};margin-top:2px;">
+                      ${!active ? 'No se publica' : (ok ? 'Listo' : 'Máximo ' + lim.maxSec + ' s')}
+                    </div>
+                  </button>`;
+              }).join('')}
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="field">
+              <label>Título</label>
+              <input class="input" placeholder="Título de la publicación" value="${esc(state.upTitle)}" oninput="state.upTitle=this.value" />
+            </div>
+            <div class="field">
+              <label>Hashtags</label>
+              <input class="input" placeholder="#marca #reels" value="${esc(state.upTags)}" oninput="state.upTags=this.value" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Descripción</label>
+            <textarea class="input" rows="3" placeholder="El texto que acompañará al video" oninput="state.upDesc=this.value">${esc(state.upDesc)}</textarea>
+          </div>
+
+          <div class="field">
+            <label>¿Cuándo se publica?</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              ${[
+                { id: 'NOW',   label: 'Publicar ahora' },
+                { id: 'LATER', label: 'Programar fecha y hora' },
+                { id: 'DRAFT', label: 'Guardar como borrador' }
+              ].map(m => `
+                <button type="button" class="btn ${state.upMode === m.id ? 'btn-signal' : 'btn-outline'}"
+                  onclick="state.upMode='${m.id}';render();">${m.label}</button>
+              `).join('')}
+            </div>
+            ${state.upMode === 'LATER' ? `
+              <input class="input" type="datetime-local" min="${minWhen}" value="${esc(state.upWhen)}"
+                style="margin-top:8px;max-width:280px;" onchange="state.upWhen=this.value" />
+            ` : ''}
+          </div>
+
+          ${state.upProgress > 0 ? `
+            <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:10px 12px;border-radius:4px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">
+                <span>Subiendo video...</span>
+                <span id="up-progress-pct">${state.upProgress}%</span>
+              </div>
+              <div style="height:5px;background:var(--hairline);margin-top:6px;border-radius:2px;overflow:hidden;">
+                <div id="up-progress-bar" class="s3-progress-fill" style="width:${state.upProgress}%;"></div>
+              </div>
+            </div>
+          ` : ''}
+
+          ${state.upError ? `
+            <div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">
+              ${esc(state.upError)}
+            </div>
+          ` : ''}
+
+          <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <button class="btn btn-outline" ${state.upSaving ? 'disabled' : ''} onclick="resetUploadForm();render();">Limpiar</button>
+            <button class="btn btn-signal" ${state.upSaving ? 'disabled' : ''} onclick="submitIndividualUpload()">
+              ${state.upSaving ? 'Subiendo...' : (state.upMode === 'NOW' ? 'Subir y publicar' : state.upMode === 'LATER' ? 'Subir y programar' : 'Guardar borrador')}
+            </button>
+          </div>
+
+          ${recent.length ? `
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+              <div class="eyebrow">ÚLTIMOS VIDEOS</div>
+              ${recent.map(v => {
+                const b = workflowMeta(v.workflowStatus);
+                return `
+                  <div style="border:1px solid var(--hairline);background:var(--stage);padding:10px 13px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+                    <div>
+                      <div style="font-weight:600;font-size:14px;">${esc(v.title)}</div>
+                      <div style="font-size:12px;color:var(--text-secondary);">${esc(v.client?.companyName || '')}</div>
+                    </div>
+                    <span class="badge ${b.cls}">${b.label}</span>
+                  </div>`;
+              }).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // ACCIONES DE DOMINIO: IDEAS DE CONTENIDO (PRIVADAS DE LA AGENCIA)
+    // =========================================================================
+    async function submitNewIdeaSection() {
+      const name = state.newSectionName.trim();
+      if (!name) {
+        setBanner('Escribí el nombre de la nueva sección (ej. Humor, Autoridad, Testimonios).', true);
+        return;
+      }
+      const r = await apiFetch('/ideas/sections', {
+        method: 'POST',
+        body: JSON.stringify({ name, color: state.newSectionColor })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      state.newSectionName = '';
+      state.showNewSectionForm = false;
+      await hydrateFromApi();
+      state.ideaSectionFilter = r.data.id;
+      setBanner(`Sección "${name}" creada.`);
+    }
+
+    async function deleteIdeaSectionConfirmed(sectionId) {
+      const r = await apiFetch(`/ideas/sections/${sectionId}`, { method: 'DELETE' });
+      state.confirmDeleteSectionId = null;
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      if (state.ideaSectionFilter === sectionId) state.ideaSectionFilter = 'ALL';
+      await hydrateFromApi();
+      setBanner('Sección eliminada.');
+    }
+
+    function openIdeaModal(idea = null) {
+      if (state.ideaSections.length === 0) {
+        setBanner('Primero creá al menos una sección para clasificar tus ideas.', true);
+        return;
+      }
+      if (idea) {
+        const plats = String(idea.platforms || 'INSTAGRAM,TIKTOK,YOUTUBE').split(',');
+        state.editingIdeaId = idea.id;
+        state.ideaFormSectionId = idea.sectionId;
+        state.ideaFormClientId = idea.clientId || '';
+        state.ideaFormTitle = idea.title;
+        state.ideaFormContent = idea.content;
+        state.ideaFormRefUrl = idea.referenceUrl || '';
+        state.ideaFormPlatIG = plats.includes('INSTAGRAM');
+        state.ideaFormPlatTT = plats.includes('TIKTOK');
+        state.ideaFormPlatYT = plats.includes('YOUTUBE');
+        state.ideaFormPinned = Boolean(idea.isPinned);
+      } else {
+        state.editingIdeaId = null;
+        state.ideaFormSectionId =
+          state.ideaSectionFilter !== 'ALL'
+            ? state.ideaSectionFilter
+            : state.ideaSections[0].id;
+        state.ideaFormClientId =
+          state.ideaClientFilter !== 'ALL' && state.ideaClientFilter !== 'GENERAL'
+            ? state.ideaClientFilter
+            : '';
+        state.ideaFormTitle = '';
+        state.ideaFormContent = '';
+        state.ideaFormRefUrl = '';
+        state.ideaFormPlatIG = true;
+        state.ideaFormPlatTT = true;
+        state.ideaFormPlatYT = true;
+        state.ideaFormPinned = false;
+      }
+      state.ideaModalOpen = true;
+      render();
+    }
+
+    async function submitIdeaModal() {
+      const title = state.ideaFormTitle.trim();
+      const content = state.ideaFormContent.trim();
+      if (!title || !content) {
+        setBanner('Completá el título y el desarrollo de la idea.', true);
+        return;
+      }
+      const plats = [];
+      if (state.ideaFormPlatIG) plats.push('INSTAGRAM');
+      if (state.ideaFormPlatTT) plats.push('TIKTOK');
+      if (state.ideaFormPlatYT) plats.push('YOUTUBE');
+
+      const payload = {
+        sectionId: state.ideaFormSectionId,
+        clientId: state.ideaFormClientId || undefined,
+        title,
+        content,
+        referenceUrl: state.ideaFormRefUrl.trim() || undefined,
+        platforms: plats.join(','),
+        isPinned: state.ideaFormPinned
+      };
+
+      const url = state.editingIdeaId ? `/ideas/${state.editingIdeaId}` : '/ideas';
+      const method = state.editingIdeaId ? 'PATCH' : 'POST';
+      const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
+
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+
+      state.ideaModalOpen = false;
+      await hydrateFromApi();
+      setBanner(state.editingIdeaId ? 'Idea actualizada.' : 'Idea guardada en tu espacio privado.');
+    }
+
+    async function togglePinIdea(ideaId, currentPinned) {
+      const r = await apiFetch(`/ideas/${ideaId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isPinned: !currentPinned })
+      });
+      if (r.ok) await hydrateFromApi();
+    }
+
+    async function deleteIdeaConfirmed(ideaId) {
+      const r = await apiFetch(`/ideas/${ideaId}`, { method: 'DELETE' });
+      state.confirmDeleteIdeaId = null;
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Idea eliminada.');
+    }
+
+    function sendIdeaToPlan(ideaId) {
+      const idea = state.ideas.find(x => x.id === ideaId);
+      if (!idea) return;
+      if (idea.clientId) {
+        state.selectedClientId = idea.clientId;
+        syncSelectedScheduleForClient();
+      }
+      state.activeTab = 'schedules';
+      const sched = getActiveSchedule();
+      if (!sched) {
+        openNewWeekModal();
+        return;
+      }
+      openBlockModal(1, null);
+      state.blkTitle = idea.title;
+      state.blkNotes = idea.content;
+      state.blkColor = idea.section?.color || 'AMBER';
+      const plats = String(idea.platforms || '').split(',');
+      state.blkPlatIG = plats.includes('INSTAGRAM') || plats.length === 0;
+      state.blkPlatTT = plats.includes('TIKTOK');
+      state.blkPlatYT = plats.includes('YOUTUBE');
+      render();
+    }
+
+    // =========================================================================
+    // ACCIONES DE DOMINIO: CLIENTES Y CONFIRMACIÓN DE IDENTIDAD ("SÍ, SOY YO")
+    // =========================================================================
+    async function createClientFromForm() {
+      const companyName = (document.getElementById('cl-name')?.value || '').trim();
+      const industry = (document.getElementById('cl-ind')?.value || '').trim();
+      const fullName = (document.getElementById('cl-contact')?.value || '').trim() || 'Responsable de Marca';
+      const email = (document.getElementById('cl-mail')?.value || '').trim();
+      const password = (document.getElementById('cl-pass')?.value || '').trim();
+
+      if (!companyName) { setBanner('Ingresá el nombre de la empresa o marca.', true); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setBanner('Ingresá un correo electrónico válido para el cliente.', true); return; }
+      if (password.length < 8) { setBanner('La contraseña inicial del cliente debe tener al menos 8 caracteres.', true); return; }
+
+      const r = await apiFetch('/clients', {
+        method: 'POST',
+        body: JSON.stringify({ companyName, industry, fullName, email, password })
+      });
+
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+
+      state.showNewClientForm = false;
+      await hydrateFromApi();
+      setBanner(
+        `Solicitud enviada a ${email}. El perfil de "${companyName}" se activará apenas el cliente presione "Sí, soy yo" en su notificación.`
+      );
+    }
+
+    async function resendClientConfirmation(clientId) {
+      const r = await apiFetch(`/clients/${clientId}/resend-confirmation`, { method: 'POST' });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      setBanner('Reenviamos la notificación y el correo de confirmación "Sí, soy yo" al cliente.');
+    }
+
+    async function deleteClientConfirmed(clientId) {
+      const r = await apiFetch(`/clients/${clientId}`, { method: 'DELETE' });
+      state.confirmDeleteClientId = null;
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Cliente eliminado correctamente.');
+    }
+
+    async function respondClientIdentity(clientId, decision) {
+      const r = await apiFetch(`/clients/${clientId}/confirm-identity`, {
+        method: 'POST',
+        body: JSON.stringify({ decision })
+      });
+
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+
+      if (decision === 'REJECT') {
+        logoutSession();
+        setBanner('Rechazaste la vinculación. Tu correo electrónico fue liberado por seguridad.');
+        return;
+      }
+
+      await hydrateFromApi();
+      setBanner(r.data.message || '¡Identidad confirmada! Ya podés ver el plan semanal de tu marca.');
+    }
+
+    async function toggleOAuth(clientId, platform) {
+      const cl = state.clients.find(c => c.id === clientId);
+      if (!cl) return;
+      const cur = cl.connections[platform];
+      if (cur.connected) {
+        const r = await apiFetch(`/platforms/${clientId}/${platform}`, { method: 'DELETE' });
+        if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      } else {
+        const handle = '@' + cl.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+        const r = await apiFetch('/platforms/connect', {
+          method: 'POST',
+          body: JSON.stringify({
+            clientId,
+            platform,
+            externalAccountId: platform.toLowerCase() + '_' + Date.now(),
+            accountHandle: handle,
+            accessToken: 'live_token_' + Date.now()
+          })
+        });
+        if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      }
+      await hydrateFromApi();
+      setBanner(`Conexión de ${PLATFORM_LIMITS[platform].name} actualizada en ${cl.companyName}.`);
+    }
+
+    async function markNotificationRead(id) {
+      await apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
+      await hydrateFromApi();
+    }
+
+    // =========================================================================
+    // COMPONENTES VISUALES Y PANTALLAS DEL ESTUDIO
+    // =========================================================================
+    function renderTriConduit(platformsArr, status = 'SCHEDULED', publications = []) {
+      const keys = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE'];
+      const hasFlow = platformsArr.length > 0 && !['DRAFT', 'REJECTED'].includes(status);
+      return `<div class="tri-conduit">` +
+        keys.map((k, idx) => {
+          const targeted = platformsArr.includes(k);
+          const pub = (publications || []).find(p => p.platform === k);
+          let cls = 'tri-node';
+          if (!targeted) cls += ' off';
+          else if (pub && pub.status === 'FAILED') cls += ' fault';
+          else if ((pub && pub.status === 'PUBLISHED') || ['APPROVED','SCHEDULED','PUBLISHED'].includes(status)) cls += ' live';
+          else cls += ' warn';
+          const wire = idx < keys.length - 1 ? `<span class="tri-wire ${hasFlow ? 'flowing' : ''}"></span>` : '';
+          return `<span class="${cls}">${PLATFORM_LIMITS[k].code}</span>${wire}`;
+        }).join('') +
+      `</div>`;
+    }
+
+    function renderTopBar() {
+      const unread = state.notifications.filter(n => !n.isRead).length;
+      const roleLabel = state.session ? state.session.role.replace('_', ' ') : 'ACCESO';
+      const brandActive = state.blkUploadProgress > 0;
+      const pc = state.pendingConfirmation;
+
+      return `
+        <header class="topbar">
+          <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+            <div class="brand-mark ${brandActive ? 'active' : ''}" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div style="min-width:0;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="display-tight" style="font-weight:700;font-size:16px;">ContentSync</span>
+                <span class="badge badge-review">${esc(roleLabel)}</span>
+              </div>
+              <div class="mono" style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                ${state.session ? esc(state.session.fullName) : 'Planificación semanal y publicación multired'}
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            ${state.session ? `
+              <button class="badge ${unread > 0 ? 'badge-warn' : ''}" onclick="state.activeTab='history';render();">
+                ${unread > 0 ? '<span class="tally-dot"></span>' : ''} ${unread} ${unread === 1 ? 'aviso' : 'avisos'}
+              </button>
+            ` : ''}
+            <button class="btn btn-outline" onclick="setTheme(state.theme === 'dark' ? 'light' : 'dark')" title="Cambiar apariencia">
+              ◐ <span>${state.theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
+            </button>
+          </div>
+        </header>
+
+        ${pc ? `
+          <div class="security-confirm-banner feedback-enter">
+            <div style="max-width:680px;">
+              <div class="mono" style="font-size:11px;font-weight:700;color:var(--tally-warn);letter-spacing:0.06em;">
+                🛡️ VERIFICACIÓN DE SEGURIDAD REQUERIDA
+              </div>
+              <div style="font-size:14px;font-weight:600;margin-top:3px;color:var(--text-primary);">
+                La agencia «${esc(pc.agency?.name || 'Agencia')}» quiere vincular tu correo (${esc(pc.user?.email || state.session?.email)}) como cliente de la marca «${esc(pc.companyName)}».
+              </div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
+                Confirmá si reconocés esta vinculación para habilitar tu plan semanal. Si no sos vos, rechazala para liberar tu correo.
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-signal" onclick="respondClientIdentity('${pc.id}', 'ACCEPT')">
+                ✓ Sí, soy yo
+              </button>
+              <button class="btn btn-fault" onclick="respondClientIdentity('${pc.id}', 'REJECT')">
+                ✕ No soy yo, rechazar
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
+        ${state.banner ? `
+          <div class="feedback-bar ${state.banner.isErr ? 'err' : 'ok'} ${motionState.animateBanner ? 'feedback-enter' : ''}">
+            <div>${esc(state.banner.msg)}</div>
+            <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.banner=null;render();">Cerrar</button>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    function renderSignalRouterSchematic() {
+      return `
+        <div class="router-schematic" aria-label="Un video publicado en tres redes">
+          <div class="router-master-box">
+            <div class="mono" style="font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">Tu plan semanal</div>
+            <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:2px;">Lunes a Viernes</div>
+          </div>
+          <svg class="router-svg" viewBox="0 0 112 44" preserveAspectRatio="none" aria-hidden="true">
+            <path class="router-trace-base" d="M 0 22 L 32 22 L 46 7 L 112 7" />
+            <path class="router-trace-base" d="M 0 22 L 112 22" />
+            <path class="router-trace-base" d="M 0 22 L 32 22 L 46 37 L 112 37" />
+            <path class="router-trace-pulse t1" d="M 0 22 L 32 22 L 46 7 L 112 7" />
+            <path class="router-trace-pulse t2" d="M 0 22 L 112 22" />
+            <path class="router-trace-pulse t3" d="M 0 22 L 32 22 L 46 37 L 112 37" />
+          </svg>
+          <div class="mono" style="display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:600;color:var(--tally-live);flex-shrink:0;">
+            <div>Instagram</div>
+            <div>TikTok</div>
+            <div>YouTube</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderRecoveryConsole() {
+      if (state.authRecoverStep === 1) {
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-weight:700;font-size:13px;">Recuperar contraseña</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 1 DE 2</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.4;">
+            Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos a tu casilla.
+          </p>
+          <div class="field">
+            <label>Correo electrónico</label>
+            <input class="input" type="email" placeholder="tu@correo.com" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value" />
+          </div>
+          ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
+          <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="requestRecoveryCode()">
+            ${authUi.busy ? 'Enviando código…' : 'Enviar código a mi correo →'}
+          </button>
+          <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin-top:4px;">
+            <button onclick="state.authRecover=false;authUi.error='';render();">← Volver a inicio de sesión</button>
+          </div>
+        `;
+      }
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="mono" style="font-weight:700;font-size:13px;">Nueva contraseña</span>
+          <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 2 DE 2</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.4;">
+          Enviamos un código de 6 dígitos a <strong>${esc(state.authEmail)}</strong>. Ingresalo abajo junto con tu nueva clave.
+        </p>
+        <div class="field">
+          <label>Código recibido por email (6 dígitos)</label>
+          <input class="input mono" placeholder="123456" value="${esc(state.recoveryCode)}" oninput="state.recoveryCode=this.value" />
+        </div>
+        <div class="field">
+          <label>Nueva contraseña</label>
+          <input class="input" type="password" placeholder="Mínimo 8 caracteres, mayúscula, minúscula, número y símbolo" value="${esc(state.recoveryNewPass)}" oninput="state.recoveryNewPass=this.value" />
+        </div>
+        ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
+        <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="submitPasswordReset()">
+          ${authUi.busy ? 'Actualizando…' : 'Guardar nueva contraseña'}
+        </button>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
+          <button onclick="state.authRecoverStep=1;authUi.error='';render();">← Reenviar código</button>
+          <button onclick="state.authRecover=false;authUi.error='';render();">Cancelar</button>
+        </div>
+      `;
+    }
+
+    function renderLoginRegisterConsole() {
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="mono" style="font-weight:700;font-size:13px;">${state.authRegister ? 'Registrar mi Agencia' : 'Iniciar sesión'}</span>
+        </div>
+
+        ${state.authRegister ? `
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.4;">
+            Creá tu cuenta con jerarquía de Agencia para organizar ideas privadas, planes semanales y clientes verificados.
+          </div>
+          <div class="field">
+            <label>Nombre y apellido</label>
+            <input class="input" placeholder="Ej. Valentina Gómez" value="${esc(state.authName)}" oninput="state.authName=this.value" />
+          </div>
+          <div class="field">
+            <label>Nombre de tu Agencia</label>
+            <input class="input" placeholder="Ej. Nova Media Studio" value="${esc(state.authAgencyName)}" oninput="state.authAgencyName=this.value" />
+          </div>
+        ` : ''}
+
+        <div class="field">
+          <label>Correo electrónico</label>
+          <input class="input" type="email" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value" />
+        </div>
+
+        <div class="field">
+          <label>Contraseña</label>
+          <input class="input" type="password" value="${esc(state.authPass)}" oninput="state.authPass=this.value"
+            onkeydown="if(event.key==='Enter'){ ${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'} }" />
+        </div>
+
+        ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
+
+        <button class="btn btn-signal" style="width:100%;height:44px;"
+          ${authUi.busy ? 'disabled' : ''} onclick="${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'}">
+          ${authUi.busy ? 'Un momento…' : (state.authRegister ? 'Crear mi Agencia' : 'Ingresar')}
+        </button>
+
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);">
+          <button onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta de Agencia'}</button>
+          <button onclick="state.authRecover=true;state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin:4px 0 2px;">
+          <div style="flex:1;height:1px;background:var(--hairline);"></div>
+          <span style="font-size:12px;color:var(--text-muted);">o continuá con</span>
+          <div style="flex:1;height:1px;background:var(--hairline);"></div>
+        </div>
+
+        <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:0;"></div>
+
+        <button id="facebook-btn" class="btn" style="display:none;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:var(--stage);border:1px solid var(--border-strong);color:var(--text-primary);font-weight:600;font-size:13px;border-radius:4px;"
+          onclick="facebookLogin()">
+          <span>Continuar con Facebook</span>
+        </button>
+      `;
+    }
+
+    function renderAuthGate() {
+      return `
+        <div class="auth-split stage-enter">
+          <section class="auth-manifesto">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <div class="eyebrow">CONTENTSYNC</div>
+              <h1 style="font-size:clamp(28px, 3.3vw, 42px);font-weight:700;">
+                Planificá de lunes a viernes.<br/>Subí una vez, salí en todas tus redes.
+              </h1>
+              <p style="color:var(--text-secondary);max-width:50ch;font-size:15px;">
+                Armá cuadrículas semanales con bloques de colores, guardá ideas privadas para tu agencia y compartí cada plan con tus clientes verificados.
+              </p>
+              ${renderSignalRouterSchematic()}
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div class="eyebrow">ACCESO RÁPIDO DE PRUEBA</div>
+              <div class="seed-passes-grid" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+                <button class="seed-pass-card" onclick="performLogin('lucasegura2007@gmail.com','ContentSync2026!')">
+                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">MI AGENCIA</div>
+                  <div style="font-weight:600;margin-top:3px;">Luca Segura</div>
+                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
+                </button>
+                <button class="seed-pass-card" onclick="performLogin('agencia.nova@contentsync.io','ContentSync2026!')">
+                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">AGENCIA DEMO</div>
+                  <div style="font-weight:600;margin-top:3px;">Nova Digital</div>
+                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
+                </button>
+                <button class="seed-pass-card" onclick="performLogin('cliente.kafecito@contentsync.io','ContentSync2026!')">
+                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">VISTA CLIENTE</div>
+                  <div style="font-weight:600;margin-top:3px;">Kafecito</div>
+                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="auth-console-wrap">
+            <div style="width:100%;max-width:430px;background:var(--stage);border:1px solid var(--hairline);border-radius:5px;padding:26px;display:flex;flex-direction:column;gap:14px;">
+              ${state.authRecover ? renderRecoveryConsole() : renderLoginRegisterConsole()}
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // PANTALLA 1: PLAN SEMANAL (CUADRÍCULA LUNES A VIERNES + BLOQUES + VIDEO + DUPLICACIÓN)
+    // =========================================================================
+    function renderSchedulesScreen() {
+      const role = state.session.role;
+      const isClient = role === 'CLIENTE';
+
+      if (isClient && state.pendingConfirmation) {
+        return `
+          <div class="page-pad">
+            <div style="border:1px solid var(--tally-warn);background:var(--stage);border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px;">
+              <div class="eyebrow" style="color:var(--tally-warn);">CONFIRMACIÓN PENDIENTE</div>
+              <h2 style="font-size:22px;font-weight:700;">Confirmá tu identidad para acceder a tu Plan Semanal</h2>
+              <p style="color:var(--text-secondary);max-width:60ch;">
+                Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con <strong>${esc(state.pendingConfirmation.agency?.name || 'la agencia')}</strong>, necesitamos que presiones <strong>"Sí, soy yo"</strong> arriba o acá mismo.
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+                <button class="btn btn-signal" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'ACCEPT')">✓ Sí, soy yo — Activar mi cuenta</button>
+                <button class="btn btn-fault" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'REJECT')">✕ No soy yo — Rechazar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      const clientSchedules = state.schedules.filter(s => s.clientId === state.selectedClientId);
+      const activeSchedule = getActiveSchedule();
+      const items = activeSchedule?.items || [];
+
+      const withVideoCount = items.filter(b => Boolean(b.video)).length;
+      const autoCount = items.filter(b => b.video && b.autoPublish).length;
+      const clientDupLogs = state.duplicationLogs.filter(
+        l => !state.selectedClientId || l.clientId === state.selectedClientId
+      );
+
+      return `
+        <div class="plan-page">
+          <!-- Cabecera Principal -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+            <div>
+              <div class="eyebrow">${isClient ? 'CRONOGRAMA DE CONTENIDO DE TU MARCA' : 'PLANIFICACIÓN SEMANAL DE LUNES A VIERNES'}</div>
+              <h2 style="font-size:24px;font-weight:700;margin-top:3px;">
+                ${isClient ? 'Plan de publicaciones de la semana' : 'Plan semanal en cuadrícula'}
+              </h2>
+              <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
+                ${isClient
+                  ? 'Acá podés ver día por día qué contenido se subirá, revisar los videos adjuntos y dejar tu aprobación.'
+                  : 'Organizá bloques de colores de lunes a viernes, anexá videos con subida automática en día y hora, o duplicá semanas completas.'}
+              </p>
+            </div>
+
+            ${!isClient ? `
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-outline" onclick="state.showDuplicationLogs=!state.showDuplicationLogs;render();">
+                  📋 Registro de duplicaciones (${clientDupLogs.length})
+                </button>
+                ${activeSchedule ? `
+                  <button class="btn btn-outline" onclick="openDuplicateWeekModal()">
+                    ⎘ Duplicar semana
+                  </button>
+                ` : ''}
+                <button class="btn btn-signal" onclick="openNewWeekModal()">
+                  + Nueva semana
+                </button>
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- Selector de Cliente (Agencia/Admin) -->
+          ${!isClient && confirmedClients.length > 0 ? `
+            <div class="filter-row">
+              <span class="eyebrow" style="margin-right:4px;">CLIENTE:</span>
+              ${confirmedClients.map(c => `
+                <button class="filter-tab ${state.selectedClientId === c.id ? 'active' : ''}"
+                  onclick="state.selectedClientId='${c.id}';syncSelectedScheduleForClient();render();">
+                  ${esc(c.companyName)}
+                </button>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          <!-- Registro Histórico de Semanas Duplicadas (Desplegable) -->
+          ${state.showDuplicationLogs ? `
+            <div class="feedback-enter" style="border:1px solid var(--border-strong);background:var(--stage);border-radius:5px;padding:15px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <span class="eyebrow" style="color:var(--signal-subtle-fg);">HISTORIAL AUDITABLE</span>
+                  <h3 style="font-size:16px;font-weight:700;margin-top:2px;">Registro de semanas duplicadas</h3>
+                </div>
+                <button class="btn btn-outline" style="padding:4px 10px;" onclick="state.showDuplicationLogs=false;render();">Cerrar</button>
+              </div>
+              ${clientDupLogs.length === 0 ? `
+                <div style="font-size:13px;color:var(--text-muted);padding:8px 0;">
+                  Todavía no se duplicó ninguna semana para este cliente. Usá el botón «⎘ Duplicar semana» para replicar una estructura semanal y quedará registrada acá.
+                </div>
+              ` : `
+                <div style="display:flex;flex-direction:column;gap:7px;">
+                  ${clientDupLogs.map(log => `
+                    <div style="border:1px solid var(--hairline);background:var(--canvas);border-radius:4px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                      <div style="display:flex;flex-direction:column;gap:2px;">
+                        <div style="font-size:13px;font-weight:600;">
+                          ${esc(log.sourceSchedule?.title || 'Semana origen')}
+                          <span style="color:var(--signal-subtle-fg);margin:0 6px;">→</span>
+                          ${esc(log.targetSchedule?.title || 'Semana nueva')}
+                        </div>
+                        <div class="mono" style="font-size:11px;color:var(--text-muted);">
+                          ${esc(log.client?.companyName || '')} · ${log.blocksCopiedCount} bloques copiados ${log.includeVideos ? '(con videos)' : '(solo notas)'} · Por ${esc(log.duplicatedByUser?.fullName || 'Agencia')} · ${fmtDateTimeHuman(log.createdAt)}
+                        </div>
+                        ${log.notes ? `<div style="font-size:12px;color:var(--text-secondary);">${esc(log.notes)}</div>` : ''}
+                      </div>
+                      ${log.targetSchedule?.id ? `
+                        <button class="btn btn-outline" style="padding:5px 10px;"
+                          onclick="state.selectedClientId='${log.clientId}';state.selectedScheduleId='${log.targetSchedule.id}';render();">
+                          Abrir semana →
+                        </button>
+                      ` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          ` : ''}
+
+          ${confirmedClients.length === 0 && !isClient ? `
+            <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
+              <div class="eyebrow">SIN CLIENTES CONFIRMADOS</div>
+              <h3 style="font-size:18px;font-weight:600;margin-top:6px;">Agregá y confirmá un cliente para armar su plan</h3>
+              <p style="color:var(--text-secondary);margin-top:6px;max-width:56ch;">
+                Dirigite a la sección Clientes para dar de alta una marca. Una vez que el cliente confirme «Sí, soy yo», podrás crearle sus semanas de Lunes a Viernes.
+              </p>
+              <button class="btn btn-signal" style="margin-top:14px;" onclick="state.activeTab='accounts';render();">Ir a Clientes →</button>
+            </div>
+          ` : !activeSchedule ? `
+            <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
+              <div class="eyebrow" style="color:var(--signal-subtle-fg);">PLAN SEMANAL</div>
+              <h3 style="font-size:18px;font-weight:600;margin-top:6px;">
+                ${isClient ? 'Tu agencia aún no publicó un plan para esta semana' : 'Todavía no hay semanas creadas para este cliente'}
+              </h3>
+              <p style="color:var(--text-secondary);margin-top:6px;max-width:54ch;">
+                ${isClient
+                  ? 'Te avisaremos apenas tu agencia cargue los bloques y videos de la semana.'
+                  : 'Creá la primera semana de Lunes a Viernes para empezar a cargar bloques de colores y programar videos.'}
+              </p>
+              ${!isClient ? `<button class="btn btn-signal" style="margin-top:14px;" onclick="openNewWeekModal()">+ Crear primera semana →</button>` : ''}
+            </div>
+          ` : `
+            <!-- Barra de Semana Activa + Resumen -->
+            <div class="week-toolbar">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div class="field" style="min-width:260px;">
+                  <label>SEMANA SELECCIONADA</label>
+                  <select class="input mono" style="padding:7px 10px;font-size:13px;"
+                    onchange="state.selectedScheduleId=this.value;render();">
+                    ${clientSchedules.map(s => `
+                      <option value="${s.id}" ${s.id === activeSchedule.id ? 'selected' : ''}>
+                        Lun ${fmtShortDate(s.weekStartDate, 0)} al Vie ${fmtShortDate(s.weekStartDate, 4)} — ${esc(s.title)}
+                      </option>
+                    `).join('')}
+                  </select>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:700;font-size:16px;">${esc(activeSchedule.title)}</span>
+                    ${activeSchedule.duplicatedFrom ? `
+                      <span class="badge badge-review" title="Semana creada por duplicación">
+                        ⎘ Duplicada de: ${esc(activeSchedule.duplicatedFrom.title)}
+                      </span>
+                    ` : ''}
+                  </div>
+                  ${activeSchedule.summaryNotes ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${esc(activeSchedule.summaryNotes)}</div>` : ''}
+                </div>
+              </div>
+
+              ${!isClient ? `
+                <button class="btn btn-signal" onclick="openBlockModal(1, null)">
+                  + Agregar bloque con video
+                </button>
+              ` : ''}
+            </div>
+
+            <div class="stats-strip">
+              <div class="stat-cell">
+                <div class="mono" style="font-size:19px;font-weight:700;">${items.length}</div>
+                <div class="eyebrow">BLOQUES EN LA SEMANA</div>
+              </div>
+              <div class="stat-cell">
+                <div class="mono" style="font-size:19px;font-weight:700;color:var(--signal-subtle-fg);">${withVideoCount}</div>
+                <div class="eyebrow">VIDEOS ANEXADOS</div>
+              </div>
+              <div class="stat-cell">
+                <div class="mono" style="font-size:19px;font-weight:700;color:var(--tally-live);">${autoCount}</div>
+                <div class="eyebrow">SUBIDA AUTOMÁTICA</div>
+              </div>
+              <div class="stat-cell">
+                <div class="mono" style="font-size:19px;font-weight:700;">Lun — Vie</div>
+                <div class="eyebrow">${fmtShortDate(activeSchedule.weekStartDate, 0)} AL ${fmtShortDate(activeSchedule.weekStartDate, 4)}</div>
+              </div>
+            </div>
+
+            <!-- CUADRÍCULA DE LUNES A VIERNES (5 COLUMNAS) -->
+            <div class="week-grid">
+              ${WEEKDAYS.map((day, idx) => {
+                const dayBlocks = items.filter(b => b.dayOfWeek === day.num);
+                const dateLabel = fmtShortDate(activeSchedule.weekStartDate, idx);
+                return `
+                  <section class="day-column" aria-label="${day.full}">
+                    <div class="day-col-header">
+                      <div>
+                        <div class="mono" style="font-weight:700;font-size:13px;color:var(--signal-subtle-fg);">${day.full}</div>
+                        <div class="mono" style="font-size:11px;color:var(--text-muted);">${dateLabel}</div>
+                      </div>
+                      <span class="badge">${dayBlocks.length}</span>
+                    </div>
+
+                    <div class="day-blocks-list">
+                      ${dayBlocks.length === 0 ? `
+                        <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 8px;color:var(--text-muted);font-size:12px;border:1px dashed var(--hairline);border-radius:4px;">
+                          Sin bloques cargados para el ${day.full.toLowerCase()}
+                        </div>
+                      ` : dayBlocks.map(blk => {
+                        const v = blk.video;
+                        const wf = v ? workflowMeta(v.workflowStatus) : null;
+                        const plats = v ? (v.platformTargets || []).map(p => p.platform) : [];
+                        const tags = v ? (v.hashtags || []).slice(0, 3).map(h => '#' + h.tag).join(' ') : '';
+                        return `
+                          <article class="plan-block-card color-${esc(blk.noteColor || 'AMBER')}"
+                            onclick="state.inspectBlockId='${blk.id}';state.confirmDeleteBlockId=null;render();">
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                              <span class="mono" style="font-size:11px;font-weight:700;color:var(--note-fg);">
+                                🕒 ${esc(blk.plannedTime || '18:00')} hs
+                              </span>
+                              ${v && blk.autoPublish ? `
+                                <span class="mono" style="font-size:10px;padding:1px 5px;border-radius:2px;background:var(--tally-live-bg);color:var(--tally-live);border:1px solid var(--tally-live);" title="Se subirá solo este día a la hora configurada">
+                                  ⚡ AUTO
+                                </span>
+                              ` : ''}
+                            </div>
+
+                            <div style="font-weight:700;font-size:13.5px;line-height:1.3;color:var(--text-primary);">
+                              ${esc(blk.blockTitle)}
+                            </div>
+
+                            ${blk.notes ? `
+                              <div style="font-size:12px;color:var(--text-secondary);line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">
+                                ${esc(blk.notes)}
+                              </div>
+                            ` : ''}
+
+                            ${v ? `
+                              <div style="margin-top:4px;padding-top:7px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:5px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
+                                  <span class="mono" style="font-size:11px;font-weight:600;color:var(--text-primary);">
+                                    🎬 ${fmtTimecode(v.durationSeconds)}
+                                  </span>
+                                  <span class="badge ${wf.cls}" style="font-size:10px;padding:1px 5px;">${wf.label}</span>
+                                </div>
+                                ${tags ? `<div class="mono" style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tags)}</div>` : ''}
+                                <div>${renderTriConduit(plats, v.workflowStatus, v.publications)}</div>
+                              </div>
+                            ` : `
+                              <div class="mono" style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
+                                Nota de pauta (sin video aún)
+                              </div>
+                            `}
+                          </article>
+                        `;
+                      }).join('')}
+                    </div>
+
+                    ${!isClient ? `
+                      <div class="day-col-footer">
+                        <button class="btn btn-outline" style="width:100%;padding:7px 8px;font-size:11px;"
+                          onclick="openBlockModal(${day.num}, null)">
+                          + Agregar bloque
+                        </button>
+                      </div>
+                    ` : ''}
+                  </section>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        ${state.showNewWeekModal ? renderNewWeekModal() : ''}
+        ${state.showDuplicateModal ? renderDuplicateWeekModal() : ''}
+        ${state.blockModalOpen ? renderBlockEditorModal() : ''}
+        ${state.inspectBlockId ? renderBlockInspectorModal() : ''}
+      `;
+    }
+
+    function renderNewWeekModal() {
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this){state.showNewWeekModal=false;render();}">
+          <div class="modal-panel" style="max-width:480px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="eyebrow">NUEVO CRONOGRAMA</div>
+                <h3 style="font-size:18px;font-weight:700;">Crear semana de Lunes a Viernes</h3>
+              </div>
+              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showNewWeekModal=false;render();">✕</button>
+            </div>
+
+            <div class="field">
+              <label>Fecha del lunes de inicio</label>
+              <input class="input mono" type="date" value="${esc(state.newWeekStart)}"
+                onchange="state.newWeekStart=this.value;render();" />
+            </div>
+
+            <div class="field">
+              <label>Título de la semana</label>
+              <input class="input" placeholder="Ej. Semana Lanzamiento Temporada" value="${esc(state.newWeekTitle)}"
+                oninput="state.newWeekTitle=this.value" />
+            </div>
+
+            <div class="field">
+              <label>Objetivo o nota general para el cliente (opcional)</label>
+              <textarea class="input" rows="2" placeholder="Ej. Foco en videos educativos cortos y promoción del viernes."
+                oninput="state.newWeekNotes=this.value">${esc(state.newWeekNotes)}</textarea>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+              <button class="btn btn-outline" onclick="state.showNewWeekModal=false;render();">Cancelar</button>
+              <button class="btn btn-signal" onclick="submitNewWeek()">Crear semana →</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDuplicateWeekModal() {
+      const sched = getActiveSchedule();
+      if (!sched) return '';
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this){state.showDuplicateModal=false;render();}">
+          <div class="modal-panel" style="max-width:520px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="eyebrow">DUPLICAR SEMANA CON REGISTRO</div>
+                <h3 style="font-size:18px;font-weight:700;">Duplicar «${esc(sched.title)}»</h3>
+              </div>
+              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showDuplicateModal=false;render();">✕</button>
+            </div>
+
+            <p style="font-size:13px;color:var(--text-secondary);">
+              Se copiarán los <strong>${(sched.items || []).length} bloques</strong> de Lunes a Viernes con sus colores, notas y horarios hacia la nueva semana, dejando constancia en el registro de duplicaciones.
+            </p>
+
+            <div class="field">
+              <label>Lunes de la semana destino</label>
+              <input class="input mono" type="date" value="${esc(state.dupTargetStart)}"
+                onchange="state.dupTargetStart=this.value;render();" />
+            </div>
+
+            <div class="field">
+              <label>Nombre para la nueva semana</label>
+              <input class="input" value="${esc(state.dupTitle)}" oninput="state.dupTitle=this.value" />
+            </div>
+
+            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px 12px;border:1px solid var(--hairline);background:var(--canvas);border-radius:4px;">
+              <input type="checkbox" style="margin-top:3px;" ${state.dupIncludeVideos ? 'checked' : ''}
+                onchange="state.dupIncludeVideos=this.checked;render();" />
+              <div>
+                <div style="font-weight:600;font-size:13px;">Copiar también los videos anexados y configuraciones</div>
+                <div style="font-size:12px;color:var(--text-muted);">Si lo desmarcás, se copiarán únicamente los bloques de colores, textos y horarios vacíos para subir videos nuevos.</div>
+              </div>
+            </label>
+
+            <div class="field">
+              <label>Nota para el registro de duplicaciones</label>
+              <input class="input" value="${esc(state.dupNotes)}" oninput="state.dupNotes=this.value" placeholder="Motivo o detalle del duplicado..." />
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;">
+              <button class="btn btn-outline" onclick="state.showDuplicateModal=false;render();">Cancelar</button>
+              <button class="btn btn-signal" onclick="submitDuplicateWeek()">⎘ Confirmar y duplicar semana</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBlockEditorModal() {
+      const dur = Math.max(1, parseInt(state.blkVideoDur || 30, 10));
+      const mb = (state.blkVideoSizeBytes / (1024 * 1024)).toFixed(1);
+
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this && !state.blkSaving){state.blockModalOpen=false;render();}">
+          <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
+              <div>
+                <div class="eyebrow">${state.editingBlockId ? 'EDITAR BLOQUE DEL PLAN' : 'NUEVO BLOQUE EN CUADRÍCULA'}</div>
+                <h3 style="font-size:19px;font-weight:700;">
+                  ${state.editingBlockId ? 'Configurar bloque y video del día' : 'Agregar bloque al día'}
+                </h3>
+              </div>
+              <button class="btn btn-outline" style="padding:4px 9px;" ${state.blkSaving ? 'disabled' : ''} onclick="state.blockModalOpen=false;render();">✕</button>
+            </div>
+
+            <!-- Día y Hora -->
+            <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px;">
+              <div class="field">
+                <label>Día de la semana (Lunes a Viernes)</label>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;">
+                  ${WEEKDAYS.map(d => `
+                    <button type="button" class="filter-tab ${state.blkDay === d.num ? 'active' : ''}"
+                      style="padding:8px 0;text-align:center;"
+                      onclick="state.blkDay=${d.num};render();">
+                      ${d.code}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Hora configurada</label>
+                <input class="input mono" type="time" value="${esc(state.blkTime)}"
+                  oninput="state.blkTime=this.value" />
+              </div>
+            </div>
+
+            <!-- Color de la Nota -->
+            <div class="field">
+              <label>Color del bloque</label>
+              <div class="swatch-row">
+                ${NOTE_COLORS.map(c => `
+                  <button type="button" class="swatch-btn color-${c.code} ${state.blkColor === c.code ? 'active' : ''}"
+                    onclick="state.blkColor='${c.code}';render();">
+                    <span class="swatch-dot"></span>
+                    <span>${c.label}</span>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <!-- Texto del Bloque -->
+            <div class="field">
+              <label>¿Qué se debe subir este día? (Título del bloque)</label>
+              <input class="input" placeholder="Ej. Reel educativo: 3 claves para elegir grano de café"
+                value="${esc(state.blkTitle)}" oninput="state.blkTitle=this.value" />
+            </div>
+
+            <div class="field">
+              <label>Notas e indicaciones del bloque (visible para el cliente)</label>
+              <textarea class="input" rows="2" placeholder="Detalle de la idea, gancho visual, llamada a la acción o recordatorios..."
+                oninput="state.blkNotes=this.value">${esc(state.blkNotes)}</textarea>
+            </div>
+
+            <!-- Anexar / Subir Video desde la sección Plan -->
+            <div style="border:1px solid ${state.blkAttachVideo ? 'var(--signal-subtle-fg)' : 'var(--border-strong)'};background:var(--inspector);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700;font-size:14px;">🎬 Video para publicar este día</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">
+                    Subí el video directamente acá y dejalo configurado para publicarse solo el ${WEEKDAYS.find(w => w.num === state.blkDay)?.full || 'día'} a las ${esc(state.blkTime)} hs.
+                  </div>
+                </div>
+                <button type="button" class="btn ${state.blkAttachVideo ? 'btn-fault' : 'btn-signal'}"
+                  onclick="state.blkAttachVideo=!state.blkAttachVideo;render();">
+                  ${state.blkAttachVideo ? 'Quitar video' : '+ Anexar / Subir video'}
+                </button>
+              </div>
+
+              ${state.blkAttachVideo ? `
+                <label class="dropzone-video">
+                  <input type="file" accept="video/mp4,video/quicktime,video/webm" style="display:none;"
+                    onchange="handleBlockVideoFileSelected(this)" />
+                  <div style="font-weight:600;color:var(--signal-subtle-fg);">
+                    ${state.blkVideoFile
+                      ? '✓ Archivo seleccionado: ' + esc(state.blkVideoFile.name) + ' (' + mb + ' MB · ' + dur + 's)'
+                      : (state.blkExistingStorageKey
+                          ? '✓ Video actual vinculado · Hacé clic si querés reemplazar el archivo'
+                          : '📂 Hacé clic acá para elegir un archivo de video (.mp4 / .mov) desde tu equipo')}
+                  </div>
+                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                    Detectamos duración y tamaño automáticamente para validar Instagram, TikTok y YouTube.
+                  </div>
+                </label>
+
+                ${state.blkVideoPreviewUrl ? `
+                  <div style="display:flex;justify-content:center;background:#000;border-radius:4px;overflow:hidden;max-height:220px;">
+                    <video src="${esc(state.blkVideoPreviewUrl)}" controls style="max-height:220px;max-width:100%;"></video>
+                  </div>
+                ` : ''}
+
+                <label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:9px 11px;border-radius:4px;background:var(--canvas);border:1px solid var(--tally-live);">
+                  <input type="checkbox" ${state.blkAutoPublish ? 'checked' : ''}
+                    onchange="state.blkAutoPublish=this.checked;render();" />
+                  <div>
+                    <div style="font-weight:600;font-size:13px;color:var(--tally-live);">
+                      ⚡ Subir automáticamente ese día a la hora configurada (${esc(state.blkTime)} hs)
+                    </div>
+                    <div style="font-size:11.5px;color:var(--text-secondary);">
+                      El sistema publicará el video automáticamente en las plataformas elegidas al llegar la fecha y hora del bloque.
+                    </div>
+                  </div>
+                </label>
+
+                <div class="field">
+                  <label>Plataformas donde se subirá</label>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                    ${[
+                      { key: 'INSTAGRAM', prop: 'blkPlatIG' },
+                      { key: 'TIKTOK',    prop: 'blkPlatTT' },
+                      { key: 'YOUTUBE',   prop: 'blkPlatYT' }
+                    ].map(p => {
+                      const active = state[p.prop];
+                      const lim = PLATFORM_LIMITS[p.key];
+                      const ok = dur <= lim.maxSec;
+                      return `
+                        <button type="button" style="padding:9px 10px;border-radius:4px;text-align:left;background:var(--canvas);border:1px solid ${active ? (ok ? 'var(--tally-live)' : 'var(--tally-fault)') : 'var(--hairline)'};"
+                          onclick="state.${p.prop}=!state.${p.prop};render();">
+                          <div style="font-weight:700;font-size:12px;color:${active ? 'var(--text-primary)' : 'var(--text-muted)'};">
+                            ${active ? '✓ ' : ''}${lim.name}
+                          </div>
+                          <div class="mono" style="font-size:10.5px;color:${!active ? 'var(--text-muted)' : (ok ? 'var(--tally-live)' : 'var(--tally-fault)')};margin-top:2px;">
+                            ${!active ? 'Omitido' : (ok ? 'Compatible' : 'Máx ' + lim.maxSec + 's')}
+                          </div>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div class="field">
+                    <label>Título del video</label>
+                    <input class="input" placeholder="Título para la publicación" value="${esc(state.blkVideoTitle)}"
+                      oninput="state.blkVideoTitle=this.value" />
+                  </div>
+                  <div class="field">
+                    <label>Hashtags</label>
+                    <input class="input mono" placeholder="#marca #reels #shorts" value="${esc(state.blkVideoTags)}"
+                      oninput="state.blkVideoTags=this.value" />
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>Descripción / Texto de la publicación</label>
+                  <textarea class="input" rows="2" placeholder="Escribí el copy que saldrá publicado en las redes seleccionadas..."
+                    oninput="state.blkVideoDesc=this.value">${esc(state.blkVideoDesc)}</textarea>
+                </div>
+
+                <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" ${state.blkShareFeed ? 'checked' : ''} onchange="state.blkShareFeed=this.checked" />
+                    Compartir en Feed principal
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" ${state.blkAllowComments ? 'checked' : ''} onchange="state.blkAllowComments=this.checked" />
+                    Permitir comentarios
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" ${state.blkAllowDuet ? 'checked' : ''} onchange="state.blkAllowDuet=this.checked" />
+                    Permitir Dúo / Remix
+                  </label>
+                </div>
+              ` : ''}
+            </div>
+
+            ${state.blkUploadProgress > 0 ? `
+              <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:10px 12px;border-radius:4px;">
+                <div class="mono" style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--signal-subtle-fg);">
+                  <span>SUBIENDO ARCHIVO DE VIDEO...</span>
+                  <span id="blk-upload-pct">${state.blkUploadProgress}%</span>
+                </div>
+                <div style="height:5px;background:var(--hairline);margin-top:6px;border-radius:2px;overflow:hidden;">
+                  <div id="blk-upload-bar" class="s3-progress-fill" style="width:${state.blkUploadProgress}%;"></div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${state.blkError ? `
+              <div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">
+                ${esc(state.blkError)}
+              </div>
+            ` : ''}
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:6px;border-top:1px solid var(--hairline);">
+              <button class="btn btn-outline" ${state.blkSaving ? 'disabled' : ''} onclick="state.blockModalOpen=false;render();">Cancelar</button>
+              <button class="btn btn-signal" ${state.blkSaving ? 'disabled' : ''} onclick="submitBlockModal()">
+                ${state.blkSaving ? 'Guardando…' : (state.editingBlockId ? 'Guardar cambios del bloque' : 'Guardar bloque en el Plan →')}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBlockInspectorModal() {
+      const sched = getActiveSchedule();
+      const blk = (sched?.items || []).find(x => x.id === state.inspectBlockId);
+      if (!blk) {
+        state.inspectBlockId = null;
+        return '';
+      }
+      const isClient = state.session.role === 'CLIENTE';
+      const dayObj = WEEKDAYS.find(d => d.num === blk.dayOfWeek) || { full: 'Día', num: 1 };
+      const dateStr = sched ? fmtShortDate(sched.weekStartDate, blk.dayOfWeek - 1) : '';
+      const v = blk.video;
+      const wf = v ? workflowMeta(v.workflowStatus) : null;
+      const plats = v ? (v.platformTargets || []).map(p => p.platform) : [];
+      const hasPlayableUpload = v && v.publicVideoUrl && v.publicVideoUrl.startsWith('/uploads/');
+
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this){state.inspectBlockId=null;render();}">
+          <div class="modal-panel">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
+              <div>
+                <div class="mono" style="font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">
+                  ${dayObj.full.toUpperCase()} ${dateStr} · ${esc(blk.plannedTime || '18:00')} HS
+                </div>
+                <h3 style="font-size:20px;font-weight:700;margin-top:3px;">${esc(blk.blockTitle)}</h3>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                ${wf ? `<span class="badge ${wf.cls}">${wf.label}</span>` : `<span class="badge">NOTA DE PAUTA</span>`}
+                <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.inspectBlockId=null;render();">✕</button>
+              </div>
+            </div>
+
+            ${blk.notes ? `
+              <div class="color-${esc(blk.noteColor || 'AMBER')}" style="border-left:4px solid var(--note-fg);background:var(--note-bg);padding:12px 14px;border-radius:4px;">
+                <div class="eyebrow" style="color:var(--note-fg);margin-bottom:4px;">PAUTA DEL DÍA</div>
+                <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${esc(blk.notes)}</div>
+              </div>
+            ` : ''}
+
+            ${v ? `
+              <div style="border:1px solid var(--hairline);background:var(--inspector);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                  <div>
+                    <div class="eyebrow">VIDEO CONFIGURADO</div>
+                    <div style="font-weight:700;font-size:16px;margin-top:2px;">${esc(v.title)}</div>
+                  </div>
+                  ${renderTriConduit(plats, v.workflowStatus, v.publications)}
+                </div>
+
+                ${hasPlayableUpload ? `
+                  <div style="background:#000;border-radius:4px;overflow:hidden;display:flex;justify-content:center;max-height:280px;">
+                    <video src="${esc(v.publicVideoUrl)}" controls style="max-height:280px;max-width:100%;"></video>
+                  </div>
+                ` : `
+                  <div style="display:flex;gap:14px;align-items:center;">
+                    <div class="reel-frame" style="width:68px;background:${reelBg(v.title)};">
+                      <span class="reel-tag">9:16</span>
+                      <span class="reel-tag" style="align-self:flex-end;">${fmtTimecode(v.durationSeconds)}</span>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+                      <div style="font-size:13.5px;color:var(--text-secondary);line-height:1.45;">${esc(v.description)}</div>
+                      <div class="mono" style="font-size:12px;color:var(--text-muted);">
+                        ${(v.hashtags || []).map(h => '#' + esc(h.tag)).join(' ')}
+                      </div>
+                    </div>
+                  </div>
+                `}
+
+                ${hasPlayableUpload ? `
+                  <div style="font-size:13.5px;color:var(--text-secondary);line-height:1.45;">${esc(v.description)}</div>
+                  <div class="mono" style="font-size:12px;color:var(--text-muted);">
+                    ${(v.hashtags || []).map(h => '#' + esc(h.tag)).join(' ')}
+                  </div>
+                ` : ''}
+
+                <div style="font-size:12.5px;color:${blk.autoPublish ? 'var(--tally-live)' : 'var(--text-secondary)'};font-weight:600;">
+                  ${blk.autoPublish
+                    ? `⚡ Subida automática activada para el ${dayObj.full} ${dateStr} a las ${esc(blk.plannedTime)} hs en ${plats.map(p => PLATFORM_LIMITS[p].name).join(', ')}.`
+                    : 'Subida manual sujeta a confirmación.'}
+                </div>
+
+                <!-- Comentarios del Video -->
+                ${(v.comments || []).length > 0 ? `
+                  <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:6px;">
+                    <div class="eyebrow">COMENTARIOS</div>
+                    ${v.comments.map(c => `
+                      <div style="border-left:2px solid var(--signal-subtle-fg);padding-left:9px;font-size:13px;">
+                        <span class="mono" style="font-size:11px;color:var(--text-muted);">${esc(c.authorUser?.fullName || 'Usuario')}:</span>
+                        <div>${esc(c.message)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+
+                <!-- Controles de Visado / Comentarios -->
+                ${v.workflowStatus !== 'PUBLISHED' ? `
+                  <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+                    <div class="field">
+                      <label>${isClient ? 'Dejar observación o aprobar este video' : 'Agregar nota sobre el video'}</label>
+                      <div style="display:flex;gap:8px;">
+                        <input id="inspect-review-note" class="input" placeholder="Escribí un comentario o sugerencia..." />
+                        <button class="btn btn-outline" onclick="submitVideoComment('${v.id}')">Comentar</button>
+                      </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;">
+                      <button class="btn btn-signal" onclick="submitVideoReview('${v.id}','APPROVED')">✓ Aprobar contenido</button>
+                      <button class="btn btn-warn" onclick="submitVideoReview('${v.id}','CHANGES_REQUESTED')">Pedir ajustes</button>
+                      <button class="btn btn-fault" onclick="submitVideoReview('${v.id}','REJECTED')">Rechazar</button>
+                    </div>
+                  </div>
+                ` : ''}
+
+                ${!isClient && v.workflowStatus !== 'PUBLISHED' ? `
+                  <div style="display:flex;justify-content:flex-end;">
+                    <button class="btn btn-live" onclick="publishVideoNow('${v.id}')">
+                      Publicar ahora mismo en ${plats.length} ${plats.length === 1 ? 'red' : 'redes'} →
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+            ` : `
+              <div style="border:1px dashed var(--border-strong);border-radius:4px;padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;">
+                ${isClient
+                  ? 'Tu agencia dejó pautado este tema para el día, y anexará el video correspondiente próximamente.'
+                  : 'Este bloque aún no tiene un archivo de video anexado.'}
+              </div>
+            `}
+
+            ${!isClient ? `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--hairline);flex-wrap:wrap;gap:8px;">
+                ${state.confirmDeleteBlockId === blk.id ? `
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <span style="font-size:12px;color:var(--tally-fault);font-weight:600;">¿Eliminar este bloque?</span>
+                    <button class="btn btn-fault" style="padding:5px 10px;" onclick="deleteBlockConfirmed('${blk.id}')">Sí, eliminar</button>
+                    <button class="btn btn-outline" style="padding:5px 10px;" onclick="state.confirmDeleteBlockId=null;render();">Cancelar</button>
+                  </div>
+                ` : `
+                  <button class="btn btn-fault" onclick="state.confirmDeleteBlockId='${blk.id}';render();">Eliminar bloque</button>
+                `}
+                <button class="btn btn-signal" onclick='openBlockModal(${blk.dayOfWeek}, ${JSON.stringify(blk).replace(/'/g, "&#39;")})'>
+                  ${v ? 'Editar bloque / Cambiar video' : '+ Subir video o editar bloque'}
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // PANTALLA 2: IDEAS DE CONTENIDO (PRIVADA DE LA AGENCIA, SECCIONES, FILTROS)
+    // =========================================================================
+    function renderIdeasScreen() {
+      const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      const q = state.ideaSearch.trim().toLowerCase();
+
+      const filteredIdeas = state.ideas.filter(idea => {
+        const matchSec = state.ideaSectionFilter === 'ALL' || idea.sectionId === state.ideaSectionFilter;
+        const matchCl =
+          state.ideaClientFilter === 'ALL' ||
+          (state.ideaClientFilter === 'GENERAL' && !idea.clientId) ||
+          idea.clientId === state.ideaClientFilter;
+        const matchQ =
+          !q ||
+          idea.title.toLowerCase().includes(q) ||
+          idea.content.toLowerCase().includes(q) ||
+          (idea.section?.name || '').toLowerCase().includes(q);
+        return matchSec && matchCl && matchQ;
+      });
+
+      const activeSectionObj = state.ideaSections.find(s => s.id === state.ideaSectionFilter) || null;
+
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--hairline);">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="eyebrow">BANCO CREATIVO</span>
+                <span class="badge badge-review">🔒 PRIVADO DE TU AGENCIA</span>
+              </div>
+              <h2 style="font-size:24px;font-weight:700;margin-top:4px;">Ideas de contenido</h2>
+              <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
+                Guardá guiones, ganchos y formatos divididos en tus propias secciones (Entretenimiento, Educativo, Venta y más). Tus clientes nunca ven este espacio.
+              </p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="state.showNewSectionForm=!state.showNewSectionForm;render();">
+                ${state.showNewSectionForm ? 'Cerrar' : '+ Nueva sección'}
+              </button>
+              <button class="btn btn-signal" onclick="openIdeaModal(null)">
+                + Nueva idea
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulario rápido para crear Sección personalizada -->
+          ${state.showNewSectionForm ? `
+            <div class="feedback-enter" style="border:1px solid var(--border-strong);background:var(--stage);border-radius:5px;padding:15px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+              <div class="field" style="flex:1;min-width:210px;">
+                <label>Nombre de la nueva sección</label>
+                <input class="input" placeholder="Ej. Tendencias, Testimonios, Detrás de escena..."
+                  value="${esc(state.newSectionName)}" oninput="state.newSectionName=this.value" />
+              </div>
+              <div class="field">
+                <label>Color identificatorio</label>
+                <div class="swatch-row">
+                  ${NOTE_COLORS.map(c => `
+                    <button type="button" class="swatch-btn color-${c.code} ${state.newSectionColor === c.code ? 'active' : ''}"
+                      onclick="state.newSectionColor='${c.code}';render();">
+                      <span class="swatch-dot"></span> ${c.label}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+              <button class="btn btn-signal" onclick="submitNewIdeaSection()">Guardar sección</button>
+            </div>
+          ` : ''}
+
+          <!-- Pestañas de Secciones Creadas por la Agencia -->
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="filter-row">
+              <button class="filter-tab ${state.ideaSectionFilter === 'ALL' ? 'active' : ''}"
+                onclick="state.ideaSectionFilter='ALL';state.confirmDeleteSectionId=null;render();">
+                Todas (${state.ideas.length})
+              </button>
+              ${state.ideaSections.map(sec => {
+                const count = state.ideas.filter(i => i.sectionId === sec.id).length;
+                return `
+                  <button class="filter-tab ${state.ideaSectionFilter === sec.id ? 'active' : ''}"
+                    onclick="state.ideaSectionFilter='${sec.id}';state.confirmDeleteSectionId=null;render();">
+                    ${esc(sec.name)} (${count})
+                  </button>
+                `;
+              }).join('')}
+            </div>
+
+            ${activeSectionObj ? (
+              state.confirmDeleteSectionId === activeSectionObj.id ? `
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:12px;color:var(--tally-fault);">¿Eliminar sección «${esc(activeSectionObj.name)}» y sus ideas?</span>
+                  <button class="btn btn-fault" style="padding:4px 9px;" onclick="deleteIdeaSectionConfirmed('${activeSectionObj.id}')">Sí, eliminar</button>
+                  <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.confirmDeleteSectionId=null;render();">No</button>
+                </div>
+              ` : `
+                <button class="btn btn-outline" style="padding:5px 10px;font-size:11px;"
+                  onclick="state.confirmDeleteSectionId='${activeSectionObj.id}';render();">
+                  Eliminar sección «${esc(activeSectionObj.name)}»
+                </button>
+              `
+            ) : ''}
+          </div>
+
+          <!-- Buscador y Filtro por Marca -->
+          <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;">
+            <input class="input" placeholder="Buscar ideas por título, palabra clave o guion..."
+              value="${esc(state.ideaSearch)}" oninput="state.ideaSearch=this.value;render();" />
+            <select class="input" onchange="state.ideaClientFilter=this.value;render();">
+              <option value="ALL" ${state.ideaClientFilter === 'ALL' ? 'selected' : ''}>Todas las marcas y generales</option>
+              <option value="GENERAL" ${state.ideaClientFilter === 'GENERAL' ? 'selected' : ''}>Solo ideas generales de la agencia</option>
+              ${confirmedClients.map(c => `
+                <option value="${c.id}" ${state.ideaClientFilter === c.id ? 'selected' : ''}>Marca: ${esc(c.companyName)}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Grilla de Ideas -->
+          ${filteredIdeas.length === 0 ? `
+            <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;text-align:center;">
+              <div style="font-weight:600;font-size:16px;">No hay ideas que coincidan con este filtro</div>
+              <p style="color:var(--text-secondary);font-size:13px;margin-top:4px;">
+                Agregá una nueva idea en segundos o limpiá los filtros activos.
+              </p>
+              <div style="margin-top:12px;display:flex;justify-content:center;gap:8px;">
+                <button class="btn btn-outline" onclick="state.ideaSectionFilter='ALL';state.ideaClientFilter='ALL';state.ideaSearch='';render();">Ver todas</button>
+                <button class="btn btn-signal" onclick="openIdeaModal(null)">+ Guardar idea</button>
+              </div>
+            </div>
+          ` : `
+            <div class="ideas-grid">
+              ${filteredIdeas.map(idea => {
+                const secColor = idea.section?.color || 'LIME';
+                const plats = String(idea.platforms || '').split(',').filter(Boolean);
+                return `
+                  <article class="idea-card color-${esc(secColor)}">
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                        <span class="badge" style="color:var(--note-fg);border-color:var(--note-fg);background:var(--note-bg);">
+                          ${esc(idea.section?.name || 'Sección')}
+                        </span>
+                        <button class="btn btn-outline" style="padding:3px 7px;font-size:11px;"
+                          title="${idea.isPinned ? 'Quitar fijado' : 'Fijar arriba'}"
+                          onclick="togglePinIdea('${idea.id}', ${Boolean(idea.isPinned)})">
+                          ${idea.isPinned ? '📌 Fijada' : '☆ Fijar'}
+                        </button>
+                      </div>
+
+                      <h3 style="font-size:16px;font-weight:700;line-height:1.3;">${esc(idea.title)}</h3>
+                      <p style="font-size:13px;color:var(--text-secondary);line-height:1.48;white-space:pre-wrap;">${esc(idea.content)}</p>
+
+                      ${idea.referenceUrl ? `
+                        <a href="${esc(idea.referenceUrl)}" target="_blank" rel="noopener noreferrer"
+                           style="font-size:12px;color:var(--signal-subtle-fg);text-decoration:underline;word-break:break-all;">
+                          🔗 Ver referencia
+                        </a>
+                      ` : ''}
+                    </div>
+
+                    <div style="padding-top:10px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:8px;">
+                      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted);" class="mono">
+                        <span>${idea.client ? esc(idea.client.companyName) : 'General Agencia'}</span>
+                        <span>${plats.map(p => PLATFORM_LIMITS[p]?.code || p).join(' · ')}</span>
+                      </div>
+
+                      ${state.confirmDeleteIdeaId === idea.id ? `
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;background:var(--tally-fault-bg);padding:6px 8px;border-radius:4px;">
+                          <span style="font-size:12px;color:var(--tally-fault);font-weight:600;">¿Eliminar idea?</span>
+                          <div style="display:flex;gap:6px;">
+                            <button class="btn btn-fault" style="padding:4px 8px;" onclick="deleteIdeaConfirmed('${idea.id}')">Sí</button>
+                            <button class="btn btn-outline" style="padding:4px 8px;" onclick="state.confirmDeleteIdeaId=null;render();">No</button>
+                          </div>
+                        </div>
+                      ` : `
+                        <div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">
+                          <button class="btn btn-signal" style="padding:5px 9px;font-size:11px;"
+                            onclick="sendIdeaToPlan('${idea.id}')">
+                            Llevar al Plan →
+                          </button>
+                          <div style="display:flex;gap:6px;">
+                            <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;"
+                              onclick='openIdeaModal(${JSON.stringify(idea).replace(/'/g, "&#39;")})'>
+                              Editar
+                            </button>
+                            <button class="btn btn-fault" style="padding:5px 9px;font-size:11px;"
+                              onclick="state.confirmDeleteIdeaId='${idea.id}';render();">
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      `}
+                    </div>
+                  </article>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+
+        ${state.ideaModalOpen ? renderIdeaModal() : ''}
+      `;
+    }
+
+    function renderIdeaModal() {
+      const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this){state.ideaModalOpen=false;render();}">
+          <div class="modal-panel" style="max-width:560px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--hairline);">
+              <div>
+                <div class="eyebrow">IDEA PRIVADA DE AGENCIA</div>
+                <h3 style="font-size:19px;font-weight:700;">${state.editingIdeaId ? 'Editar idea de contenido' : 'Nueva idea de contenido'}</h3>
+              </div>
+              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.ideaModalOpen=false;render();">✕</button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div class="field">
+                <label>Sección</label>
+                <select class="input" onchange="state.ideaFormSectionId=this.value">
+                  ${state.ideaSections.map(s => `
+                    <option value="${s.id}" ${state.ideaFormSectionId === s.id ? 'selected' : ''}>${esc(s.name)}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="field">
+                <label>Marca / Cliente (opcional)</label>
+                <select class="input" onchange="state.ideaFormClientId=this.value">
+                  <option value="" ${!state.ideaFormClientId ? 'selected' : ''}>General de mi agencia</option>
+                  ${confirmedClients.map(c => `
+                    <option value="${c.id}" ${state.ideaFormClientId === c.id ? 'selected' : ''}>${esc(c.companyName)}</option>
+                  `).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Título o gancho principal</label>
+              <input class="input" placeholder="Ej. 5 preguntas frecuentes antes de contratar el servicio"
+                value="${esc(state.ideaFormTitle)}" oninput="state.ideaFormTitle=this.value" />
+            </div>
+
+            <div class="field">
+              <label>Desarrollo, estructura o guion</label>
+              <textarea class="input" rows="4" placeholder="Anotá planos, guion hablado, remate o llamada a la acción..."
+                oninput="state.ideaFormContent=this.value">${esc(state.ideaFormContent)}</textarea>
+            </div>
+
+            <div class="field">
+              <label>Enlace de referencia / inspiración (opcional)</label>
+              <input class="input" placeholder="https://..." value="${esc(state.ideaFormRefUrl)}"
+                oninput="state.ideaFormRefUrl=this.value" />
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+              <div style="display:flex;gap:6px;">
+                ${[
+                  { code: 'IG', prop: 'ideaFormPlatIG' },
+                  { code: 'TT', prop: 'ideaFormPlatTT' },
+                  { code: 'YT', prop: 'ideaFormPlatYT' }
+                ].map(p => `
+                  <button type="button" class="filter-tab ${state[p.prop] ? 'active' : ''}"
+                    onclick="state.${p.prop}=!state.${p.prop};render();">
+                    ${p.code}
+                  </button>
+                `).join('')}
+              </div>
+
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" ${state.ideaFormPinned ? 'checked' : ''} onchange="state.ideaFormPinned=this.checked" />
+                📌 Fijar como destacada
+              </label>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--hairline);">
+              <button class="btn btn-outline" onclick="state.ideaModalOpen=false;render();">Cancelar</button>
+              <button class="btn btn-signal" onclick="submitIdeaModal()">Guardar idea →</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // PANTALLA 3: CLIENTES (CON CONFIRMACIÓN DE SEGURIDAD "SÍ, SOY YO")
+    // =========================================================================
+    function renderAccountsScreen() {
+      const role = state.session.role;
+      const isClient = role === 'CLIENTE';
+
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:22px;">
+          <section style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid var(--hairline);flex-wrap:wrap;gap:10px;">
+              <div>
+                <div class="eyebrow">${isClient ? 'PERFIL DE MARCA' : 'CARTERA DE CLIENTES'}</div>
+                <h2 style="font-size:24px;font-weight:700;margin-top:2px;">
+                  ${isClient ? 'Mi marca y canales conectados' : 'Clientes y verificación de identidad'}
+                </h2>
+              </div>
+              ${!isClient ? `
+                <button class="btn btn-signal" onclick="state.showNewClientForm=!state.showNewClientForm;render();">
+                  ${state.showNewClientForm ? 'Cerrar' : '+ Nuevo cliente'}
+                </button>
+              ` : ''}
+            </div>
+
+            ${state.showNewClientForm ? `
+              <div class="feedback-enter" style="border:1px solid var(--border-strong);background:var(--stage);padding:18px;border-radius:5px;display:flex;flex-direction:column;gap:12px;">
+                <div style="font-weight:700;font-size:15px;">Invitar y registrar un nuevo Cliente</div>
+                <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;padding:10px 12px;border-radius:4px;background:var(--inspector);border-left:3px solid var(--signal-subtle-fg);">
+                  🛡️ <strong>Medida de seguridad activa:</strong> Al guardar este formulario, enviaremos una notificación interna y un correo electrónico a la dirección indicada. El perfil permanecerá pendiente hasta que el titular presione <strong>«Sí, soy yo»</strong>, evitando que se creen perfiles con correos ajenos.
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+                  <div class="field">
+                    <label>Empresa / Marca</label>
+                    <input id="cl-name" class="input" placeholder="Ej. Kafecito Roasters" />
+                  </div>
+                  <div class="field">
+                    <label>Rubro / Industria</label>
+                    <input id="cl-ind" class="input" placeholder="Ej. Gastronomía" />
+                  </div>
+                  <div class="field">
+                    <label>Nombre del responsable</label>
+                    <input id="cl-contact" class="input" placeholder="Ej. Martín Gómez" />
+                  </div>
+                  <div class="field">
+                    <label>Correo electrónico del cliente</label>
+                    <input id="cl-mail" class="input" type="email" placeholder="cliente@empresa.com" />
+                  </div>
+                  <div class="field">
+                    <label>Contraseña inicial asignada</label>
+                    <input id="cl-pass" class="input" type="password" value="ContentSync2026!" />
+                  </div>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                  <button class="btn btn-outline" onclick="state.showNewClientForm=false;render();">Cancelar</button>
+                  <button class="btn btn-signal" onclick="createClientFromForm()">Enviar solicitud «Sí, soy yo» →</button>
+                </div>
+              </div>
+            ` : ''}
+
+            ${state.clients.length === 0 ? `
+              <div style="border:1px solid var(--hairline);background:var(--stage);padding:24px;border-radius:5px;color:var(--text-secondary);">
+                No hay clientes vinculados aún.
+              </div>
+            ` : state.clients.map(cl => {
+              const isConfirmed = cl.confirmationStatus === 'CONFIRMED';
+              return `
+                <div style="border:1px solid ${isConfirmed ? 'var(--hairline)' : 'var(--tally-warn)'};background:var(--stage);border-radius:5px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                    <div>
+                      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                        <span class="eyebrow">${esc(cl.industry)} · ${esc(cl.agencyName)}</span>
+                        ${isConfirmed
+                          ? `<span class="badge badge-live">✓ Confirmado («Sí, soy yo»)</span>`
+                          : `<span class="badge badge-warn"><span class="tally-dot"></span> Esperando «Sí, soy yo» del cliente</span>`}
+                      </div>
+                      <h3 style="font-size:18px;font-weight:700;margin-top:4px;">${esc(cl.companyName)}</h3>
+                      <div style="font-size:13px;color:var(--text-secondary);">
+                        Contacto: ${esc(cl.contactFullName)} (${esc(cl.contactEmail)})
+                      </div>
+                    </div>
+
+                    ${!isClient ? `
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        ${!isConfirmed ? `
+                          <button class="btn btn-warn" style="padding:6px 10px;" onclick="resendClientConfirmation('${cl.id}')">
+                            Reenviar confirmación
+                          </button>
+                        ` : `
+                          <button class="btn btn-outline" style="padding:6px 10px;"
+                            onclick="state.selectedClientId='${cl.id}';syncSelectedScheduleForClient();state.activeTab='schedules';render();">
+                            Ver Plan →
+                          </button>
+                        `}
+
+                        ${state.confirmDeleteClientId === cl.id ? `
+                          <button class="btn btn-fault" style="padding:6px 10px;" onclick="deleteClientConfirmed('${cl.id}')">Confirmar baja</button>
+                          <button class="btn btn-outline" style="padding:6px 10px;" onclick="state.confirmDeleteClientId=null;render();">Cancelar</button>
+                        ` : `
+                          <button class="btn btn-outline" style="padding:6px 10px;" onclick="state.confirmDeleteClientId='${cl.id}';render();">Eliminar</button>
+                        `}
+                      </div>
+                    ` : ''}
+                  </div>
+
+                  ${isConfirmed ? `
+                    <div class="patchbay-grid">
+                      ${['INSTAGRAM','TIKTOK','YOUTUBE'].map(p => {
+                        const conn = cl.connections[p];
+                        const lim = PLATFORM_LIMITS[p];
+                        return `
+                          <button class="patchbay-slot" style="border:1px solid ${conn.connected ? 'var(--tally-live)' : 'var(--hairline)'};"
+                            onclick="toggleOAuth('${cl.id}','${p}')">
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                              <span class="mono" style="font-weight:700;font-size:12px;">${lim.code} · ${lim.name}</span>
+                              <span class="tally-dot ${conn.connected ? '' : 'static'}" style="color:${conn.connected ? 'var(--tally-live)' : 'var(--text-muted)'};"></span>
+                            </div>
+                            <div style="font-size:13px;margin-top:5px;color:${conn.connected ? 'var(--text-primary)' : 'var(--text-muted)'};">
+                              ${conn.connected ? esc(conn.handle) : 'Sin conectar'}
+                            </div>
+                            <div class="mono" style="font-size:11px;margin-top:4px;color:${conn.connected ? 'var(--tally-live)' : 'var(--text-muted)'};">
+                              ${conn.connected ? 'CONECTADO' : 'CONECTAR →'}
+                            </div>
+                          </button>
+                        `;
+                      }).join('')}
+                    </div>
+                  ` : `
+                    <div style="font-size:12.5px;color:var(--tally-warn);background:var(--tally-warn-bg);padding:9px 12px;border-radius:4px;">
+                      Hasta que ${esc(cl.contactEmail)} inicie sesión o abra su correo y presione <strong>«Sí, soy yo»</strong>, este perfil permanece protegido y no permite subir ni programar contenido.
+                    </div>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </section>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // PANTALLA 4: HISTORIAL Y NOTIFICACIONES INTERACTIVAS
+    // =========================================================================
+    function renderHistoryScreen() {
+      const q = state.histQuery.trim().toLowerCase();
+      const vids = state.videos.filter(v => {
+        const plats = (v.platformTargets || []).map(pt => pt.platform);
+        const matchQ = !q || v.title.toLowerCase().includes(q) || (v.client?.companyName || '').toLowerCase().includes(q);
+        const matchP = !state.histPlatform || plats.includes(state.histPlatform);
+        return matchQ && matchP;
+      });
+
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
+          <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+            <div class="eyebrow">CENTRO DE ACTIVIDAD</div>
+            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Notificaciones e historial</h2>
+          </div>
+
+          <!-- Centro de Notificaciones (Incluye confirmación interactiva "Sí, soy yo") -->
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div class="eyebrow">AVISOS Y NOTIFICACIONES</div>
+            ${state.notifications.length === 0 ? `
+              <div style="border:1px solid var(--hairline);background:var(--stage);padding:16px;border-radius:4px;color:var(--text-muted);font-size:13px;">
+                No tenés notificaciones nuevas.
+              </div>
+            ` : state.notifications.map(n => {
+              const isConfirmReq = n.type === 'CLIENT_CONFIRMATION_REQUEST' && !n.isRead && state.pendingConfirmation;
+              return `
+                <div style="border:1px solid ${n.isRead ? 'var(--hairline)' : 'var(--signal-subtle-fg)'};background:${n.isRead ? 'var(--stage)' : 'var(--inspector)'};padding:13px 15px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <div style="max-width:680px;">
+                    <div style="font-weight:600;font-size:14px;">${esc(n.title)}</div>
+                    <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">${esc(n.body)}</div>
+                    <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtDateTimeHuman(n.createdAt)}</div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${isConfirmReq ? `
+                      <button class="btn btn-signal" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'ACCEPT')">
+                        ✓ Sí, soy yo
+                      </button>
+                      <button class="btn btn-fault" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'REJECT')">
+                        ✕ No soy yo
+                      </button>
+                    ` : (!n.isRead ? `
+                      <button class="btn btn-outline" style="padding:5px 10px;" onclick="markNotificationRead('${n.id}')">Marcar leída</button>
+                    ` : '')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div style="border-top:1px solid var(--hairline);padding-top:14px;display:flex;flex-direction:column;gap:12px;">
+            <div class="eyebrow">VIDEOS CARGADOS Y PUBLICACIONES</div>
+            <input class="input" placeholder="Buscar por título o marca..." value="${esc(state.histQuery)}" oninput="state.histQuery=this.value;render();" />
+
+            <div class="filter-row">
+              <button class="filter-tab ${!state.histPlatform ? 'active' : ''}" onclick="state.histPlatform=null;render();">Todas las redes</button>
+              ${['INSTAGRAM','TIKTOK','YOUTUBE'].map(p => `
+                <button class="filter-tab ${state.histPlatform === p ? 'active' : ''}" onclick="state.histPlatform='${p}';render();">
+                  ${PLATFORM_LIMITS[p].code} · ${PLATFORM_LIMITS[p].name}
+                </button>
+              `).join('')}
+            </div>
+
+            ${vids.length === 0 ? `
+              <div style="border:1px solid var(--hairline);background:var(--stage);padding:18px;border-radius:4px;color:var(--text-secondary);">
+                Sin videos registrados para este filtro.
+              </div>
+            ` : vids.map(v => {
+              const wf = workflowMeta(v.workflowStatus);
+              const plats = (v.platformTargets || []).map(pt => pt.platform);
+              return `
+                <div style="border:1px solid var(--hairline);background:var(--stage);padding:14px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <div>
+                    <div class="mono" style="font-size:11px;color:var(--text-muted);">${esc(v.client?.companyName || '')} · ${fmtDateTimeHuman(v.createdAt)}</div>
+                    <div style="font-weight:600;margin-top:2px;">${esc(v.title)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <span class="badge ${wf.cls}">${wf.label}</span>
+                    ${renderTriConduit(plats, v.workflowStatus, v.publications)}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderSettingsScreen() {
+      const s = state.session;
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
+          <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+            <div class="eyebrow">TU CUENTA</div>
+            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Ajustes</h2>
+          </div>
+
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <div class="eyebrow">DATOS DE SESIÓN</div>
+            <div style="font-size:20px;font-weight:700;">${esc(s.fullName)}</div>
+            <div style="border-top:1px solid var(--hairline);padding-top:10px;display:grid;gap:6px;" class="mono">
+              <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text-muted);">CORREO</span><span>${esc(s.email)}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text-muted);">JERARQUÍA</span><span>${esc(s.role)}</span></div>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <div class="eyebrow">APARIENCIA</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn ${state.theme === 'dark' ? 'btn-signal' : 'btn-outline'}" onclick="setTheme('dark')">Tema oscuro</button>
+              <button class="btn ${state.theme === 'light' ? 'btn-signal' : 'btn-outline'}" onclick="setTheme('light')">Tema claro</button>
+            </div>
+          </div>
+
+          <button class="btn btn-fault" style="align-self:flex-start;height:42px;" onclick="logoutSession()">
+            Cerrar sesión
+          </button>
+        </div>
+      `;
+    }
+
+    function render() {
+      const root = document.getElementById('app');
+      const bannerKey = state.banner ? state.banner.msg : null;
+      motionState.animateBanner = Boolean(bannerKey && bannerKey !== motionState.lastBanner);
+      motionState.lastBanner = bannerKey;
+
+      if (!state.session) {
+        motionState.lastTab = null;
+        root.innerHTML = renderTopBar() + renderAuthGate();
+        initSocialProviders();
+        return;
+      }
+
+      const dests = allowedDestinations();
+      if (!dests.some(d => d.id === state.activeTab)) {
+        state.activeTab = dests[0].id;
+      }
+
+      motionState.animateStage = motionState.lastTab !== state.activeTab;
+      motionState.lastTab = state.activeTab;
+
+      let activeView = '';
+      if (state.activeTab === 'schedules') activeView = renderSchedulesScreen();
+      else if (state.activeTab === 'upload') activeView = renderUploadScreen();
+      else if (state.activeTab === 'ideas') activeView = renderIdeasScreen();
+      else if (state.activeTab === 'accounts') activeView = renderAccountsScreen();
+      else if (state.activeTab === 'history') activeView = renderHistoryScreen();
+      else activeView = renderSettingsScreen();
+
+      root.innerHTML = `
+        ${renderTopBar()}
+        <div class="studio-shell">
+          <nav class="side-rail" aria-label="Navegación Principal">
+            <div>
+              ${dests.map(d => `
+                <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="state.activeTab='${d.id}';render();">
+                  <span class="mono" style="font-size:11px;opacity:0.7;">${d.code}</span>
+                  <span>${d.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          </nav>
+
+          <main class="workspace-content ${motionState.animateStage ? 'stage-enter' : ''}">
+            ${activeView}
+          </main>
+        </div>
+
+        <nav class="bottom-bar" aria-label="Navegación Móvil">
+          ${dests.map(d => `
+            <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="state.activeTab='${d.id}';render();">
+              <span>${d.code}</span>
+              <span>${d.label}</span>
+            </button>
+          `).join('')}
+        </nav>
+      `;
+    }
+
+    // Inicialización + restauración de sesión activa + retorno desde email "Sí, soy yo"
+    (async function bootStudio() {
+      const q = new URLSearchParams(window.location.search);
+      const theme = q.get('theme');
+      if (theme === 'light' || theme === 'dark') {
+        state.theme = theme;
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+
+      const inv = q.get('invitation');
+      const company = q.get('company') || 'la marca';
+      if (inv === 'confirmed') {
+        state.banner = {
+          msg: `✓ ¡Confirmaste «Sí, soy yo»! Tu cuenta de cliente para ${company} ya está activa. Iniciá sesión para ver tu Plan Semanal.`,
+          isErr: false
+        };
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (inv === 'rejected') {
+        state.banner = {
+          msg: `Rechazaste la solicitud de vinculación para ${company}. Tu correo fue desvinculado por seguridad.`,
+          isErr: true
+        };
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (inv === 'invalid') {
+        state.banner = {
+          msg: 'Ese enlace de confirmación ya fue utilizado o expiró.',
+          isErr: true
+        };
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      try {
+        const savedJwt = localStorage.getItem('cs_jwt') || sessionStorage.getItem('cs_jwt');
+        const savedUser = localStorage.getItem('cs_user') || sessionStorage.getItem('cs_user');
+        if (savedJwt && savedUser) {
+          state.jwtToken = savedJwt;
+          state.session = JSON.parse(savedUser);
+          render();
+          await hydrateFromApi();
+          return;
+        }
+      } catch (_) {}
+
+      render();
+    })();
+  </script>
+</body>
+</html>

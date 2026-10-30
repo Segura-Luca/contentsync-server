@@ -1,5 +1,5 @@
 // ============================================================================
-// ContentSync — Modelo Relacional PostgreSQL Normalizado en 3FN
+// ContentSync — Modelo Relacional MySQL Normalizado en 3FN
 // ============================================================================
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -37,6 +37,12 @@ enum PlatformConnectionStatus {
   ACTIVE
   EXPIRED
   REVOKED
+}
+
+enum ClientConfirmationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
 
 enum ScheduleStatus {
@@ -83,6 +89,9 @@ enum NotificationType {
   VIDEO_REJECTED
   PUBLICATION_SUCCESS
   PUBLICATION_FAILED
+  CLIENT_CONFIRMATION_REQUEST
+  CLIENT_CONFIRMATION_RESPONSE
+  SCHEDULE_DUPLICATED
 }
 
 // ----------------------------------------------------------------------------
@@ -90,7 +99,7 @@ enum NotificationType {
 // ----------------------------------------------------------------------------
 
 model Role {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.VarChar(36)
   code        RoleCode @unique
   name        String   @db.VarChar(80)
   description String?  @db.VarChar(255)
@@ -102,8 +111,8 @@ model Role {
 }
 
 model User {
-  id                   String    @id @default(uuid()) @db.Uuid
-  roleId               String    @map("role_id") @db.Uuid
+  id                   String    @id @default(uuid()) @db.VarChar(36)
+  roleId               String    @map("role_id") @db.VarChar(36)
   email                String    @unique @db.VarChar(180)
   passwordHash         String?   @map("password_hash") @db.VarChar(255)
   fullName             String    @map("full_name") @db.VarChar(150)
@@ -118,17 +127,19 @@ model User {
   updatedAt            DateTime  @updatedAt @map("updated_at")
   deletedAt            DateTime? @map("deleted_at")
 
-  role               Role                @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  authSessions       AuthSession[]
-  socialAuthAccounts SocialAuthAccount[]
-  ownedAgency        Agency?             @relation("AgencyOwner")
-  clientProfile      Client?             @relation("ClientUser")
-  createdSchedules   Schedule[]          @relation("ScheduleCreator")
-  uploadedVideos     Video[]             @relation("VideoUploader")
-  approvalsReviewed  Approval[]          @relation("ApprovalReviewer")
-  comments           VideoComment[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
+  role                Role                     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  authSessions        AuthSession[]
+  socialAuthAccounts  SocialAuthAccount[]
+  ownedAgency         Agency?                  @relation("AgencyOwner")
+  clientProfile       Client?                  @relation("ClientUser")
+  createdSchedules    Schedule[]               @relation("ScheduleCreator")
+  duplicatedSchedules ScheduleDuplicationLog[] @relation("DuplicationActor")
+  createdIdeas        ContentIdea[]            @relation("IdeaCreator")
+  uploadedVideos      Video[]                  @relation("VideoUploader")
+  approvalsReviewed   Approval[]               @relation("ApprovalReviewer")
+  comments            VideoComment[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
 
   @@index([email])
   @@index([roleId])
@@ -137,9 +148,9 @@ model User {
 }
 
 model AuthSession {
-  id               String    @id @default(uuid()) @db.Uuid
-  userId           String    @map("user_id") @db.Uuid
-  tokenFamily      String    @map("token_family") @db.Uuid
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  userId           String    @map("user_id") @db.VarChar(36)
+  tokenFamily      String    @map("token_family") @db.VarChar(36)
   refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(255)
   deviceInfo       String?   @map("device_info") @db.VarChar(255)
   ipAddress        String?   @map("ip_address") @db.VarChar(64)
@@ -156,8 +167,8 @@ model AuthSession {
 }
 
 model SocialAuthAccount {
-  id             String         @id @default(uuid()) @db.Uuid
-  userId         String         @map("user_id") @db.Uuid
+  id             String         @id @default(uuid()) @db.VarChar(36)
+  userId         String         @map("user_id") @db.VarChar(36)
   provider       SocialProvider
   providerUserId String         @map("provider_user_id") @db.VarChar(180)
   email          String         @db.VarChar(180)
@@ -172,23 +183,26 @@ model SocialAuthAccount {
 }
 
 // ----------------------------------------------------------------------------
-// 2. AGENCIAS Y CLIENTES (Jerarquía multi-tenant sin dependencias transitivas)
+// 2. AGENCIAS Y CLIENTES (Jerarquía multi-tenant + Confirmación "Sí, soy yo")
 // ----------------------------------------------------------------------------
 
 model Agency {
-  id           String    @id @default(uuid()) @db.Uuid
-  ownerUserId  String    @unique @map("owner_user_id") @db.Uuid
+  id           String    @id @default(uuid()) @db.VarChar(36)
+  ownerUserId  String    @unique @map("owner_user_id") @db.VarChar(36)
   name         String    @db.VarChar(150)
   taxId        String    @unique @map("tax_id") @db.VarChar(40)
   contactPhone String?   @map("contact_phone") @db.VarChar(40)
-  website      String?   @db.VarChar(255)
+  website      String?   @map("website") @db.VarChar(255)
   isSuspended  Boolean   @default(false) @map("is_suspended")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  ownerUser User     @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
-  clients   Client[]
+  ownerUser       User                     @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  clients         Client[]
+  duplicationLogs ScheduleDuplicationLog[]
+  ideaSections    ContentIdeaSection[]
+  contentIdeas    ContentIdea[]
 
   @@index([isSuspended])
   @@index([deletedAt])
@@ -196,23 +210,30 @@ model Agency {
 }
 
 model Client {
-  id          String    @id @default(uuid()) @db.Uuid
-  agencyId    String    @map("agency_id") @db.Uuid
-  userId      String    @unique @map("user_id") @db.Uuid
-  companyName String    @map("company_name") @db.VarChar(150)
-  industry    String?   @db.VarChar(100)
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id                 String                   @id @default(uuid()) @db.VarChar(36)
+  agencyId           String                   @map("agency_id") @db.VarChar(36)
+  userId             String                   @unique @map("user_id") @db.VarChar(36)
+  companyName        String                   @map("company_name") @db.VarChar(150)
+  industry           String?                  @db.VarChar(100)
+  confirmationStatus ClientConfirmationStatus @default(CONFIRMED) @map("confirmation_status")
+  confirmationToken  String?                  @unique @map("confirmation_token") @db.VarChar(128)
+  confirmedAt        DateTime?                @map("confirmed_at")
+  invitedByUserId    String?                  @map("invited_by_user_id") @db.VarChar(36)
+  isActive           Boolean                  @default(true) @map("is_active")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  deletedAt          DateTime?                @map("deleted_at")
 
-  agency              Agency               @relation(fields: [agencyId], references: [id], onDelete: Restrict)
-  user                User                 @relation("ClientUser", fields: [userId], references: [id], onDelete: Restrict)
+  agency              Agency                   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
+  user                User                     @relation("ClientUser", fields: [userId], references: [id], onDelete: Restrict)
   platformConnections PlatformConnection[]
   schedules           Schedule[]
+  duplicationLogs     ScheduleDuplicationLog[]
+  contentIdeas        ContentIdea[]
   videos              Video[]
 
   @@index([agencyId])
+  @@index([confirmationStatus])
   @@index([isActive])
   @@index([deletedAt])
   @@map("clients")
@@ -223,8 +244,8 @@ model Client {
 // ----------------------------------------------------------------------------
 
 model PlatformConnection {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  clientId              String                   @map("client_id") @db.Uuid
+  id                    String                   @id @default(uuid()) @db.VarChar(36)
+  clientId              String                   @map("client_id") @db.VarChar(36)
   platform              SocialPlatform
   externalAccountId     String                   @map("external_account_id") @db.VarChar(180)
   accountHandle         String                   @map("account_handle") @db.VarChar(120)
@@ -249,9 +270,9 @@ model PlatformConnection {
 // ----------------------------------------------------------------------------
 
 model Video {
-  id               String              @id @default(uuid()) @db.Uuid
-  clientId         String              @map("client_id") @db.Uuid
-  uploadedByUserId String              @map("uploaded_by_user_id") @db.Uuid
+  id               String              @id @default(uuid()) @db.VarChar(36)
+  clientId         String              @map("client_id") @db.VarChar(36)
+  uploadedByUserId String              @map("uploaded_by_user_id") @db.VarChar(36)
   title            String              @db.VarChar(150)
   description      String              @db.Text
   storageKey       String              @map("storage_key") @db.VarChar(500)
@@ -281,8 +302,8 @@ model Video {
 }
 
 model VideoHashtag {
-  id        String   @id @default(uuid()) @db.Uuid
-  videoId   String   @map("video_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  videoId   String   @map("video_id") @db.VarChar(36)
   tag       String   @db.VarChar(80)
   position  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
@@ -295,8 +316,8 @@ model VideoHashtag {
 }
 
 model VideoPlatformTarget {
-  id                String         @id @default(uuid()) @db.Uuid
-  videoId           String         @map("video_id") @db.Uuid
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  videoId           String         @map("video_id") @db.VarChar(36)
   platform          SocialPlatform
   customTitle       String?        @map("custom_title") @db.VarChar(150)
   customDescription String?        @map("custom_description") @db.Text
@@ -317,24 +338,29 @@ model VideoPlatformTarget {
 }
 
 // ----------------------------------------------------------------------------
-// 5. CRONOGRAMAS SEMANALES Y FLUJO DE APROBACIÓN
+// 5. CRONOGRAMAS SEMANALES (LUNES A VIERNES), BLOQUES DE COLOR Y DUPLICACIÓN
 // ----------------------------------------------------------------------------
 
 model Schedule {
-  id              String         @id @default(uuid()) @db.Uuid
-  clientId        String         @map("client_id") @db.Uuid
-  createdByUserId String         @map("created_by_user_id") @db.Uuid
-  weekStartDate   DateTime       @map("week_start_date") @db.Date
-  weekEndDate     DateTime       @map("week_end_date") @db.Date
-  title           String         @db.VarChar(150)
-  summaryNotes    String?        @map("summary_notes") @db.Text
-  status          ScheduleStatus @default(DRAFT)
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  id               String         @id @default(uuid()) @db.VarChar(36)
+  clientId         String         @map("client_id") @db.VarChar(36)
+  createdByUserId  String         @map("created_by_user_id") @db.VarChar(36)
+  duplicatedFromId String?        @map("duplicated_from_id") @db.VarChar(36)
+  weekStartDate    DateTime       @map("week_start_date") @db.Date
+  weekEndDate      DateTime       @map("week_end_date") @db.Date
+  title            String         @db.VarChar(150)
+  summaryNotes     String?        @map("summary_notes") @db.Text
+  status           ScheduleStatus @default(IN_REVIEW)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  createdByUser User           @relation("ScheduleCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
-  items         ScheduleItem[]
+  client               Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdByUser        User                     @relation("ScheduleCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  duplicatedFrom       Schedule?                @relation("ScheduleCloneChain", fields: [duplicatedFromId], references: [id], onDelete: SetNull)
+  duplicatedChildren   Schedule[]               @relation("ScheduleCloneChain")
+  items                ScheduleItem[]
+  duplicationsAsSource ScheduleDuplicationLog[] @relation("DuplicationSource")
+  duplicationsAsTarget ScheduleDuplicationLog[] @relation("DuplicationTarget")
 
   @@unique([clientId, weekStartDate])
   @@index([clientId, weekStartDate])
@@ -343,28 +369,106 @@ model Schedule {
 }
 
 model ScheduleItem {
-  id               String         @id @default(uuid()) @db.Uuid
-  scheduleId       String         @map("schedule_id") @db.Uuid
-  videoId          String         @map("video_id") @db.Uuid
-  dayOfWeek        Int            @map("day_of_week") // 1 (Lun) .. 7 (Dom)
-  plannedPublishAt DateTime       @map("planned_publish_at")
-  notes            String?        @db.VarChar(500)
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.VarChar(36)
+  scheduleId       String    @map("schedule_id") @db.VarChar(36)
+  videoId          String?   @map("video_id") @db.VarChar(36)
+  dayOfWeek        Int       @map("day_of_week") // 1 (Lun) .. 5 (Vie) [soporta 1..7]
+  blockTitle       String    @default("Bloque de contenido") @map("block_title") @db.VarChar(160)
+  noteColor        String    @default("AMBER") @map("note_color") @db.VarChar(30)
+  notes            String?   @db.Text
+  plannedTime      String    @default("18:00") @map("planned_time") @db.VarChar(10)
+  plannedPublishAt DateTime? @map("planned_publish_at")
+  autoPublish      Boolean   @default(true) @map("auto_publish")
+  sortOrder        Int       @default(0) @map("sort_order")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  video    Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
 
-  @@unique([scheduleId, videoId])
-  @@index([scheduleId, dayOfWeek])
+  @@index([scheduleId, dayOfWeek, sortOrder])
+  @@index([videoId])
   @@index([plannedPublishAt])
   @@map("schedule_items")
 }
 
+model ScheduleDuplicationLog {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  agencyId           String   @map("agency_id") @db.VarChar(36)
+  clientId           String   @map("client_id") @db.VarChar(36)
+  sourceScheduleId   String   @map("source_schedule_id") @db.VarChar(36)
+  targetScheduleId   String   @map("target_schedule_id") @db.VarChar(36)
+  duplicatedByUserId String   @map("duplicated_by_user_id") @db.VarChar(36)
+  blocksCopiedCount  Int      @map("blocks_copied_count")
+  includeVideos      Boolean  @default(false) @map("include_videos")
+  notes              String?  @db.VarChar(500)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  agency           Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sourceSchedule   Schedule @relation("DuplicationSource", fields: [sourceScheduleId], references: [id], onDelete: Cascade)
+  targetSchedule   Schedule @relation("DuplicationTarget", fields: [targetScheduleId], references: [id], onDelete: Cascade)
+  duplicatedByUser User     @relation("DuplicationActor", fields: [duplicatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([agencyId, createdAt])
+  @@index([clientId, createdAt])
+  @@map("schedule_duplication_logs")
+}
+
+// ----------------------------------------------------------------------------
+// 6. IDEAS DE CONTENIDO PRIVADAS DE LA AGENCIA (Secciones + Ideas en 3FN)
+// ----------------------------------------------------------------------------
+
+model ContentIdeaSection {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  agencyId  String   @map("agency_id") @db.VarChar(36)
+  name      String   @db.VarChar(100)
+  color     String   @default("LIME") @db.VarChar(30)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  agency Agency        @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  ideas  ContentIdea[]
+
+  @@unique([agencyId, name])
+  @@index([agencyId, sortOrder])
+  @@map("content_idea_sections")
+}
+
+model ContentIdea {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  agencyId        String   @map("agency_id") @db.VarChar(36)
+  sectionId       String   @map("section_id") @db.VarChar(36)
+  clientId        String?  @map("client_id") @db.VarChar(36)
+  createdByUserId String   @map("created_by_user_id") @db.VarChar(36)
+  title           String   @db.VarChar(180)
+  content         String   @db.Text
+  referenceUrl    String?  @map("reference_url") @db.VarChar(500)
+  platforms       String?  @db.VarChar(120)
+  isPinned        Boolean  @default(false) @map("is_pinned")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  agency        Agency             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  section       ContentIdeaSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  client        Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdByUser User               @relation("IdeaCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@index([agencyId, sectionId])
+  @@index([agencyId, clientId])
+  @@index([isPinned, createdAt])
+  @@map("content_ideas")
+}
+
+// ----------------------------------------------------------------------------
+// 7. FLUJO DE APROBACIÓN Y COMENTARIOS
+// ----------------------------------------------------------------------------
+
 model Approval {
-  id             String           @id @default(uuid()) @db.Uuid
-  videoId        String           @map("video_id") @db.Uuid
-  reviewerUserId String           @map("reviewer_user_id") @db.Uuid
+  id             String           @id @default(uuid()) @db.VarChar(36)
+  videoId        String           @map("video_id") @db.VarChar(36)
+  reviewerUserId String           @map("reviewer_user_id") @db.VarChar(36)
   decision       ApprovalDecision
   feedbackNotes  String?          @map("feedback_notes") @db.Text
   createdAt      DateTime         @default(now()) @map("created_at")
@@ -377,9 +481,9 @@ model Approval {
 }
 
 model VideoComment {
-  id           String   @id @default(uuid()) @db.Uuid
-  videoId      String   @map("video_id") @db.Uuid
-  authorUserId String   @map("author_user_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  videoId      String   @map("video_id") @db.VarChar(36)
+  authorUserId String   @map("author_user_id") @db.VarChar(36)
   message      String   @db.Text
   timestampSec Int?     @map("timestamp_sec")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -392,12 +496,12 @@ model VideoComment {
 }
 
 // ----------------------------------------------------------------------------
-// 6. PUBLICACIONES MULTIPLATAFORMA E INTENTOS
+// 8. PUBLICACIONES MULTIPLATAFORMA E INTENTOS
 // ----------------------------------------------------------------------------
 
 model Publication {
-  id               String            @id @default(uuid()) @db.Uuid
-  videoId          String            @map("video_id") @db.Uuid
+  id               String            @id @default(uuid()) @db.VarChar(36)
+  videoId          String            @map("video_id") @db.VarChar(36)
   platform         SocialPlatform
   scheduledFor     DateTime          @map("scheduled_for")
   publishedAt      DateTime?         @map("published_at")
@@ -419,8 +523,8 @@ model Publication {
 }
 
 model PublicationAttempt {
-  id            String   @id @default(uuid()) @db.Uuid
-  publicationId String   @map("publication_id") @db.Uuid
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  publicationId String   @map("publication_id") @db.VarChar(36)
   attemptNumber Int      @map("attempt_number")
   isSuccess     Boolean  @map("is_success")
   errorCode     String?  @map("error_code") @db.VarChar(80)
@@ -436,16 +540,16 @@ model PublicationAttempt {
 }
 
 // ----------------------------------------------------------------------------
-// 7. NOTIFICACIONES Y LOGS DE AUDITORÍA
+// 9. NOTIFICACIONES Y LOGS DE AUDITORÍA
 // ----------------------------------------------------------------------------
 
 model Notification {
-  id          String           @id @default(uuid()) @db.Uuid
-  userId      String           @map("user_id") @db.Uuid
+  id          String           @id @default(uuid()) @db.VarChar(36)
+  userId      String           @map("user_id") @db.VarChar(36)
   type        NotificationType
   title       String           @db.VarChar(160)
   body        String           @db.Text
-  referenceId String?          @map("reference_id") @db.Uuid
+  referenceId String?          @map("reference_id") @db.VarChar(36)
   isRead      Boolean          @default(false) @map("is_read")
   createdAt   DateTime         @default(now()) @map("created_at")
 
@@ -456,8 +560,8 @@ model Notification {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String?  @map("user_id") @db.Uuid
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  userId     String?  @map("user_id") @db.VarChar(36)
   action     String   @db.VarChar(120)
   entityType String   @map("entity_type") @db.VarChar(80)
   entityId   String?  @map("entity_id") @db.VarChar(80)

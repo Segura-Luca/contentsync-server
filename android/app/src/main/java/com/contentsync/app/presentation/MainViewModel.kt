@@ -109,7 +109,7 @@ class MainViewModel @Inject constructor(
             _transientState.update { it.copy(isLoading = true, bannerMessage = null) }
             repository.loginWithEmail(email, password)
                 .onSuccess { session ->
-                    showFeedback("Bienvenido/a ${session.fullName} (${session.role.name})")
+                    showFeedback("Hola, ${session.fullName.substringBefore(" ")}. Tu sesión está lista.")
                 }
                 .onFailure { err ->
                     showFeedback(err.message ?: "Error al iniciar sesión", isError = true)
@@ -122,7 +122,7 @@ class MainViewModel @Inject constructor(
             _transientState.update { it.copy(isLoading = true, bannerMessage = null) }
             repository.registerAccount(fullName, email, password, role)
                 .onSuccess { session ->
-                    showFeedback("Cuenta registrada y verificada para ${session.email}")
+                    showFeedback("Cuenta creada. ¡Bienvenido/a, ${session.fullName.substringBefore(" ")}!")
                 }
                 .onFailure { err ->
                     showFeedback(err.message ?: "Error en el registro", isError = true)
@@ -130,11 +130,11 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun loginSocial(provider: SocialAuthProvider, email: String, fullName: String) {
+    fun loginSocial(provider: SocialAuthProvider, idToken: String) {
         viewModelScope.launch {
-            repository.loginWithSocial(provider, email, fullName)
+            repository.loginWithSocial(provider, idToken)
                 .onSuccess { session ->
-                    showFeedback("Sesión iniciada con ${provider.name} vinculada a ${session.email}")
+                    showFeedback("Hola, ${session.fullName.substringBefore(" ")}. Tu sesión está lista.")
                 }
                 .onFailure { err ->
                     showFeedback(err.message ?: "Error en login social", isError = true)
@@ -142,18 +142,47 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun recoverPassword(email: String) {
+    fun reportAuthError(message: String) {
+        showFeedback(message, isError = true)
+    }
+
+    fun requestPasswordRecovery(email: String, onCodeReceived: (String) -> Unit) {
         viewModelScope.launch {
+            _transientState.update { it.copy(isLoading = true, bannerMessage = null) }
             repository.requestPasswordRecovery(email)
-                .onSuccess { msg -> showFeedback(msg) }
-                .onFailure { err -> showFeedback(err.message ?: "Error", isError = true) }
+                .onSuccess { code ->
+                    _transientState.update { it.copy(isLoading = false) }
+                    onCodeReceived(code)
+                }
+                .onFailure { err ->
+                    showFeedback(err.message ?: "No pudimos generar el código de recuperación.", isError = true)
+                }
         }
+    }
+
+    fun submitPasswordReset(token: String, newPass: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _transientState.update { it.copy(isLoading = true, bannerMessage = null) }
+            repository.resetPassword(token, newPass)
+                .onSuccess { msg ->
+                    _transientState.update { it.copy(isLoading = false) }
+                    showFeedback(msg)
+                    onSuccess()
+                }
+                .onFailure { err ->
+                    showFeedback(err.message ?: "No pudimos restablecer la contraseña.", isError = true)
+                }
+        }
+    }
+
+    fun recoverPassword(email: String) {
+        requestPasswordRecovery(email) {}
     }
 
     fun logout() {
         viewModelScope.launch {
             repository.logout()
-            showFeedback("Sesión cerrada y tokens eliminados del Keystore.")
+            showFeedback("Cerraste sesión.")
         }
     }
 
@@ -203,7 +232,7 @@ class MainViewModel @Inject constructor(
     fun togglePlatformOAuth(clientId: String, platform: SocialPlatform, handle: String) {
         viewModelScope.launch {
             repository.toggleClientPlatformConnection(clientId, platform, handle)
-            showFeedback("Conexión OAuth con ${platform.displayName} actualizada (AES-256-GCM).")
+            showFeedback("Conexión con ${platform.displayName} actualizada.")
         }
     }
 
@@ -257,7 +286,7 @@ class MainViewModel @Inject constructor(
                 }
             ).onSuccess { video ->
                 _transientState.update { it.copy(uploadProgress = 0f) }
-                showFeedback("Video '${video.title}' subido a S3 y enviado a revisión del cliente.")
+                showFeedback("Video '${video.title}' subido y enviado a revisión del cliente.")
             }.onFailure { err ->
                 _transientState.update { it.copy(uploadProgress = 0f) }
                 showFeedback(err.message ?: "Error de validación de video", isError = true)
@@ -289,7 +318,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             repository.publishOrScheduleApprovedVideo(videoId, scheduledForIso)
                 .onSuccess { video ->
-                    val action = if (scheduledForIso.isNullOrBlank()) "publicado en las 3 redes" else "programado en cola BullMQ"
+                    val action = if (scheduledForIso.isNullOrBlank()) "publicado en las 3 redes" else "programado para publicarse"
                     showFeedback("¡Éxito! '${video.title}' fue $action.")
                 }
                 .onFailure { err ->

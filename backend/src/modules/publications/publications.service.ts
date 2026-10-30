@@ -4,12 +4,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   NotificationType,
   PublicationStatus,
   RoleCode,
-  SocialPlatform,
   VideoWorkflowStatus,
 } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
@@ -23,9 +24,11 @@ import { VideosService } from '../videos/videos.service';
 import { HistoryFilterDto, ScheduleOrPublishVideoDto } from './dto/publication.dto';
 
 @Injectable()
-export class PublicationsService {
+export class PublicationsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PublicationsService.name);
   private readonly maxRetries = 3;
+  private schedulerInterval: NodeJS.Timeout | null = null;
+  private processingTick = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -36,6 +39,50 @@ export class PublicationsService {
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
   ) {}
+
+  onModuleInit() {
+    this.schedulerInterval = setInterval(() => {
+      void this.processDueScheduledPublications();
+    }, 20000);
+  }
+
+  onModuleDestroy() {
+    if (this.schedulerInterval) {
+      clearInterval(this.schedulerInterval);
+      this.schedulerInterval = null;
+    }
+  }
+
+  /**
+   * Reloj automático: ejecuta las publicaciones programadas desde el Plan cuando llega su día y hora.
+   */
+  async processDueScheduledPublications() {
+    if (this.processingTick) return;
+    this.processingTick = true;
+    try {
+      const duePubs = await this.prisma.publication.findMany({
+        where: {
+          status: PublicationStatus.PENDING,
+          scheduledFor: { lte: new Date() },
+          video: {
+            deletedAt: null,
+            workflowStatus: {
+              in: [VideoWorkflowStatus.APPROVED, VideoWorkflowStatus.SCHEDULED],
+            },
+          },
+        },
+        take: 15,
+      });
+
+      for (const pub of duePubs) {
+        await this.executeSinglePlatformPublicationWithRetries(pub.id);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Error en barrido de publicaciones programadas: ${err.message}`);
+    } finally {
+      this.processingTick = false;
+    }
+  }
 
   /**
    * Programa o ejecuta en una sola acción la publicación de un video aprobado
@@ -57,7 +104,7 @@ export class PublicationsService {
       video.workflowStatus !== VideoWorkflowStatus.SCHEDULED
     ) {
       throw new BadRequestException(
-        `Bloqueo de seguridad: solo los videos APROBADOS por el cliente pueden publicarse. Estado actual: ${video.workflowStatus}.`,
+        `Bloqueo de seguridad: solo los videos APROBADOS o PROGRAMADOS pueden publicarse. Estado actual: ${video.workflowStatus}.`,
       );
     }
 
@@ -283,7 +330,7 @@ export class PublicationsService {
 
   /**
    * Historial completo con filtros combinados por semana, cliente, plataforma,
-   * estado y buscador por texto.
+   * estado y buscador por texto (compatible con MySQL utf8mb4_unicode_ci).
    */
   async getPublicationHistory(
     filters: HistoryFilterDto,
@@ -313,8 +360,8 @@ export class PublicationsService {
     if (filters.search?.trim()) {
       const q = filters.search.trim();
       videoFilter.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
+        { title: { contains: q } },
+        { description: { contains: q } },
       ];
     }
 

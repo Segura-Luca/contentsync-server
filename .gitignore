@@ -22,4 +22,8 @@ android/local.properties
 .DS_Store
 Thumbs.db
 *.log
+*.bak
 .android-sdk/
+.local-services/
+backend/public/uploads/videos/*
+!backend/public/uploads/videos/.gitkeep

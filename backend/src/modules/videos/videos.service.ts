@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { RoleCode, SocialPlatform, VideoWorkflowStatus } from '@prisma/client';
+import {
+  ClientConfirmationStatus,
+  RoleCode,
+  SocialPlatform,
+  VideoWorkflowStatus,
+} from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -21,19 +26,19 @@ export interface PlatformSpecRule {
 
 export const PLATFORM_VIDEO_SPECS: Record<SocialPlatform, PlatformSpecRule> = {
   [SocialPlatform.INSTAGRAM]: {
-    minDurationSeconds: 3,
+    minDurationSeconds: 1,
     maxDurationSeconds: 900, // 15 min para Reels
     maxSizeBytes: 1024 * 1024 * 1024, // 1 GB
     allowedMimeTypes: ['video/mp4', 'video/quicktime'],
   },
   [SocialPlatform.TIKTOK]: {
-    minDurationSeconds: 3,
+    minDurationSeconds: 1,
     maxDurationSeconds: 600, // 10 min
-    maxSizeBytes: 500 * 1024 * 1024, // 500 MB en Content Posting API web/mobile
+    maxSizeBytes: 500 * 1024 * 1024, // 500 MB
     allowedMimeTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
   },
   [SocialPlatform.YOUTUBE]: {
-    minDurationSeconds: 3,
+    minDurationSeconds: 1,
     maxDurationSeconds: 180, // 3 min máximo para YouTube Shorts
     maxSizeBytes: 2 * 1024 * 1024 * 1024, // 2 GB
     allowedMimeTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
@@ -49,10 +54,6 @@ export class VideosService {
     private readonly auditService: AuditService,
   ) {}
 
-  /**
-   * Valida formato MIME, duración y peso en bytes contra cada una de las plataformas
-   * seleccionadas (Instagram Reels, TikTok, YouTube Shorts).
-   */
   validateVideoSpecsForPlatforms(params: {
     mimeType: string;
     durationSeconds: number;
@@ -91,7 +92,7 @@ export class VideosService {
     if (user.role === RoleCode.CLIENTE) {
       throw new ForbiddenException('Solo la agencia o el administrador pueden subir videos.');
     }
-    await this.clientsService.assertClientAccess(dto.clientId, user);
+    await this.clientsService.assertClientAccess(dto.clientId, user, true);
 
     this.validateVideoSpecsForPlatforms({
       mimeType: dto.mimeType,
@@ -112,7 +113,7 @@ export class VideosService {
     if (user.role === RoleCode.CLIENTE) {
       throw new ForbiddenException('Solo la agencia o el administrador pueden registrar videos.');
     }
-    await this.clientsService.assertClientAccess(dto.clientId, user);
+    await this.clientsService.assertClientAccess(dto.clientId, user, true);
 
     const platforms = dto.platformTargets.map((t) => t.platform);
     this.validateVideoSpecsForPlatforms({
@@ -142,7 +143,12 @@ export class VideosService {
         sizeBytes: BigInt(dto.sizeBytes),
         mimeType: dto.mimeType.trim().toLowerCase(),
         aspectRatio: dto.aspectRatio || '9:16',
-        workflowStatus: VideoWorkflowStatus.DRAFT,
+        workflowStatus:
+          dto.publishMode === 'DIRECT'
+            ? VideoWorkflowStatus.APPROVED
+            : dto.publishMode === 'REVIEW'
+              ? VideoWorkflowStatus.IN_REVIEW
+              : VideoWorkflowStatus.DRAFT,
         hashtags: {
           create: cleanTags.map((tag, index) => ({
             tag,
@@ -188,6 +194,15 @@ export class VideosService {
       await this.clientsService.assertClientAccess(clientIdFilter, user);
     }
 
+    if (user.role === RoleCode.CLIENTE && user.clientId) {
+      const cl = await this.prisma.client.findUnique({
+        where: { id: user.clientId },
+      });
+      if (!cl || cl.confirmationStatus !== ClientConfirmationStatus.CONFIRMED) {
+        return [];
+      }
+    }
+
     const whereClause: Record<string, unknown> = { deletedAt: null };
     if (clientIdFilter) {
       whereClause.clientId = clientIdFilter;
@@ -205,6 +220,12 @@ export class VideosService {
         hashtags: { orderBy: { position: 'asc' } },
         platformTargets: true,
         approvals: { orderBy: { createdAt: 'desc' }, take: 3 },
+        comments: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            authorUser: { select: { id: true, fullName: true, email: true } },
+          },
+        },
         publications: true,
       },
     });

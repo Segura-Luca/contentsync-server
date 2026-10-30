@@ -11,10 +11,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
     try {
       await this.$connect();
-      this.logger.log('Conexión establecida con PostgreSQL (Esquema 3FN)');
+      this.logger.log('Conexión establecida con MySQL (Esquema 3FN)');
     } catch (error) {
       this.logger.warn(
-        'PostgreSQL no disponible en este instante; se reintentará al recibir consultas.',
+        'MySQL no disponible en este instante; se reintentará al recibir consultas.',
       );
     }
   }

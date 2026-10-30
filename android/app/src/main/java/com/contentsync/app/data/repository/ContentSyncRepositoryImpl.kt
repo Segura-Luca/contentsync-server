@@ -20,7 +20,8 @@ import javax.inject.Singleton
 @Singleton
 class ContentSyncRepositoryImpl @Inject constructor(
     private val sessionStorage: SecureSessionStorage,
-    private val validator: ValidateVideoForPlatformsUseCase
+    private val validator: ValidateVideoForPlatformsUseCase,
+    private val api: com.contentsync.app.core.network.ContentSyncApiService
 ) : ContentSyncRepository {
 
     private val _session = MutableStateFlow<UserSession?>(null)
@@ -387,60 +388,12 @@ class ContentSyncRepositoryImpl @Inject constructor(
 
     override suspend fun loginWithEmail(email: String, password: String): Result<UserSession> {
         val cleanEmail = email.trim().lowercase()
-        if (password.length < 6) {
-            return Result.failure(IllegalArgumentException("Contraseña inválida."))
+        if (cleanEmail.isBlank() || password.isBlank()) {
+            return Result.failure(IllegalArgumentException("Ingresá tu correo y tu contraseña."))
         }
-
-        val session = when {
-            cleanEmail.contains("admin") -> UserSession(
-                id = "usr-admin-1",
-                email = cleanEmail,
-                fullName = "Sofía Martínez (Admin General)",
-                role = UserRole.ADMIN_GENERAL,
-                timezone = "America/Argentina/Buenos_Aires",
-                emailVerified = true,
-                agencyId = null,
-                clientId = null
-            )
-            cleanEmail.contains("pulso") -> UserSession(
-                id = "usr-agency-pulso",
-                email = cleanEmail,
-                fullName = "Camila Gómez (Pulso Social Media)",
-                role = UserRole.AGENCIA,
-                timezone = "America/Mexico_City",
-                emailVerified = true,
-                agencyId = "agency-pulso",
-                clientId = null
-            )
-            cleanEmail.contains("cliente") || cleanEmail.contains("kafecito") -> UserSession(
-                id = "usr-client-kafecito",
-                email = cleanEmail,
-                fullName = "Martín Rossi (Kafecito Roasters)",
-                role = UserRole.CLIENTE,
-                timezone = "America/Argentina/Buenos_Aires",
-                emailVerified = true,
-                agencyId = "agency-nova",
-                clientId = "client-kafecito"
-            )
-            else -> UserSession(
-                id = "usr-agency-nova",
-                email = cleanEmail,
-                fullName = "Lucas Herrera (Nova Digital)",
-                role = UserRole.AGENCIA,
-                timezone = "America/Argentina/Buenos_Aires",
-                emailVerified = true,
-                agencyId = "agency-nova",
-                clientId = null
-            )
+        return runAuthCall {
+            api.login(com.contentsync.app.core.network.LoginRequestDto(cleanEmail, password))
         }
-
-        sessionStorage.saveTokens(
-            accessToken = "jwt_access_${session.id}_${System.currentTimeMillis()}",
-            refreshToken = "jwt_refresh_${session.id}_${System.currentTimeMillis()}",
-            expiresAtEpochMs = System.currentTimeMillis() + 900_000L
-        )
-        _session.value = session
-        return Result.success(session)
     }
 
     override suspend fun registerAccount(
@@ -450,39 +403,123 @@ class ContentSyncRepositoryImpl @Inject constructor(
         role: UserRole
     ): Result<UserSession> {
         validator.validatePasswordStrength(password).onFailure { return Result.failure(it) }
-        val session = UserSession(
-            id = "usr-${System.currentTimeMillis()}",
-            email = email.trim().lowercase(),
-            fullName = fullName.trim(),
-            role = role,
-            timezone = "America/Argentina/Buenos_Aires",
-            emailVerified = false,
-            agencyId = if (role == UserRole.AGENCIA) "agency-nova" else null,
-            clientId = if (role == UserRole.CLIENTE) "client-kafecito" else null
-        )
-        sessionStorage.saveTokens(
-            accessToken = "jwt_access_${session.id}",
-            refreshToken = "jwt_refresh_${session.id}",
-            expiresAtEpochMs = System.currentTimeMillis() + 900_000L
-        )
-        _session.value = session
-        return Result.success(session)
+        if (fullName.trim().length < 2) {
+            return Result.failure(IllegalArgumentException("Contanos tu nombre completo."))
+        }
+        return runAuthCall {
+            api.register(
+                com.contentsync.app.core.network.RegisterRequestDto(
+                    email = email.trim().lowercase(),
+                    password = password,
+                    fullName = fullName.trim(),
+                    role = role.name
+                )
+            )
+        }
     }
 
-    override suspend fun loginWithSocial(
-        provider: SocialAuthProvider,
-        email: String,
-        fullName: String
-    ): Result<UserSession> {
-        // Vinculación automática por email para evitar duplicados
-        return loginWithEmail(email, "ContentSync2026!")
+    /** El token lo emite Google en el dispositivo; el servidor lo verifica y obtiene la identidad real. */
+    override suspend fun loginWithSocial(provider: SocialAuthProvider, idToken: String): Result<UserSession> {
+        return runAuthCall {
+            api.socialLogin(
+                com.contentsync.app.core.network.SocialLoginRequestDto(
+                    provider = provider.name,
+                    idToken = idToken
+                )
+            )
+        }
     }
 
     override suspend fun requestPasswordRecovery(email: String): Result<String> {
-        if (!email.contains("@")) {
-            return Result.failure(IllegalArgumentException("Ingresa un correo electrónico válido."))
+        val clean = email.trim()
+        if (!clean.contains("@")) {
+            return Result.failure(IllegalArgumentException("Escribí un correo electrónico válido."))
         }
-        return Result.success("Se envió un enlace de recuperación a $email.")
+        return try {
+            val res = api.forgotPassword(com.contentsync.app.core.network.ForgotPasswordRequestDto(clean))
+            val code = res.resetToken ?: res.resetTokenMock ?: ""
+            Result.success(code)
+        } catch (e: Exception) {
+            Result.failure(toFriendlyError(e))
+        }
+    }
+
+    override suspend fun resetPassword(token: String, newPassword: String): Result<String> {
+        val cleanToken = token.trim()
+        if (cleanToken.length < 6) {
+            return Result.failure(IllegalArgumentException("Ingresá el código de recuperación de 6 dígitos."))
+        }
+        val passRegex = Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{8,64}$")
+        if (!passRegex.matches(newPassword)) {
+            return Result.failure(IllegalArgumentException("La nueva contraseña debe tener entre 8 y 64 caracteres, con mayúscula, minúscula, número y símbolo."))
+        }
+        return try {
+            val res = api.resetPassword(
+                com.contentsync.app.core.network.ResetPasswordRequestDto(cleanToken, newPassword)
+            )
+            Result.success(res.message ?: "Contraseña restablecida con éxito.")
+        } catch (e: Exception) {
+            Result.failure(toFriendlyError(e))
+        }
+    }
+
+    private suspend fun runAuthCall(
+        call: suspend () -> com.contentsync.app.core.network.AuthResponseDto
+    ): Result<UserSession> {
+        return try {
+            val res = call()
+            val user = res.user
+            val role = runCatching { UserRole.valueOf(user.role) }.getOrDefault(UserRole.AGENCIA)
+            val scope = localScopeFor(user.email, user.agencyId, user.clientId)
+            val session = UserSession(
+                id = user.id,
+                email = user.email,
+                fullName = user.fullName,
+                role = role,
+                timezone = user.timezone,
+                emailVerified = user.emailVerified,
+                agencyId = scope.first,
+                clientId = scope.second
+            )
+            sessionStorage.saveTokens(
+                accessToken = res.accessToken,
+                refreshToken = res.refreshToken,
+                expiresAtEpochMs = System.currentTimeMillis() + res.expiresInSeconds * 1000L
+            )
+            _session.value = session
+            Result.success(session)
+        } catch (e: Exception) {
+            Result.failure(toFriendlyError(e))
+        }
+    }
+
+    /** Las cuentas de demostración se enlazan con los datos de muestra locales; las nuevas arrancan vacías. */
+    private fun localScopeFor(email: String, agencyId: String?, clientId: String?): Pair<String?, String?> =
+        when (email.lowercase()) {
+            "agencia.nova@contentsync.io" -> "agency-nova" to null
+            "agencia.pulso@contentsync.io" -> "agency-pulso" to null
+            "cliente.kafecito@contentsync.io" -> "agency-nova" to "client-kafecito"
+            "cliente.urbanfit@contentsync.io" -> "agency-nova" to "client-urbanfit"
+            "cliente.techgear@contentsync.io" -> "agency-pulso" to "client-techgear"
+            "cliente.lumina@contentsync.io" -> "agency-pulso" to "client-lumina"
+            else -> agencyId to clientId
+        }
+
+    private fun toFriendlyError(e: Throwable): Throwable = when (e) {
+        is retrofit2.HttpException -> {
+            val raw = runCatching { e.response()?.errorBody()?.string() }.getOrNull().orEmpty()
+            val msg = runCatching {
+                val json = org.json.JSONObject(raw)
+                val m = json.opt("message")
+                if (m is org.json.JSONArray) m.getString(0) else m?.toString()
+            }.getOrNull()
+            IllegalStateException(
+                msg?.takeIf { it.isNotBlank() }
+                    ?: if (e.code() == 401) "Correo o contraseña incorrectos." else "No pudimos completar la operación. Intentá de nuevo."
+            )
+        }
+        is java.io.IOException -> IllegalStateException("No pudimos conectarnos. Revisá tu conexión e intentá de nuevo.")
+        else -> e
     }
 
     override suspend fun logout() {

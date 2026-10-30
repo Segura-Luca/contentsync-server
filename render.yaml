@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: contentsync-app
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --include=dev && npm run build:cloud
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: MOCK_PLATFORMS
+        value: "true"
+      - key: FCM_MOCK_MODE
+        value: "true"

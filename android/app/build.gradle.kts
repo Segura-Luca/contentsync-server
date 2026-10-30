@@ -20,7 +20,12 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:3000/api/v1/\"")
+        val webAppUrl = (project.findProperty("WEB_APP_URL") as? String)
+            ?: System.getenv("WEB_APP_URL")
+            ?: "https://contentsync-app.onrender.com/"
+        buildConfigField("String", "API_BASE_URL", "\"${webAppUrl.trimEnd('/')}/api/v1/\"")
+        buildConfigField("String", "WEB_APP_URL", "\"$webAppUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"1094596610720-789upd6feoki20vhiirbk8msov3uitps.apps.googleusercontent.com\"")
     }
 
     signingConfigs {
@@ -85,6 +90,9 @@ dependencies {
 
     // Core & Lifecycle
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")

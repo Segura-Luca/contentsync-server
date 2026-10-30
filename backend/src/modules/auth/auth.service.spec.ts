@@ -1,4 +1,4 @@
-import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+﻿import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -37,6 +37,13 @@ describe('AuthService, CryptoService & RolesGuard (Phase 2 Security & RBAC)', ()
     log: jest.fn().mockResolvedValue(undefined),
   };
 
+  const mockSocialVerifier = {
+    verify: jest.fn().mockResolvedValue({
+      providerUserId: 'google-sub-999',
+      email: 'linked@agencia.com',
+      fullName: 'Usuario Existente',
+    }),
+  } as any;
   let authService: AuthService;
   let jwtService: JwtService;
   let cryptoService: CryptoService;
@@ -50,7 +57,7 @@ describe('AuthService, CryptoService & RolesGuard (Phase 2 Security & RBAC)', ()
       OAUTH_ENCRYPTION_KEY:
         '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     });
-    authService = new AuthService(mockPrisma, jwtService, configService, mockAudit);
+    authService = new AuthService(mockPrisma, jwtService, configService, mockAudit, mockSocialVerifier);
     cryptoService = new CryptoService(configService);
   });
 

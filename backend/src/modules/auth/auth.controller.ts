@@ -46,6 +46,13 @@ export class AuthController {
   }
 
   @Public()
+  @Get('social/config')
+  @ApiOperation({ summary: 'Identificadores públicos de apps para iniciar sesión con Google y Facebook' })
+  socialConfig() {
+    return this.authService.getSocialPublicConfig();
+  }
+
+  @Public()
   @Post('refresh')
   @ApiOperation({
     summary: 'Rotar Refresh Token y obtener nuevo par Access/Refresh con detección de reuso',

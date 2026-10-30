@@ -2,11 +2,11 @@ import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -37,9 +37,7 @@ export class CreateClientDto {
   @ApiProperty({ example: 'ContentSync2026!' })
   @IsString()
   @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,64}$/, {
-    message: 'La contraseña debe cumplir la política de contraseña fuerte.',
-  })
+  @MaxLength(64)
   password!: string;
 
   @ApiPropertyOptional({
@@ -56,4 +54,11 @@ export class UpdateClientDto extends PartialType(CreateClientDto) {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+export class ConfirmClientIdentityDto {
+  @ApiProperty({ example: 'ACCEPT', enum: ['ACCEPT', 'REJECT'] })
+  @IsString()
+  @IsIn(['ACCEPT', 'REJECT'])
+  decision!: 'ACCEPT' | 'REJECT';
 }

@@ -71,6 +71,9 @@ export class StorageService {
   }
 
   async createPresignedDownloadUrl(storageKey: string): Promise<string> {
+    if (storageKey.startsWith('/uploads/') || storageKey.startsWith('uploads/')) {
+      return '/' + storageKey.replace(/^\/+/, '');
+    }
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: storageKey,
@@ -79,6 +82,16 @@ export class StorageService {
   }
 
   getPublicUrl(storageKey: string): string {
+    if (!storageKey) return '';
+    if (
+      storageKey.startsWith('http://') ||
+      storageKey.startsWith('https://')
+    ) {
+      return storageKey;
+    }
+    if (storageKey.startsWith('/uploads/') || storageKey.startsWith('uploads/')) {
+      return '/' + storageKey.replace(/^\/+/, '');
+    }
     return `${this.publicBaseUrl}/${storageKey}`;
   }
 }
