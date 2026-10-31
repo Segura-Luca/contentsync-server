@@ -7,14 +7,17 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { RoleCode } from '@prisma/client';
+import { RoleCode, SocialProvider } from '@prisma/client';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { SocialTokenVerifierService } from './social-token-verifier.service';
+import {
+  SocialTokenVerifierService,
+  VerifiedSocialIdentity,
+} from './social-token-verifier.service';
 import {
   ForgotPasswordDto,
   LoginDto,
@@ -23,6 +26,8 @@ import {
   ResetPasswordDto,
   SocialLoginDto,
   VerifyEmailDto,
+  VerifyOtpCodeDto,
+  VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
 
 export interface AuthTokensResponse {
@@ -39,6 +44,13 @@ export interface AuthTokensResponse {
     agencyId: string | null;
     clientId: string | null;
   };
+}
+
+export interface PendingVerificationResponse {
+  requiresEmailVerification?: boolean;
+  requiresPasswordCreation?: boolean;
+  email: string;
+  message: string;
 }
 
 @Injectable()
@@ -74,66 +86,109 @@ export class AuthService {
     });
   }
 
-  async register(dto: RegisterDto, ipAddress?: string): Promise<AuthTokensResponse> {
+  /**
+   * Registro en 2 pasos:
+   * Paso 1: Guarda los datos de la Agencia en estado no verificado y envía un código
+   * de 6 dígitos mediante automatización en n8n desde lucasegura2007@gmail.com.
+   */
+  async register(
+    dto: RegisterDto,
+    ipAddress?: string,
+  ): Promise<PendingVerificationResponse> {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
+      include: { ownedAgency: true },
     });
-    if (existing) {
-      throw new ConflictException('Ya existe una cuenta registrada con ese correo electrónico.');
+
+    if (existing && existing.emailVerified) {
+      throw new ConflictException(
+        'Ya existe una cuenta verificada con ese correo electrónico.',
+      );
     }
 
-    // Toda persona que crea una cuenta adquiere jerarquía de AGENCIA
-    const role = await this.ensureRoleExists(RoleCode.AGENCIA);
+    const composedName =
+      dto.firstName?.trim() && dto.lastName?.trim()
+        ? `${dto.firstName.trim()} ${dto.lastName.trim()}`
+        : dto.fullName.trim();
+
+    const agencyName = dto.agencyName?.trim() || `${composedName} Media`;
     const passwordHash = await argon2.hash(dto.password);
-    const verificationToken = crypto.randomBytes(24).toString('hex');
-    const agencyName = dto.agencyName?.trim() || `${dto.fullName.trim()} Media`;
-    const taxId = `AG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const sixDigitCode = crypto.randomInt(100000, 999999).toString();
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const createdUser = await tx.user.create({
-        data: {
-          email: normalizedEmail,
-          passwordHash,
-          fullName: dto.fullName.trim(),
-          roleId: role.id,
-          timezone: dto.timezone || 'America/Argentina/Buenos_Aires',
-          verificationToken,
-          emailVerified: false,
-        },
+    if (existing && !existing.emailVerified) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            fullName: composedName,
+            passwordHash,
+            verificationToken: sixDigitCode,
+          },
+        });
+        if (existing.ownedAgency) {
+          await tx.agency.update({
+            where: { id: existing.ownedAgency.id },
+            data: { name: agencyName },
+          });
+        }
       });
+    } else {
+      const role = await this.ensureRoleExists(RoleCode.AGENCIA);
+      const taxId = `AG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-      await tx.agency.create({
-        data: {
-          ownerUserId: createdUser.id,
-          name: agencyName,
-          taxId,
-        },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            fullName: composedName,
+            roleId: role.id,
+            timezone: dto.timezone || 'America/Argentina/Buenos_Aires',
+            verificationToken: sixDigitCode,
+            emailVerified: false,
+          },
+        });
 
-      return tx.user.findUniqueOrThrow({
-        where: { id: createdUser.id },
-        include: {
-          role: true,
-          ownedAgency: true,
-          clientProfile: true,
-        },
+        await tx.agency.create({
+          data: {
+            ownerUserId: createdUser.id,
+            name: agencyName,
+            taxId,
+          },
+        });
       });
+    }
+
+    await this.sendSixDigitVerificationEmail({
+      email: normalizedEmail,
+      code: sixDigitCode,
+      fullName: composedName,
+      purpose: 'REGISTER_VERIFY',
     });
 
     await this.auditService.log({
-      userId: user.id,
-      action: 'AUTH_REGISTER',
+      action: 'AUTH_REGISTER_OTP_SENT',
       entityType: 'User',
-      entityId: user.id,
       ipAddress,
-      metadata: { role: user.role.code },
+      metadata: { email: normalizedEmail },
     });
 
-    return this.issueSessionTokens(user, 'Registro inicial', ipAddress);
+    return {
+      requiresEmailVerification: true,
+      email: normalizedEmail,
+      message:
+        'Te enviamos un código de verificación de 6 dígitos desde lucasegura2007@gmail.com para comprobar que este correo es tuyo.',
+    };
   }
 
-  async login(dto: LoginDto, ipAddress?: string): Promise<AuthTokensResponse> {
+  /**
+   * Paso 2 del registro: valida el código de 6 dígitos enviado por n8n y activa la sesión.
+   */
+  async verifyRegistrationCode(
+    dto: VerifyRegistrationCodeDto,
+    ipAddress?: string,
+  ): Promise<AuthTokensResponse> {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -144,8 +199,112 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.passwordHash || !user.isActive || user.deletedAt) {
+    if (!user || !user.verificationToken || user.verificationToken !== dto.code.trim()) {
+      throw new BadRequestException(
+        'El código de 6 dígitos es incorrecto. Revisá tu bandeja de entrada e intentá nuevamente.',
+      );
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        verificationToken: null,
+      },
+      include: {
+        role: true,
+        ownedAgency: true,
+        clientProfile: true,
+      },
+    });
+
+    await this.auditService.log({
+      userId: updatedUser.id,
+      action: 'AUTH_EMAIL_VERIFIED_OTP',
+      entityType: 'User',
+      entityId: updatedUser.id,
+      ipAddress,
+    });
+
+    return this.issueSessionTokens(
+      updatedUser,
+      'Registro verificado con código de 6 dígitos',
+      ipAddress,
+    );
+  }
+
+  async login(
+    dto: LoginDto,
+    ipAddress?: string,
+  ): Promise<AuthTokensResponse | PendingVerificationResponse> {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: {
+        role: true,
+        ownedAgency: true,
+        clientProfile: true,
+      },
+    });
+
+    if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException('Credenciales inválidas o cuenta inactiva.');
+    }
+
+    // Requerimiento 4: Si el usuario creó su cuenta con Google/Redes y no posee contraseña guardada,
+    // enviamos un código de 6 dígitos vía n8n para que compruebe su identidad y cree su contraseña.
+    if (!user.passwordHash) {
+      const setupCode = crypto.randomInt(100000, 999999).toString();
+      const expires = new Date(Date.now() + 1000 * 60 * 30);
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetToken: setupCode,
+          passwordResetExpires: expires,
+        },
+      });
+
+      await this.sendSixDigitVerificationEmail({
+        email: user.email,
+        code: setupCode,
+        fullName: user.fullName,
+        purpose: 'SET_GOOGLE_PASSWORD',
+      });
+
+      return {
+        requiresPasswordCreation: true,
+        email: user.email,
+        message:
+          'Tu cuenta fue vinculada con Google y aún no tiene contraseña. Te enviamos un código de 6 dígitos a tu correo para comprobar tu identidad y crear tu contraseña.',
+      };
+    }
+
+    // Si registró su cuenta por formulario pero aún no verificó el código de 6 dígitos de su email:
+    if (!user.emailVerified) {
+      const sixDigitCode = crypto.randomInt(100000, 999999).toString();
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { verificationToken: sixDigitCode },
+      });
+
+      await this.sendSixDigitVerificationEmail({
+        email: user.email,
+        code: sixDigitCode,
+        fullName: user.fullName,
+        purpose: 'REGISTER_VERIFY',
+      });
+
+      return {
+        requiresEmailVerification: true,
+        email: user.email,
+        message:
+          'Antes de ingresar debés verificar que este correo te pertenece. Te enviamos un nuevo código de 6 dígitos.',
+      };
+    }
+
+    if (!dto.password) {
+      throw new UnauthorizedException('Ingresá tu contraseña para continuar.');
     }
 
     const validPassword = await argon2.verify(user.passwordHash, dto.password);
@@ -172,31 +331,51 @@ export class AuthService {
   }
 
   /**
-   * Inicio de sesión social con 3 proveedores (GOOGLE, FACEBOOK, GITHUB) y
-   * vinculación automática de cuenta por email para evitar duplicados.
+   * Inicio de sesión social (GOOGLE, FACEBOOK, GITHUB) exigiendo Nombre, Apellido y Nombre de Agencia.
    */
   async socialLogin(input: SocialLoginDto, ipAddress?: string): Promise<AuthTokensResponse> {
     if (!input.idToken || input.idToken.trim().length < 10) {
       throw new UnauthorizedException('Token del proveedor social inválido.');
     }
 
-    // La identidad se obtiene verificando el token ante Google/Meta; se ignora lo que declare el cliente.
     const identity = await this.socialVerifier.verify(input.provider, input.idToken.trim());
-    const dto = {
-      ...input,
-      email: identity.email,
-      providerUserId: identity.providerUserId,
-      fullName: identity.fullName,
-    };
+    return this.completeVerifiedSocialLogin({
+      provider: input.provider,
+      identity,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      fullName: input.fullName,
+      agencyName: input.agencyName,
+      deviceInfo: input.deviceInfo,
+      ipAddress,
+    });
+  }
 
-    const normalizedEmail = dto.email.trim().toLowerCase();
+  async completeVerifiedSocialLogin(params: {
+    provider: SocialProvider;
+    identity: VerifiedSocialIdentity;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    agencyName?: string;
+    deviceInfo?: string;
+    ipAddress?: string;
+  }): Promise<AuthTokensResponse> {
+    const { provider, identity, ipAddress } = params;
+    const normalizedEmail = identity.email.trim().toLowerCase();
+
+    const customFullName =
+      params.firstName?.trim() && params.lastName?.trim()
+        ? `${params.firstName.trim()} ${params.lastName.trim()}`
+        : params.fullName?.trim() || '';
+    const customAgencyName = params.agencyName?.trim() || '';
 
     // 1. Verificar si ya existe el vínculo social
     const existingSocial = await this.prisma.socialAuthAccount.findUnique({
       where: {
         provider_providerUserId: {
-          provider: dto.provider,
-          providerUserId: dto.providerUserId,
+          provider,
+          providerUserId: identity.providerUserId,
         },
       },
       include: {
@@ -211,14 +390,40 @@ export class AuthService {
     });
 
     if (existingSocial) {
+      let targetUser = existingSocial.user;
+      if (customFullName || (customAgencyName && targetUser.ownedAgency)) {
+        await this.prisma.$transaction(async (tx) => {
+          if (customFullName) {
+            await tx.user.update({
+              where: { id: targetUser.id },
+              data: { fullName: customFullName },
+            });
+          }
+          if (customAgencyName && targetUser.ownedAgency) {
+            await tx.agency.update({
+              where: { id: targetUser.ownedAgency.id },
+              data: { name: customAgencyName },
+            });
+          }
+        });
+        targetUser = await this.prisma.user.findUniqueOrThrow({
+          where: { id: targetUser.id },
+          include: {
+            role: true,
+            ownedAgency: true,
+            clientProfile: true,
+          },
+        });
+      }
+
       await this.auditService.log({
         userId: existingSocial.userId,
-        action: `AUTH_SOCIAL_LOGIN_${dto.provider}`,
+        action: `AUTH_SOCIAL_LOGIN_${provider}`,
         entityType: 'SocialAuthAccount',
         entityId: existingSocial.id,
         ipAddress,
       });
-      return this.issueSessionTokens(existingSocial.user, dto.deviceInfo, ipAddress);
+      return this.issueSessionTokens(targetUser, params.deviceInfo, ipAddress);
     }
 
     // 2. Buscar si existe usuario con el mismo email para vincular sin duplicar
@@ -232,15 +437,23 @@ export class AuthService {
     });
 
     if (!user) {
+      if (!customFullName || !customAgencyName) {
+        throw new BadRequestException(
+          'Completá los campos de Nombre, Apellido y Nombre de la agencia antes de continuar.',
+        );
+      }
+
       const defaultRole = await this.ensureRoleExists(RoleCode.AGENCIA);
-      const agencyName = `${dto.fullName.trim()} Media`;
+      const finalName = customFullName || identity.fullName.trim();
+      const finalAgencyName = customAgencyName || `${finalName} Media`;
       const taxId = `AG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
       user = await this.prisma.$transaction(async (tx) => {
+        // Importante: passwordHash queda en null porque inició con Google/Red Social
         const createdUser = await tx.user.create({
           data: {
             email: normalizedEmail,
-            fullName: dto.fullName.trim(),
+            fullName: finalName,
             roleId: defaultRole.id,
             emailVerified: true,
           },
@@ -249,7 +462,7 @@ export class AuthService {
         await tx.agency.create({
           data: {
             ownerUserId: createdUser.id,
-            name: agencyName,
+            name: finalAgencyName,
             taxId,
           },
         });
@@ -263,10 +476,29 @@ export class AuthService {
           },
         });
       });
-    } else if (!user.emailVerified) {
-      await this.prisma.user.update({
+    } else {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user!.id },
+          data: {
+            emailVerified: true,
+            ...(customFullName ? { fullName: customFullName } : {}),
+          },
+        });
+        if (customAgencyName && user!.ownedAgency) {
+          await tx.agency.update({
+            where: { id: user!.ownedAgency.id },
+            data: { name: customAgencyName },
+          });
+        }
+      });
+      user = await this.prisma.user.findUniqueOrThrow({
         where: { id: user.id },
-        data: { emailVerified: true },
+        include: {
+          role: true,
+          ownedAgency: true,
+          clientProfile: true,
+        },
       });
     }
 
@@ -274,34 +506,133 @@ export class AuthService {
     const socialAccount = await this.prisma.socialAuthAccount.create({
       data: {
         userId: user.id,
-        provider: dto.provider,
-        providerUserId: dto.providerUserId,
+        provider,
+        providerUserId: identity.providerUserId,
         email: normalizedEmail,
       },
     });
 
     await this.auditService.log({
       userId: user.id,
-      action: `AUTH_SOCIAL_LINKED_${dto.provider}`,
+      action: `AUTH_SOCIAL_LINKED_${provider}`,
       entityType: 'SocialAuthAccount',
       entityId: socialAccount.id,
       ipAddress,
     });
 
-    return this.issueSessionTokens(user, dto.deviceInfo, ipAddress);
+    return this.issueSessionTokens(user, params.deviceInfo, ipAddress);
   }
 
-  /** Identificadores públicos (no secretos) que necesitan los clientes para abrir el login social. */
+  /** Identificadores públicos para iniciar sesión con Google, Facebook y GitHub. */
   getSocialPublicConfig() {
     return {
       googleClientId: this.configService.get<string>('GOOGLE_AUTH_CLIENT_ID') || null,
       facebookAppId: this.configService.get<string>('FACEBOOK_AUTH_APP_ID') || null,
+      githubClientId: this.configService.get<string>('GITHUB_AUTH_CLIENT_ID') || null,
     };
   }
 
-  /**
-   * Rotación de Refresh Token con detección de reuso (Token Family Reuse Detection).
-   */
+  getOAuthAuthorizeUrl(
+    providerParam: string,
+    query: { firstName?: string; lastName?: string; agencyName?: string },
+    publicBase: string,
+  ): string {
+    const p = providerParam.trim().toLowerCase();
+    const statePayload = Buffer.from(
+      JSON.stringify({
+        firstName: (query.firstName || '').trim(),
+        lastName: (query.lastName || '').trim(),
+        agencyName: (query.agencyName || '').trim(),
+      }),
+      'utf8',
+    ).toString('base64url');
+
+    if (p === 'facebook') {
+      const appId = this.configService.get<string>('FACEBOOK_AUTH_APP_ID');
+      if (!appId) {
+        throw new BadRequestException('El inicio de sesión con Facebook no está configurado.');
+      }
+      const redirectUri = `${publicBase}/api/v1/auth/oauth/facebook/callback`;
+      return (
+        `https://www.facebook.com/v19.0/dialog/oauth` +
+        `?client_id=${encodeURIComponent(appId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=public_profile` +
+        `&response_type=code` +
+        `&state=${encodeURIComponent(statePayload)}`
+      );
+    }
+
+    if (p === 'github') {
+      const clientId = this.configService.get<string>('GITHUB_AUTH_CLIENT_ID');
+      if (!clientId || clientId === 'your-github-client-id') {
+        throw new BadRequestException('El inicio de sesión con GitHub no está configurado.');
+      }
+      const redirectUri = `${publicBase}/api/v1/auth/oauth/github/callback`;
+      return (
+        `https://github.com/login/oauth/authorize` +
+        `?client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${encodeURIComponent('read:user user:email')}` +
+        `&state=${encodeURIComponent(statePayload)}`
+      );
+    }
+
+    throw new BadRequestException('Proveedor OAuth no soportado.');
+  }
+
+  async handleOAuthCallback(
+    providerParam: string,
+    code: string,
+    stateParam: string | undefined,
+    ipAddress: string | undefined,
+    publicBase: string,
+  ): Promise<AuthTokensResponse> {
+    if (!code) {
+      throw new UnauthorizedException('No se recibió el código de autorización.');
+    }
+
+    let parsedState: { firstName?: string; lastName?: string; agencyName?: string } = {};
+    if (stateParam) {
+      try {
+        parsedState = JSON.parse(Buffer.from(stateParam, 'base64url').toString('utf8'));
+      } catch {
+        parsedState = {};
+      }
+    }
+
+    const p = providerParam.trim().toLowerCase();
+    if (p === 'facebook') {
+      const redirectUri = `${publicBase}/api/v1/auth/oauth/facebook/callback`;
+      const identity = await this.socialVerifier.exchangeFacebookCode(code, redirectUri);
+      return this.completeVerifiedSocialLogin({
+        provider: SocialProvider.FACEBOOK,
+        identity,
+        firstName: parsedState.firstName,
+        lastName: parsedState.lastName,
+        agencyName: parsedState.agencyName,
+        deviceInfo: 'OAuth Web Facebook',
+        ipAddress,
+      });
+    }
+
+    if (p === 'github') {
+      const redirectUri = `${publicBase}/api/v1/auth/oauth/github/callback`;
+      const identity = await this.socialVerifier.exchangeGithubCode(code, redirectUri);
+      return this.completeVerifiedSocialLogin({
+        provider: SocialProvider.GITHUB,
+        identity,
+        firstName: parsedState.firstName,
+        lastName: parsedState.lastName,
+        agencyName: parsedState.agencyName,
+        deviceInfo: 'OAuth Web GitHub',
+        ipAddress,
+      });
+    }
+
+    throw new BadRequestException('Proveedor OAuth no soportado.');
+  }
+
   async refreshTokens(dto: RefreshTokenDto, ipAddress?: string): Promise<AuthTokensResponse> {
     let decoded: { sub: string; sessionId: string; tokenFamily: string };
     try {
@@ -329,7 +660,6 @@ export class AuthService {
       throw new UnauthorizedException('Sesión no encontrada.');
     }
 
-    // Si la sesión ya fue revocada o rotada, significa intento de reuso de un token robado -> revocar toda la familia
     if (session.isRevoked || session.rotatedAt) {
       await this.prisma.authSession.updateMany({
         where: { tokenFamily: session.tokenFamily },
@@ -352,7 +682,6 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token inválido o vencido.');
     }
 
-    // Marcar sesión actual como rotada e invalidarla para futuros usos
     await this.prisma.authSession.update({
       where: { id: session.id },
       data: {
@@ -411,7 +740,8 @@ export class AuthService {
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
     const port = parseInt(this.configService.get<string>('SMTP_PORT', '587'), 10);
-    const secure = this.configService.get<string>('SMTP_SECURE', 'false') === 'true' || port === 465;
+    const secure =
+      this.configService.get<string>('SMTP_SECURE', 'false') === 'true' || port === 465;
 
     if (host && user && pass) {
       this.mailerTransporter = nodemailer.createTransport({
@@ -427,32 +757,93 @@ export class AuthService {
     return null;
   }
 
-  async sendPasswordRecoveryEmail(
-    email: string,
-    code: string,
-    fullName: string,
-  ): Promise<boolean> {
+  /**
+   * Envía un código de verificación de 6 dígitos a través de una automatización en n8n
+   * enviada desde lucasegura2007@gmail.com (con respaldo automático HTTPS/SMTP).
+   */
+  async sendSixDigitVerificationEmail(params: {
+    email: string;
+    code: string;
+    fullName: string;
+    purpose: 'REGISTER_VERIFY' | 'SET_GOOGLE_PASSWORD' | 'PASSWORD_RECOVERY';
+  }): Promise<boolean> {
+    const { email, code, fullName, purpose } = params;
     const mailer = this.getMailer();
     const from = this.configService.get<string>(
       'SMTP_FROM',
-      '"ContentSync" <no-reply@contentsync.io>',
+      '"ContentSync" <lucasegura2007@gmail.com>',
     );
-    const subject = `${code} es tu código de recuperación de ContentSync`;
+
+    const titles: Record<typeof purpose, { subject: string; heading: string; intro: string }> = {
+      REGISTER_VERIFY: {
+        subject: `${code} es tu código de verificación de cuenta en ContentSync`,
+        heading: 'Verificación de tu correo electrónico',
+        intro:
+          'Para comprobar que este correo te pertenece y activar tu cuenta de Agencia en ContentSync, ingresá el siguiente código de 6 dígitos:',
+      },
+      SET_GOOGLE_PASSWORD: {
+        subject: `${code} es tu código para crear tu contraseña en ContentSync`,
+        heading: 'Comprobación de identidad · Crear contraseña',
+        intro:
+          'Tu cuenta fue creada continuando con Google. Para comprobar tu identidad y guardar una contraseña propia en ContentSync, ingresá este código de 6 dígitos:',
+      },
+      PASSWORD_RECOVERY: {
+        subject: `${code} es tu código de recuperación de ContentSync`,
+        heading: 'Recuperación de contraseña',
+        intro:
+          'Recibimos una solicitud para restablecer tu contraseña en ContentSync. Tu código de verificación de 6 dígitos es:',
+      },
+    };
+
+    const copy = titles[purpose];
     const html = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #0f172a; margin-top: 0; font-size: 20px;">Recuperación de contraseña</h2>
-        <p style="color: #475569; font-size: 15px; line-height: 1.5;">Hola <strong>${fullName || 'Usuario'}</strong>,</p>
-        <p style="color: #475569; font-size: 15px; line-height: 1.5;">Recibimos una solicitud para restablecer tu contraseña en ContentSync. Tu código de verificación de 6 dígitos es:</p>
-        <div style="background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 18px; text-align: center; margin: 24px 0;">
-          <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 34px; font-weight: 700; letter-spacing: 6px; color: #0f172a;">${code}</span>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background: #0f1116; color: #f2f3f5; border: 1px solid #2b3140; border-radius: 8px;">
+        <div style="font-family: monospace; font-size: 12px; letter-spacing: 0.08em; color: #d4f238; text-transform: uppercase; margin-bottom: 10px;">CONTENTSYNC · VERIFICACIÓN DE 6 DÍGITOS</div>
+        <h2 style="color: #ffffff; margin-top: 0; font-size: 20px;">${copy.heading}</h2>
+        <p style="color: #cbd5e1; font-size: 15px; line-height: 1.5;">Hola <strong>${fullName || 'Usuario'}</strong>,</p>
+        <p style="color: #cbd5e1; font-size: 15px; line-height: 1.5;">${copy.intro}</p>
+        <div style="background: #171a21; border: 1px dashed #d4f238; border-radius: 6px; padding: 18px; text-align: center; margin: 24px 0;">
+          <span style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 34px; font-weight: 700; letter-spacing: 6px; color: #d4f238;">${code}</span>
         </div>
-        <p style="color: #64748b; font-size: 13px; line-height: 1.4;">Este código es de un solo uso y expirará en 30 minutos.<br/>Si no realizaste esta solicitud, podés desestimar este mensaje con tranquilidad.</p>
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-        <p style="color: #94a3b8; font-size: 12px; margin: 0;">ContentSync — Publicación multired unificada</p>
+        <p style="color: #94a3b8; font-size: 13px; line-height: 1.4;">Este código es de un solo uso y expirará en 30 minutos.<br/>Enviado desde <strong>lucasegura2007@gmail.com</strong> mediante automatización n8n.</p>
       </div>
     `;
 
-    const textBody = `Hola ${fullName},\n\nTu código de recuperación de ContentSync es: ${code}\nExpira en 30 minutos.\n\nSi no fuiste vos, ignora este mensaje.`;
+    const textBody = `Hola ${fullName},\n\n${copy.intro}\n\nCódigo de 6 dígitos: ${code}\n\nExpira en 30 minutos.`;
+
+    // 1. Automatización n8n (Webhook primario)
+    const n8nWebhookUrl = this.configService.get<string>('N8N_WEBHOOK_URL');
+    if (n8nWebhookUrl) {
+      try {
+        const n8nRes = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            to: email,
+            fullName,
+            code,
+            purpose,
+            subject: copy.subject,
+            text: textBody,
+            html,
+            senderEmail: 'lucasegura2007@gmail.com',
+            fromName: 'ContentSync',
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (n8nRes.ok) {
+          this.logger.log(`[N8N-AUTOMATION] Código 6 dígitos (${purpose}) enviado a ${email}`);
+          return true;
+        }
+      } catch (err: any) {
+        this.logger.warn(
+          `[N8N-AUTOMATION] Falló webhook n8n (${err.message}), usando respaldo directo de lucasegura2007@gmail.com`,
+        );
+      }
+    }
+
+    // 2. Respaldo HTTPS directo desde lucasegura2007@gmail.com
     const webhookUrl = this.configService.get<string>('GMAIL_HTTPS_WEBHOOK_URL');
     const webhookSecret = this.configService.get<string>('GMAIL_WEBHOOK_SECRET') || '';
 
@@ -465,14 +856,14 @@ export class AuthService {
           body: JSON.stringify({
             secret: webhookSecret,
             to: email,
-            subject,
+            subject: copy.subject,
             text: textBody,
             html,
             fromName: 'ContentSync',
           }),
         });
         if (res.ok) {
-          this.logger.log(`[HTTPS-MAIL] Correo de recuperación enviado exitosamente a ${email}`);
+          this.logger.log(`[HTTPS-MAIL] Código 6 dígitos (${purpose}) enviado a ${email}`);
           return true;
         }
       } catch (err: any) {
@@ -480,44 +871,42 @@ export class AuthService {
       }
     }
 
+    // 3. Respaldo SMTP directo desde lucasegura2007@gmail.com
     if (mailer) {
       try {
         await mailer.sendMail({
           from,
           to: email,
-          subject,
+          subject: copy.subject,
           text: textBody,
           html,
         });
-        this.logger.log(`[SMTP] Correo de recuperación enviado exitosamente a ${email}`);
+        this.logger.log(`[SMTP] Código 6 dígitos (${purpose}) enviado a ${email}`);
         return true;
       } catch (err: any) {
         this.logger.error(`[SMTP ERROR] Falló el envío de correo a ${email}: ${err.message}`);
         return false;
       }
-    } else {
-      this.logger.warn(
-        `[SMTP NO CONFIGURADO] Código de recuperación generado para ${email}: ${code}. Configura SMTP_HOST, SMTP_USER, SMTP_PASS en backend/.env para entrega automática a la casilla.`,
-      );
-      return false;
     }
+
+    this.logger.warn(`[MAIL NO CONFIGURADO] Código (${purpose}) para ${email}: ${code}`);
+    return false;
   }
 
-  async forgotPassword(
-    dto: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string; hasPassword?: boolean }> {
+    const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.trim().toLowerCase() },
+      where: { email: normalizedEmail },
     });
     if (!user) {
       return {
-        message: 'Si el correo está registrado, enviamos un código de verificación de 6 dígitos a tu casilla de correo.',
+        message:
+          'Si el correo está registrado, enviamos un código de verificación de 6 dígitos a tu casilla de correo.',
       };
     }
 
-    // Genera un código OTP de 6 dígitos de alta entropía para recuperación de clave
     const resetToken = crypto.randomInt(100000, 999999).toString();
-    const expires = new Date(Date.now() + 1000 * 60 * 30); // 30 minutos de validez
+    const expires = new Date(Date.now() + 1000 * 60 * 30);
 
     await this.prisma.user.update({
       where: { id: user.id },
@@ -527,33 +916,78 @@ export class AuthService {
       },
     });
 
-    // Envía el correo al destinatario
-    await this.sendPasswordRecoveryEmail(user.email, resetToken, user.fullName);
+    await this.sendSixDigitVerificationEmail({
+      email: user.email,
+      code: resetToken,
+      fullName: user.fullName,
+      purpose: user.passwordHash ? 'PASSWORD_RECOVERY' : 'SET_GOOGLE_PASSWORD',
+    });
 
-    // Por seguridad, NUNCA se retorna el token al cliente en la respuesta
     return {
-      message: 'Si el correo está registrado, enviamos un código de verificación de 6 dígitos a tu casilla de correo.',
+      hasPassword: Boolean(user.passwordHash),
+      message: user.passwordHash
+        ? 'Enviamos un código de verificación de 6 dígitos a tu correo.'
+        : 'Tu cuenta fue creada con Google. Enviamos un código de 6 dígitos a tu correo para comprobar tu identidad y crear tu contraseña.',
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+  /**
+   * Comprueba únicamente el código de 6 dígitos antes de habilitar el campo para guardar la contraseña.
+   */
+  async verifyOtpCode(dto: VerifyOtpCodeDto): Promise<{ verified: boolean; message: string }> {
+    const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({
       where: {
-        passwordResetToken: dto.token.trim(),
+        email: normalizedEmail,
+        passwordResetToken: dto.code.trim(),
         passwordResetExpires: { gt: new Date() },
       },
     });
+
     if (!user) {
-      throw new BadRequestException('El código de recuperación es incorrecto o ya expiró.');
+      throw new BadRequestException(
+        'El código de 6 dígitos es incorrecto o ya expiró. Verificá tu correo.',
+      );
+    }
+
+    return {
+      verified: true,
+      message: 'Identidad comprobada. Ahora podés ingresar y guardar tu contraseña.',
+    };
+  }
+
+  async resetPassword(
+    dto: ResetPasswordDto,
+    ipAddress?: string,
+  ): Promise<{ message: string; session: AuthTokensResponse }> {
+    const whereClause: Record<string, any> = {
+      passwordResetToken: dto.token.trim(),
+      passwordResetExpires: { gt: new Date() },
+    };
+    if (dto.email) {
+      whereClause.email = dto.email.trim().toLowerCase();
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: whereClause,
+    });
+    if (!user) {
+      throw new BadRequestException('El código de verificación es incorrecto o ya expiró.');
     }
 
     const passwordHash = await argon2.hash(dto.newPassword);
-    await this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordHash,
+        emailVerified: true,
         passwordResetToken: null,
         passwordResetExpires: null,
+      },
+      include: {
+        role: true,
+        ownedAgency: true,
+        clientProfile: true,
       },
     });
 
@@ -562,7 +996,16 @@ export class AuthService {
       data: { isRevoked: true },
     });
 
-    return { message: 'Contraseña actualizada exitosamente.' };
+    const session = await this.issueSessionTokens(
+      updatedUser,
+      'Contraseña configurada con código de 6 dígitos',
+      ipAddress,
+    );
+
+    return {
+      message: 'Contraseña guardada exitosamente.',
+      session,
+    };
   }
 
   private async issueSessionTokens(
@@ -595,7 +1038,7 @@ export class AuthService {
 
     const accessToken = await this.jwtService.signAsync(accessPayload, {
       secret: this.accessSecret,
-      expiresIn: '15m',
+      expiresIn: '7d',
     });
 
     const refreshToken = await this.jwtService.signAsync(
@@ -606,7 +1049,7 @@ export class AuthService {
       },
       {
         secret: this.refreshSecret,
-        expiresIn: '7d',
+        expiresIn: '30d',
       },
     );
 
@@ -620,14 +1063,14 @@ export class AuthService {
         refreshTokenHash,
         deviceInfo: deviceInfo ?? null,
         ipAddress: ipAddress ?? null,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       },
     });
 
     return {
       accessToken,
       refreshToken,
-      expiresInSeconds: 900,
+      expiresInSeconds: 604800,
       user: {
         id: user.id,
         email: user.email,

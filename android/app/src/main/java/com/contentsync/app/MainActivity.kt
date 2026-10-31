@@ -158,7 +158,8 @@ class MainActivity : ComponentActivity() {
                                     val reqHost = uri.host?.lowercase()
                                     if (appHost != null && reqHost != null && reqHost != appHost &&
                                         !reqHost.endsWith("accounts.google.com") &&
-                                        !reqHost.endsWith("facebook.com")
+                                        !reqHost.endsWith("facebook.com") &&
+                                        !reqHost.endsWith("github.com")
                                     ) {
                                         return try {
                                             startActivity(Intent(Intent.ACTION_VIEW, uri))

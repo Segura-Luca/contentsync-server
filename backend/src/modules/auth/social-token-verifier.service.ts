@@ -9,10 +9,8 @@ export interface VerifiedSocialIdentity {
 }
 
 /**
- * Verifica criptográficamente ante el proveedor (Google / Meta) que el token
- * recibido es real, fue emitido para ESTA aplicación y pertenece a una cuenta
- * con correo verificado. La identidad (email, id, nombre) se toma SIEMPRE del
- * proveedor, nunca de lo que envía el cliente.
+ * Verifica criptográficamente ante el proveedor (Google / Meta / GitHub) que el token
+ * o código OAuth recibido es real y fue emitido para esta aplicación.
  */
 @Injectable()
 export class SocialTokenVerifierService {
@@ -24,15 +22,20 @@ export class SocialTokenVerifierService {
         return this.verifyGoogle(token);
       case SocialProvider.FACEBOOK:
         return this.verifyFacebook(token);
+      case SocialProvider.GITHUB:
+        return this.verifyGithub(token);
       default:
         throw new UnauthorizedException('Este proveedor de acceso no está disponible.');
     }
   }
 
-  private async getJson(url: string): Promise<Record<string, any>> {
+  private async getJson(url: string, headers?: Record<string, string>): Promise<Record<string, any>> {
     let res: Response;
     try {
-      res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      res = await fetch(url, {
+        headers: headers || {},
+        signal: AbortSignal.timeout(10000),
+      });
     } catch {
       throw new ServiceUnavailableException(
         'No pudimos contactar al proveedor de acceso. Intentá de nuevo en unos instantes.',
@@ -68,7 +71,7 @@ export class SocialTokenVerifierService {
     };
   }
 
-  private async verifyFacebook(accessToken: string): Promise<VerifiedSocialIdentity> {
+  async verifyFacebook(accessToken: string): Promise<VerifiedSocialIdentity> {
     const appId = this.config.get<string>('FACEBOOK_AUTH_APP_ID');
     const appSecret = this.config.get<string>('FACEBOOK_AUTH_APP_SECRET');
     if (!appId || !appSecret) {
@@ -85,15 +88,116 @@ export class SocialTokenVerifierService {
     const me = await this.getJson(
       `https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`,
     );
-    if (!me.email) {
-      throw new UnauthorizedException(
-        'Tu cuenta de Facebook no comparte un correo electrónico. Usá otra forma de acceso.',
-      );
-    }
+    const resolvedEmail = me.email
+      ? String(me.email).trim().toLowerCase()
+      : `fb_${String(data.user_id)}@facebook.contentsync.io`;
     return {
       providerUserId: String(data.user_id),
-      email: String(me.email),
-      fullName: String(me.name || String(me.email).split('@')[0]),
+      email: resolvedEmail,
+      fullName: String(me.name || resolvedEmail.split('@')[0]),
     };
+  }
+
+  async verifyGithub(accessToken: string): Promise<VerifiedSocialIdentity> {
+    const ghHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'ContentSync-App',
+    };
+    const user = await this.getJson('https://api.github.com/user', ghHeaders);
+    if (!user.id) {
+      throw new UnauthorizedException('No pudimos validar tu cuenta de GitHub.');
+    }
+
+    let email = user.email ? String(user.email).trim().toLowerCase() : '';
+    if (!email) {
+      try {
+        const res = await fetch('https://api.github.com/user/emails', {
+          headers: ghHeaders,
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) {
+          const emails = (await res.json()) as Array<{
+            email: string;
+            primary?: boolean;
+            verified?: boolean;
+          }>;
+          if (Array.isArray(emails) && emails.length > 0) {
+            const primary =
+              emails.find((e) => e.primary && e.verified) ||
+              emails.find((e) => e.verified) ||
+              emails[0];
+            if (primary?.email) {
+              email = String(primary.email).trim().toLowerCase();
+            }
+          }
+        }
+      } catch {
+        // Fallback abajo si user/emails no está disponible
+      }
+    }
+
+    if (!email) {
+      const login = String(user.login || user.id);
+      email = `${login}@users.noreply.github.com`.toLowerCase();
+    }
+
+    return {
+      providerUserId: String(user.id),
+      email,
+      fullName: String(user.name || user.login || email.split('@')[0]),
+    };
+  }
+
+  async exchangeFacebookCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
+    const appId = this.config.get<string>('FACEBOOK_AUTH_APP_ID');
+    const appSecret = this.config.get<string>('FACEBOOK_AUTH_APP_SECRET');
+    if (!appId || !appSecret) {
+      throw new ServiceUnavailableException('El acceso con Facebook no está configurado.');
+    }
+    const tokenData = await this.getJson(
+      `https://graph.facebook.com/v19.0/oauth/access_token` +
+        `?client_id=${encodeURIComponent(appId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&client_secret=${encodeURIComponent(appSecret)}` +
+        `&code=${encodeURIComponent(code)}`,
+    );
+    if (!tokenData.access_token) {
+      throw new UnauthorizedException('No se pudo obtener el token de Facebook.');
+    }
+    return this.verifyFacebook(String(tokenData.access_token));
+  }
+
+  async exchangeGithubCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
+    const clientId = this.config.get<string>('GITHUB_AUTH_CLIENT_ID');
+    const clientSecret = this.config.get<string>('GITHUB_AUTH_CLIENT_SECRET');
+    if (!clientId || !clientSecret) {
+      throw new ServiceUnavailableException('El acceso con GitHub no está configurado.');
+    }
+    let res: Response;
+    try {
+      res = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': 'ContentSync-App',
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch {
+      throw new ServiceUnavailableException('No pudimos conectar con GitHub.');
+    }
+    const tokenData = (await res.json().catch(() => ({}))) as Record<string, any>;
+    if (!res.ok || !tokenData.access_token) {
+      throw new UnauthorizedException('No se pudo autorizar el acceso con GitHub.');
+    }
+    return this.verifyGithub(String(tokenData.access_token));
   }
 }

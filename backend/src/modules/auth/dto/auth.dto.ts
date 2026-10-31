@@ -34,6 +34,18 @@ export class RegisterDto {
   })
   password!: string;
 
+  @ApiPropertyOptional({ example: 'Valentina' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Gómez' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  lastName?: string;
+
   @ApiProperty({ example: 'Valentina Gómez' })
   @IsString()
   @IsNotEmpty()
@@ -57,15 +69,28 @@ export class RegisterDto {
   timezone?: string;
 }
 
-export class LoginDto {
-  @ApiProperty({ example: 'agencia.nova@contentsync.io' })
-  @IsEmail()
+export class VerifyRegistrationCodeDto {
+  @ApiProperty({ example: 'usuario@agencia.com' })
+  @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
   email!: string;
 
-  @ApiProperty({ example: 'ContentSync2026!' })
+  @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
-  password!: string;
+  @MinLength(6)
+  @MaxLength(6)
+  code!: string;
+}
+
+export class LoginDto {
+  @ApiProperty({ example: 'agencia.nova@contentsync.io' })
+  @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
+  email!: string;
+
+  @ApiPropertyOptional({ example: 'ContentSync2026!' })
+  @IsOptional()
+  @IsString()
+  password?: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8 Pro - Android 15' })
   @IsOptional()
@@ -90,7 +115,6 @@ export class SocialLoginDto {
   @IsNotEmpty()
   idToken!: string;
 
-  /** Ignorados: la identidad real se obtiene verificando el token ante el proveedor. */
   @IsOptional()
   @IsString()
   email?: string;
@@ -101,7 +125,19 @@ export class SocialLoginDto {
 
   @IsOptional()
   @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
   fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  agencyName?: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8 Pro - Android 15' })
   @IsOptional()
@@ -118,11 +154,29 @@ export class VerifyEmailDto {
 
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'agencia.nova@contentsync.io' })
-  @IsEmail()
+  @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
   email!: string;
 }
 
+export class VerifyOtpCodeDto {
+  @ApiProperty({ example: 'usuario@gmail.com' })
+  @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
+  email!: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(6)
+  @MaxLength(6)
+  code!: string;
+}
+
 export class ResetPasswordDto {
+  @ApiPropertyOptional({ example: 'usuario@gmail.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @ApiProperty()
   @IsString()
   @IsNotEmpty()

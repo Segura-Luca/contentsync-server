@@ -794,12 +794,17 @@
 
       // Auth
       authRegister: false,
+      authVerifyReg: false,
+      regVerifyCode: '',
       authRecover: false,
+      authRecoverMode: 'RECOVER',
       authRecoverStep: 1,
       recoveryCode: '',
       recoveryNewPass: '',
       authEmail: '',
       authPass: '',
+      authFirstName: '',
+      authLastName: '',
       authName: '',
       authAgencyName: '',
 
@@ -1193,51 +1198,183 @@
       render();
     }
 
+    function areSocialProfileFieldsValid() {
+      return (
+        String(state.authFirstName || '').trim().length >= 2 &&
+        String(state.authLastName || '').trim().length >= 2 &&
+        String(state.authAgencyName || '').trim().length >= 2
+      );
+    }
+
+    function updateSocialGuardState() {
+      const overlay = document.getElementById('social-guard-overlay');
+      const hint = document.getElementById('social-guard-hint');
+      const ok = areSocialProfileFieldsValid();
+      if (overlay) overlay.style.display = ok ? 'none' : 'block';
+      if (hint) {
+        hint.textContent = ok
+          ? '✓ Datos listos: ya podés elegir tu cuenta de Google, Facebook o GitHub.'
+          : 'Completá Nombre, Apellido y Nombre de la agencia arriba para habilitar Google, Facebook o GitHub.';
+        hint.style.color = ok ? 'var(--tally-live)' : 'var(--text-muted)';
+      }
+    }
+
+    function requireSocialProfileFields(providerLabel) {
+      if (areSocialProfileFieldsValid()) return true;
+      setAuthError(
+        `Completá los campos de Nombre, Apellido y Nombre de la agencia antes de seleccionar tu cuenta de ${providerLabel}.`
+      );
+      setTimeout(() => {
+        const el =
+          (!String(state.authFirstName || '').trim() && document.getElementById('auth-first-name')) ||
+          (!String(state.authLastName || '').trim() && document.getElementById('auth-last-name')) ||
+          document.getElementById('auth-agency-name');
+        if (el) el.focus();
+      }, 30);
+      return false;
+    }
+
     async function performLogin(email, password) {
       if (authUi.busy) return;
       email = String(email || '').trim();
-      if (!email || !password) { setAuthError('Ingresá tu correo y tu contraseña.'); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        setAuthError('Ingresá un correo electrónico válido.');
+        return;
+      }
       authUi.busy = true; authUi.error = ''; render();
       const r = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password: password || undefined })
       });
-      if (r.ok) { await applyServerSession(r.data); return; }
+      authUi.busy = false;
+      if (r.ok && r.data?.requiresPasswordCreation) {
+        state.authEmail = r.data.email || email;
+        state.authRecover = true;
+        state.authRecoverMode = 'CREATE_GOOGLE_PASS';
+        state.authRecoverStep = 2;
+        state.recoveryCode = '';
+        state.recoveryNewPass = '';
+        authUi.error = '';
+        setBanner(r.data.message || 'Te enviamos un código de 6 dígitos para comprobar tu identidad y crear tu contraseña.');
+        return;
+      }
+      if (r.ok && r.data?.requiresEmailVerification) {
+        state.authEmail = r.data.email || email;
+        state.authVerifyReg = true;
+        state.regVerifyCode = '';
+        authUi.error = '';
+        setBanner(r.data.message || 'Te enviamos un código de 6 dígitos para verificar tu correo.');
+        return;
+      }
+      if (r.ok && r.data?.accessToken) {
+        await applyServerSession(r.data);
+        return;
+      }
       setAuthError(friendlyError(r.data, r.status));
     }
 
     async function performRegister() {
       if (authUi.busy) return;
-      const fullName = String(state.authName || '').trim();
+      const firstName = String(state.authFirstName || '').trim();
+      const lastName = String(state.authLastName || '').trim();
+      const agencyName = String(state.authAgencyName || '').trim();
       const email = String(state.authEmail || '').trim();
       const password = state.authPass || '';
-      if (fullName.length < 2) { setAuthError('Contanos tu nombre completo.'); return; }
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setAuthError('Ingresá un correo válido.'); return; }
+      if (firstName.length < 2) { setAuthError('Ingresá tu nombre.'); return; }
+      if (lastName.length < 2) { setAuthError('Ingresá tu apellido.'); return; }
+      if (agencyName.length < 2) { setAuthError('Ingresá el nombre de tu agencia.'); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setAuthError('Ingresá un correo electrónico válido.'); return; }
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(password)) {
         setAuthError('La contraseña debe tener 8 o más caracteres, con mayúscula, minúscula, número y un símbolo.');
         return;
       }
+      const fullName = `${firstName} ${lastName}`;
       authUi.busy = true; authUi.error = ''; render();
-      const agencyName = String(state.authAgencyName || '').trim();
       const r = await apiFetch('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password, fullName, agencyName: agencyName || undefined })
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          fullName,
+          agencyName
+        })
       });
-      if (r.ok) {
-        await applyServerSession(r.data, 'Agencia creada con éxito. ¡Bienvenido/a, ' + fullName.split(' ')[0] + '!');
+      authUi.busy = false;
+      if (r.ok && r.data?.requiresEmailVerification) {
+        state.authVerifyReg = true;
+        state.regVerifyCode = '';
+        authUi.error = '';
+        setBanner(
+          r.data.message ||
+            `Enviamos un código de 6 dígitos desde lucasegura2007@gmail.com a ${email}. Ingresalo para verificar tu cuenta.`
+        );
+        return;
+      }
+      if (r.ok && r.data?.accessToken) {
+        await applyServerSession(r.data, 'Agencia creada con éxito. ¡Bienvenido/a, ' + firstName + '!');
+        return;
+      }
+      setAuthError(friendlyError(r.data, r.status));
+    }
+
+    async function submitVerifyRegistration() {
+      if (authUi.busy) return;
+      const email = String(state.authEmail || '').trim();
+      const code = String(state.regVerifyCode || '').trim();
+      if (!/^\d{6}$/.test(code)) {
+        setAuthError('Ingresá el código numérico de 6 dígitos que enviamos a tu correo.');
+        return;
+      }
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/verify-registration', {
+        method: 'POST',
+        body: JSON.stringify({ email, code })
+      });
+      authUi.busy = false;
+      if (r.ok && r.data?.accessToken) {
+        state.authVerifyReg = false;
+        state.regVerifyCode = '';
+        await applyServerSession(r.data, '¡Correo verificado con éxito! Tu agencia ya está activa.');
         return;
       }
       setAuthError(friendlyError(r.data, r.status));
     }
 
     async function submitSocialToken(provider, token) {
+      if (!requireSocialProfileFields(provider === 'GOOGLE' ? 'Google' : provider)) return;
+      const firstName = String(state.authFirstName || '').trim();
+      const lastName = String(state.authLastName || '').trim();
+      const agencyName = String(state.authAgencyName || '').trim();
+      const fullName = `${firstName} ${lastName}`.trim();
       authUi.busy = true; authUi.error = ''; render();
       const r = await apiFetch('/auth/social', {
         method: 'POST',
-        body: JSON.stringify({ provider, idToken: token, deviceInfo: 'Web' })
+        body: JSON.stringify({
+          provider,
+          idToken: token,
+          firstName,
+          lastName,
+          fullName,
+          agencyName,
+          deviceInfo: 'Web'
+        })
       });
       if (r.ok) { await applyServerSession(r.data); return; }
       setAuthError(friendlyError(r.data, r.status));
+    }
+
+    function startOAuthRedirect(provider) {
+      if (authUi.busy) return;
+      const label = provider === 'facebook' ? 'Facebook' : 'GitHub';
+      if (!requireSocialProfileFields(label)) return;
+      const q = new URLSearchParams({
+        firstName: String(state.authFirstName || '').trim(),
+        lastName: String(state.authLastName || '').trim(),
+        agencyName: String(state.authAgencyName || '').trim()
+      });
+      window.location.href = `${API_BASE}/auth/oauth/${provider}?${q.toString()}`;
     }
 
     function loadExternalScript(src) {
@@ -1294,7 +1431,7 @@
         if (!slot.hasChildNodes()) {
           slot.innerHTML = `
             <button type="button" class="btn btn-outline" style="width:100%;height:42px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;"
-              onclick="window.ContentSyncAndroid.signInWithGoogle()">
+              onclick="if(requireSocialProfileFields('Google')){ window.ContentSyncAndroid.signInWithGoogle(); }">
               <span style="font-weight:800;font-size:15px;color:#4285F4;">G</span>
               <span>Continuar con Google</span>
             </button>
@@ -1307,19 +1444,7 @@
           text: 'continue_with', shape: 'rectangular', locale: 'es', width: 376
         });
       }
-      const fb = document.getElementById('facebook-btn');
-      if (fb) fb.style.display = (authUi.facebookReady && !window.ContentSyncAndroid) ? 'flex' : 'none';
-    }
-
-    function facebookLogin() {
-      if (!authUi.facebookReady || authUi.busy) return;
-      window.FB.login((resp) => {
-        if (resp && resp.authResponse && resp.authResponse.accessToken) {
-          submitSocialToken('FACEBOOK', resp.authResponse.accessToken);
-        } else {
-          setAuthError('No se completó el acceso con Facebook.');
-        }
-      }, { scope: 'public_profile,email' });
+      updateSocialGuardState();
     }
 
     async function requestRecoveryCode() {
@@ -1346,19 +1471,43 @@
       }
     }
 
+    async function verifyRecoveryOtpStep() {
+      if (authUi.busy) return;
+      const email = String(state.authEmail || '').trim();
+      const code = String(state.recoveryCode || '').trim();
+      if (!/^\d{6}$/.test(code)) {
+        setAuthError('Ingresá el código numérico de 6 dígitos que enviamos a tu correo.');
+        return;
+      }
+      authUi.busy = true; authUi.error = ''; render();
+      const r = await apiFetch('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email, code })
+      });
+      authUi.busy = false;
+      if (r.ok && r.data?.verified) {
+        state.authRecoverStep = 3;
+        authUi.error = '';
+        render();
+      } else {
+        setAuthError(friendlyError(r.data, r.status));
+      }
+    }
+
     async function submitPasswordReset() {
       if (authUi.busy) return;
+      const email = String(state.authEmail || '').trim();
       const token = String(state.recoveryCode || '').trim();
       const newPassword = state.recoveryNewPass || '';
-      if (!token) { setAuthError('Ingresá el código de recuperación de 6 dígitos.'); return; }
+      if (!token) { setAuthError('Ingresá el código de verificación de 6 dígitos.'); return; }
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(newPassword)) {
-        setAuthError('La nueva contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un símbolo.');
+        setAuthError('La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula, número y un símbolo.');
         return;
       }
       authUi.busy = true; authUi.error = ''; render();
       const r = await apiFetch('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ token, newPassword })
+        body: JSON.stringify({ email, token, newPassword })
       });
       authUi.busy = false;
       if (r.ok) {
@@ -1368,7 +1517,14 @@
         state.recoveryCode = '';
         state.recoveryNewPass = '';
         authUi.error = '';
-        setBanner('¡Contraseña actualizada! Ya podés iniciar sesión con tu nueva clave.');
+        if (r.data?.session && r.data.session.accessToken) {
+          await applyServerSession(
+            r.data.session,
+            r.data.message || '¡Contraseña guardada en tu cuenta! Ya podés iniciar sesión por el campo común cuando quieras.'
+          );
+          return;
+        }
+        setBanner(r.data?.message || '¡Contraseña guardada! Ya podés iniciar sesión con tu clave.');
       } else {
         setAuthError(friendlyError(r.data, r.status));
       }
@@ -2500,84 +2656,153 @@
       `;
     }
 
+    function renderVerifyRegistrationConsole() {
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="mono" style="font-weight:700;font-size:13px;">Verificá tu correo (6 dígitos)</span>
+          <span class="mono" style="font-size:11px;color:var(--tally-live);">CÓDIGO ENVIADO</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
+          Enviamos un código de 6 dígitos desde <strong>lucasegura2007@gmail.com</strong> (vía automatización n8n) a <strong>${esc(state.authEmail)}</strong> para comprobar que ese correo te pertenece.
+        </p>
+        <div class="field">
+          <label>Código de verificación (6 dígitos)</label>
+          <input class="input mono" maxlength="6" placeholder="123456" style="font-size:18px;letter-spacing:0.25em;text-align:center;"
+            value="${esc(state.regVerifyCode)}" oninput="state.regVerifyCode=this.value.replace(/\\D/g,'').slice(0,6)"
+            onkeydown="if(event.key==='Enter'){ submitVerifyRegistration(); }" />
+        </div>
+        ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
+        <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="submitVerifyRegistration()">
+          ${authUi.busy ? 'Verificando código…' : 'Verificar correo y activar mi cuenta →'}
+        </button>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
+          <button onclick="performRegister()">Reenviar código</button>
+          <button onclick="state.authVerifyReg=false;authUi.error='';render();">← Cambiar correo</button>
+        </div>
+      `;
+    }
+
     function renderRecoveryConsole() {
+      const isGoogleCreate = state.authRecoverMode === 'CREATE_GOOGLE_PASS';
+      const titleText = isGoogleCreate ? 'Crear contraseña para cuenta Google' : 'Recuperar o crear contraseña';
       if (state.authRecoverStep === 1) {
         return `
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span class="mono" style="font-weight:700;font-size:13px;">Recuperar contraseña</span>
-            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 1 DE 2</span>
+            <span class="mono" style="font-weight:700;font-size:13px;">${titleText}</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 1 DE 3</span>
           </div>
-          <p style="font-size:13px;color:var(--text-secondary);line-height:1.4;">
-            Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos a tu casilla.
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
+            ${isGoogleCreate
+              ? 'Como iniciaste sesión con Google, tu cuenta aún no tiene contraseña propia. Ingresá tu Gmail para enviarte un código de 6 dígitos (vía n8n desde lucasegura2007@gmail.com) y comprobar tu identidad.'
+              : 'Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos desde lucasegura2007@gmail.com.'}
           </p>
           <div class="field">
             <label>Correo electrónico</label>
-            <input class="input" type="email" placeholder="tu@correo.com" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value" />
+            <input class="input" type="email" placeholder="tu@gmail.com" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value"
+              onkeydown="if(event.key==='Enter'){ requestRecoveryCode(); }" />
           </div>
           ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
           <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="requestRecoveryCode()">
-            ${authUi.busy ? 'Enviando código…' : 'Enviar código a mi correo →'}
+            ${authUi.busy ? 'Enviando código…' : 'Enviar código de 6 dígitos →'}
           </button>
           <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin-top:4px;">
             <button onclick="state.authRecover=false;authUi.error='';render();">← Volver a inicio de sesión</button>
           </div>
         `;
       }
+      if (state.authRecoverStep === 2) {
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-weight:700;font-size:13px;">Comprobar identidad (6 dígitos)</span>
+            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 2 DE 3</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
+            Enviamos un código de 6 dígitos desde <strong>lucasegura2007@gmail.com</strong> a <strong>${esc(state.authEmail)}</strong>. Comprobá tu identidad para habilitar el campo de contraseña.
+          </p>
+          <div class="field">
+            <label>Código recibido por email (6 dígitos)</label>
+            <input class="input mono" maxlength="6" placeholder="123456" style="font-size:18px;letter-spacing:0.25em;text-align:center;"
+              value="${esc(state.recoveryCode)}" oninput="state.recoveryCode=this.value.replace(/\\D/g,'').slice(0,6)"
+              onkeydown="if(event.key==='Enter'){ verifyRecoveryOtpStep(); }" />
+          </div>
+          ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
+          <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="verifyRecoveryOtpStep()">
+            ${authUi.busy ? 'Comprobando…' : 'Verificar código de 6 dígitos →'}
+          </button>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
+            <button onclick="requestRecoveryCode()">Reenviar código</button>
+            <button onclick="state.authRecover=false;authUi.error='';render();">Cancelar</button>
+          </div>
+        `;
+      }
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="mono" style="font-weight:700;font-size:13px;">Nueva contraseña</span>
-          <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 2 DE 2</span>
+          <span class="mono" style="font-weight:700;font-size:13px;">Identidad verificada · Creá tu contraseña</span>
+          <span class="mono" style="font-size:11px;color:var(--tally-live);">PASO 3 DE 3</span>
         </div>
-        <p style="font-size:13px;color:var(--text-secondary);line-height:1.4;">
-          Enviamos un código de 6 dígitos a <strong>${esc(state.authEmail)}</strong>. Ingresalo abajo junto con tu nueva clave.
+        <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
+          ✓ Identidad comprobada para <strong>${esc(state.authEmail)}</strong>. Ingresá la contraseña que quedará guardada en tu cuenta para iniciar sesión por el campo común cuando quieras.
         </p>
         <div class="field">
-          <label>Código recibido por email (6 dígitos)</label>
-          <input class="input mono" placeholder="123456" value="${esc(state.recoveryCode)}" oninput="state.recoveryCode=this.value" />
-        </div>
-        <div class="field">
           <label>Nueva contraseña</label>
-          <input class="input" type="password" placeholder="Mínimo 8 caracteres, mayúscula, minúscula, número y símbolo" value="${esc(state.recoveryNewPass)}" oninput="state.recoveryNewPass=this.value" />
+          <input class="input" type="password" placeholder="Mínimo 8 caracteres, mayúscula, minúscula, número y símbolo"
+            value="${esc(state.recoveryNewPass)}" oninput="state.recoveryNewPass=this.value"
+            onkeydown="if(event.key==='Enter'){ submitPasswordReset(); }" />
         </div>
         ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
         <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="submitPasswordReset()">
-          ${authUi.busy ? 'Actualizando…' : 'Guardar nueva contraseña'}
+          ${authUi.busy ? 'Guardando contraseña…' : 'Guardar contraseña e ingresar →'}
         </button>
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
-          <button onclick="state.authRecoverStep=1;authUi.error='';render();">← Reenviar código</button>
+        <div style="display:flex;justify-content:flex-end;font-size:13px;color:var(--text-secondary);margin-top:4px;">
           <button onclick="state.authRecover=false;authUi.error='';render();">Cancelar</button>
         </div>
       `;
     }
 
     function renderLoginRegisterConsole() {
+      const socialReady = areSocialProfileFieldsValid();
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="mono" style="font-weight:700;font-size:13px;">${state.authRegister ? 'Registrar mi Agencia' : 'Iniciar sesión'}</span>
+          <span class="mono" style="font-weight:700;font-size:13px;">${state.authRegister ? 'Crear cuenta de Agencia' : 'Iniciar sesión'}</span>
         </div>
 
-        ${state.authRegister ? `
-          <div style="font-size:12px;color:var(--text-muted);line-height:1.4;">
-            Creá tu cuenta con jerarquía de Agencia para organizar ideas privadas, planes semanales y clientes verificados.
+        <div style="background:var(--canvas);border:1px solid var(--hairline);border-radius:5px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.03em;">
+            DATOS DE PERFIL Y AGENCIA (OBLIGATORIOS PARA REGISTRO Y ACCESO SOCIAL)
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div class="field">
+              <label>Nombre</label>
+              <input id="auth-first-name" class="input" placeholder="Ej. Luca" value="${esc(state.authFirstName)}"
+                oninput="state.authFirstName=this.value;updateSocialGuardState();" />
+            </div>
+            <div class="field">
+              <label>Apellido</label>
+              <input id="auth-last-name" class="input" placeholder="Ej. Segura" value="${esc(state.authLastName)}"
+                oninput="state.authLastName=this.value;updateSocialGuardState();" />
+            </div>
           </div>
           <div class="field">
-            <label>Nombre y apellido</label>
-            <input class="input" placeholder="Ej. Valentina Gómez" value="${esc(state.authName)}" oninput="state.authName=this.value" />
+            <label>Nombre de la agencia</label>
+            <input id="auth-agency-name" class="input" placeholder="Ej. Nova Media Studio" value="${esc(state.authAgencyName)}"
+              oninput="state.authAgencyName=this.value;updateSocialGuardState();" />
           </div>
-          <div class="field">
-            <label>Nombre de tu Agencia</label>
-            <input class="input" placeholder="Ej. Nova Media Studio" value="${esc(state.authAgencyName)}" oninput="state.authAgencyName=this.value" />
+          <div id="social-guard-hint" style="font-size:11px;line-height:1.35;color:${socialReady ? 'var(--tally-live)' : 'var(--text-muted)'};">
+            ${socialReady
+              ? '✓ Datos listos: ya podés elegir tu cuenta de Google, Facebook o GitHub.'
+              : 'Completá Nombre, Apellido y Nombre de la agencia arriba antes de seleccionar tu cuenta de Google, Facebook o GitHub.'}
           </div>
-        ` : ''}
+        </div>
 
         <div class="field">
           <label>Correo electrónico</label>
-          <input class="input" type="email" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value" />
+          <input class="input" type="email" placeholder="tu@correo.com" value="${esc(state.authEmail)}" oninput="state.authEmail=this.value" />
         </div>
 
         <div class="field">
-          <label>Contraseña</label>
-          <input class="input" type="password" value="${esc(state.authPass)}" oninput="state.authPass=this.value"
+          <label>Contraseña ${!state.authRegister ? '<span style="font-weight:400;color:var(--text-muted);">(o dejalo vacío si entraste con Google para crear una)</span>' : ''}</label>
+          <input class="input" type="password" placeholder="${state.authRegister ? 'Mín. 8 caracteres, mayúscula, minúscula, número y símbolo' : 'Tu contraseña'}"
+            value="${esc(state.authPass)}" oninput="state.authPass=this.value"
             onkeydown="if(event.key==='Enter'){ ${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'} }" />
         </div>
 
@@ -2585,12 +2810,13 @@
 
         <button class="btn btn-signal" style="width:100%;height:44px;"
           ${authUi.busy ? 'disabled' : ''} onclick="${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'}">
-          ${authUi.busy ? 'Un momento…' : (state.authRegister ? 'Crear mi Agencia' : 'Ingresar')}
+          ${authUi.busy ? 'Un momento…' : (state.authRegister ? 'Enviar código de 6 dígitos y crear cuenta' : 'Ingresar')}
         </button>
 
-        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);">
-          <button onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta de Agencia'}</button>
-          <button onclick="state.authRecover=true;state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);">
+          <button onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta con email'}</button>
+          <button onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
+          <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
         </div>
 
         <div style="display:flex;align-items:center;gap:10px;margin:4px 0 2px;">
@@ -2599,11 +2825,24 @@
           <div style="flex:1;height:1px;background:var(--hairline);"></div>
         </div>
 
-        <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:0;"></div>
+        <div style="position:relative;width:100%;min-height:42px;">
+          <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:42px;"></div>
+          <div id="social-guard-overlay"
+            onclick="requireSocialProfileFields('Google')"
+            title="Completá Nombre, Apellido y Nombre de la agencia antes de continuar con Google"
+            style="position:absolute;inset:0;z-index:10;cursor:pointer;display:${socialReady ? 'none' : 'block'};background:transparent;"></div>
+        </div>
 
-        <button id="facebook-btn" class="btn" style="display:none;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:var(--stage);border:1px solid var(--border-strong);color:var(--text-primary);font-weight:600;font-size:13px;border-radius:4px;"
-          onclick="facebookLogin()">
+        <button id="facebook-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#1877F2;border:1px solid #1877F2;color:#ffffff;font-weight:600;font-size:13px;border-radius:4px;"
+          onclick="startOAuthRedirect('facebook')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
           <span>Continuar con Facebook</span>
+        </button>
+
+        <button id="github-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#24292F;border:1px solid var(--border-strong);color:#ffffff;font-weight:600;font-size:13px;border-radius:4px;"
+          onclick="startOAuthRedirect('github')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+          <span>Continuar con GitHub</span>
         </button>
       `;
     }
@@ -2622,32 +2861,11 @@
               </p>
               ${renderSignalRouterSchematic()}
             </div>
-
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <div class="eyebrow">ACCESO RÁPIDO DE PRUEBA</div>
-              <div class="seed-passes-grid" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
-                <button class="seed-pass-card" onclick="performLogin('lucasegura2007@gmail.com','ContentSync2026!')">
-                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">MI AGENCIA</div>
-                  <div style="font-weight:600;margin-top:3px;">Luca Segura</div>
-                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
-                </button>
-                <button class="seed-pass-card" onclick="performLogin('agencia.nova@contentsync.io','ContentSync2026!')">
-                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">AGENCIA DEMO</div>
-                  <div style="font-weight:600;margin-top:3px;">Nova Digital</div>
-                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
-                </button>
-                <button class="seed-pass-card" onclick="performLogin('cliente.kafecito@contentsync.io','ContentSync2026!')">
-                  <div class="mono" style="font-size:11px;color:var(--signal-subtle-fg);font-weight:700;">VISTA CLIENTE</div>
-                  <div style="font-weight:600;margin-top:3px;">Kafecito</div>
-                  <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">Entrar →</div>
-                </button>
-              </div>
-            </div>
           </section>
 
           <section class="auth-console-wrap">
-            <div style="width:100%;max-width:430px;background:var(--stage);border:1px solid var(--hairline);border-radius:5px;padding:26px;display:flex;flex-direction:column;gap:14px;">
-              ${state.authRecover ? renderRecoveryConsole() : renderLoginRegisterConsole()}
+            <div style="width:100%;max-width:440px;background:var(--stage);border:1px solid var(--hairline);border-radius:5px;padding:24px;display:flex;flex-direction:column;gap:12px;">
+              ${state.authVerifyReg ? renderVerifyRegistrationConsole() : (state.authRecover ? renderRecoveryConsole() : renderLoginRegisterConsole())}
             </div>
           </section>
         </div>
@@ -4002,6 +4220,30 @@
       if (theme === 'light' || theme === 'dark') {
         state.theme = theme;
         document.documentElement.setAttribute('data-theme', theme);
+      }
+
+      const socialSession = q.get('social_session');
+      const socialError = q.get('social_error');
+      if (socialSession) {
+        try {
+          const b64 = socialSession.replace(/-/g, '+').replace(/_/g, '/');
+          const pad = b64 + '==='.slice((b64.length + 3) % 4);
+          const jsonStr = decodeURIComponent(
+            Array.prototype.map
+              .call(atob(pad), (c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const parsed = JSON.parse(jsonStr);
+          window.history.replaceState({}, '', window.location.pathname);
+          if (parsed && parsed.accessToken) {
+            await applyServerSession(parsed, '¡Sesión iniciada con éxito!');
+            return;
+          }
+        } catch (_) {}
+      }
+      if (socialError) {
+        window.history.replaceState({}, '', window.location.pathname);
+        authUi.error = socialError;
       }
 
       const inv = q.get('invitation');
