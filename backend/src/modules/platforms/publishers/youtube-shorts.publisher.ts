@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SocialPlatform } from '@prisma/client';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import { join } from 'path';
 import {
   PlatformPublisher,
   PlatformPublishPayload,
@@ -28,7 +30,12 @@ export class YouTubeShortsPublisher implements PlatformPublisher {
       ? payload.title
       : `${payload.title} #Shorts`.slice(0, 100);
 
-    if (this.mockMode) {
+    const hasRealToken =
+      payload.accessToken &&
+      !payload.accessToken.startsWith('live_token_') &&
+      !payload.accessToken.startsWith('mock_');
+
+    if (this.mockMode && !hasRealToken) {
       this.logger.log(
         `[YOUTUBE DATA API v3 - MOCK] Subida resumible completada para canal ${payload.externalAccountId}: "${shortsTitle}"`,
       );
@@ -77,15 +84,28 @@ export class YouTubeShortsPublisher implements PlatformPublisher {
       throw new Error('YouTube Data API v3 no devolvió cabecera Location para subida resumible');
     }
 
-    const videoStreamRes = await fetch(payload.publicVideoUrl);
-    const videoBuffer = await videoStreamRes.arrayBuffer();
+    let videoBuffer: ArrayBuffer | Buffer;
+    const uploadsMatch = payload.publicVideoUrl.match(/\/uploads\/videos\/([^/?#]+)$/);
+    const localDiskPath = uploadsMatch
+      ? join(__dirname, '..', '..', '..', '..', 'public', 'uploads', 'videos', uploadsMatch[1])
+      : null;
+
+    if (localDiskPath && fs.existsSync(localDiskPath)) {
+      videoBuffer = fs.readFileSync(localDiskPath);
+    } else {
+      const fetchUrl = payload.publicVideoUrl.startsWith('/')
+        ? `http://localhost:${this.configService.get<string>('PORT') || '3000'}${payload.publicVideoUrl}`
+        : payload.publicVideoUrl;
+      const videoStreamRes = await fetch(fetchUrl);
+      videoBuffer = await videoStreamRes.arrayBuffer();
+    }
 
     const uploadRes = await fetch(uploadLocation, {
       method: 'PUT',
       headers: {
         'Content-Type': 'video/mp4',
       },
-      body: videoBuffer,
+      body: videoBuffer as any,
     });
 
     if (!uploadRes.ok) {
@@ -103,6 +123,35 @@ export class YouTubeShortsPublisher implements PlatformPublisher {
   }
 
   async refreshAccessToken(refreshToken: string) {
+    const clientId =
+      this.configService.get<string>('YOUTUBE_CLIENT_ID') ||
+      this.configService.get<string>('GOOGLE_AUTH_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('YOUTUBE_CLIENT_SECRET');
+
+    if (clientId && clientSecret && refreshToken && !refreshToken.startsWith('yt_refresh_')) {
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }).toString(),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as {
+          access_token: string;
+          expires_in?: number;
+        };
+        return {
+          accessToken: data.access_token,
+          refreshToken,
+          expiresInSeconds: data.expires_in || 3600,
+        };
+      }
+    }
+
     return {
       accessToken: `yt_refreshed_${crypto.randomBytes(8).toString('hex')}`,
       refreshToken,

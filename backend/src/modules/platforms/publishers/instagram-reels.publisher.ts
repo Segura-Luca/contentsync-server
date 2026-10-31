@@ -29,7 +29,13 @@ export class InstagramReelsPublisher implements PlatformPublisher {
       .map((t) => `#${t}`)
       .join(' ')}`.trim();
 
-    if (this.mockMode) {
+    const hasRealToken =
+      payload.accessToken &&
+      !payload.accessToken.startsWith('live_token_') &&
+      !payload.accessToken.startsWith('mock_') &&
+      !payload.externalAccountId.startsWith('instagram_');
+
+    if (this.mockMode && !hasRealToken) {
       this.logger.log(
         `[INSTAGRAM GRAPH API - MOCK] Publicando Reel para cuenta ${payload.externalAccountId}: "${payload.title}"`,
       );
@@ -62,6 +68,27 @@ export class InstagramReelsPublisher implements PlatformPublisher {
     }
 
     const containerJson = (await containerRes.json()) as { id: string };
+
+    // Esperar hasta que el contenedor de Reel esté en estado FINISHED
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      const statusRes = await fetch(
+        `https://graph.facebook.com/v20.0/${containerJson.id}?fields=status_code,status&access_token=${encodeURIComponent(payload.accessToken)}`,
+      );
+      if (statusRes.ok) {
+        const statusJson = (await statusRes.json()) as {
+          status_code?: string;
+          status?: string;
+        };
+        if (statusJson.status_code === 'FINISHED') break;
+        if (statusJson.status_code === 'ERROR') {
+          throw new Error(
+            `Instagram Graph API media container falló el procesamiento: ${statusJson.status || 'ERROR'}`,
+          );
+        }
+      }
+    }
+
     const publishUrl = `https://graph.facebook.com/v20.0/${payload.externalAccountId}/media_publish`;
     const publishRes = await fetch(publishUrl, {
       method: 'POST',

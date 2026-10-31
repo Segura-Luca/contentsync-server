@@ -28,7 +28,13 @@ export class TikTokVideoPublisher implements PlatformPublisher {
       .map((t) => `#${t}`)
       .join(' ')}`.trim();
 
-    if (this.mockMode) {
+    const hasRealToken =
+      payload.accessToken &&
+      !payload.accessToken.startsWith('live_token_') &&
+      !payload.accessToken.startsWith('mock_') &&
+      !payload.externalAccountId.startsWith('tiktok_');
+
+    if (this.mockMode && !hasRealToken) {
       this.logger.log(
         `[TIKTOK CONTENT POSTING API - MOCK] Publicando video para ${payload.externalAccountId}: "${titleWithTags}"`,
       );

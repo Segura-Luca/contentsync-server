@@ -917,7 +917,18 @@
 
       // Historial
       histQuery: '',
-      histPlatform: null
+      histPlatform: null,
+
+      // Modal de Conexión OAuth / Token Real de Plataformas (YouTube / Instagram / TikTok)
+      platModalOpen: false,
+      platModalClientId: null,
+      platModalPlatform: null,
+      platModalHandle: '',
+      platModalExternalId: '',
+      platModalAccessToken: '',
+      platModalRefreshToken: '',
+      platModalBusy: false,
+      platModalError: ''
     };
 
     const motionState = {
@@ -2515,29 +2526,112 @@
       setBanner(r.data.message || '¡Identidad confirmada! Ya podés ver el plan semanal de tu marca.');
     }
 
-    async function toggleOAuth(clientId, platform) {
+    function openPlatformOAuthModal(clientId, platform) {
       const cl = state.clients.find(c => c.id === clientId);
       if (!cl) return;
-      const cur = cl.connections[platform];
-      if (cur.connected) {
-        const r = await apiFetch(`/platforms/${clientId}/${platform}`, { method: 'DELETE' });
-        if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
-      } else {
-        const handle = '@' + cl.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
-        const r = await apiFetch('/platforms/connect', {
-          method: 'POST',
-          body: JSON.stringify({
-            clientId,
-            platform,
-            externalAccountId: platform.toLowerCase() + '_' + Date.now(),
-            accountHandle: handle,
-            accessToken: 'live_token_' + Date.now()
-          })
-        });
-        if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      const cur = cl.connections[platform] || {};
+      state.platModalOpen = true;
+      state.platModalClientId = clientId;
+      state.platModalPlatform = platform;
+      state.platModalHandle = cur.handle || ('@' + cl.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18));
+      state.platModalExternalId = '';
+      state.platModalAccessToken = '';
+      state.platModalRefreshToken = '';
+      state.platModalBusy = false;
+      state.platModalError = '';
+      render();
+    }
+
+    async function startRealPlatformOAuthRedirect() {
+      if (state.platModalBusy) return;
+      const clientId = state.platModalClientId;
+      const platform = String(state.platModalPlatform || '').toLowerCase();
+      if (!clientId || !platform) return;
+      state.platModalBusy = true;
+      state.platModalError = '';
+      render();
+      const r = await apiFetch(`/platforms/oauth/${platform}/url?clientId=${encodeURIComponent(clientId)}`);
+      state.platModalBusy = false;
+      if (r.ok && r.data?.url) {
+        window.location.href = r.data.url;
+        return;
       }
+      state.platModalError = friendlyError(r.data, r.status);
+      render();
+    }
+
+    async function saveManualPlatformConnection() {
+      if (state.platModalBusy) return;
+      const clientId = state.platModalClientId;
+      const platform = state.platModalPlatform;
+      const accountHandle = String(state.platModalHandle || '').trim();
+      const externalAccountId = String(state.platModalExternalId || '').trim();
+      const accessToken = String(state.platModalAccessToken || '').trim();
+      const refreshToken = String(state.platModalRefreshToken || '').trim();
+
+      if (!accountHandle) {
+        state.platModalError = 'Ingresá el usuario o @handle de la cuenta.';
+        render();
+        return;
+      }
+      if (!externalAccountId) {
+        state.platModalError = 'Ingresá el ID del canal/cuenta (por ejemplo tu Instagram Business Account ID, Canal de YouTube o TikTok Open ID).';
+        render();
+        return;
+      }
+      if (!accessToken || accessToken.length < 10) {
+        state.platModalError = 'Pegá el Access Token OAuth 2.0 real de la plataforma para poder publicar videos de verdad.';
+        render();
+        return;
+      }
+
+      state.platModalBusy = true;
+      state.platModalError = '';
+      render();
+      const r = await apiFetch('/platforms/connect', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId,
+          platform,
+          accountHandle: accountHandle.startsWith('@') ? accountHandle : '@' + accountHandle,
+          externalAccountId,
+          accessToken,
+          refreshToken: refreshToken || undefined
+        })
+      });
+      state.platModalBusy = false;
+      if (!r.ok) {
+        state.platModalError = friendlyError(r.data, r.status);
+        render();
+        return;
+      }
+      state.platModalOpen = false;
       await hydrateFromApi();
-      setBanner(`Conexión de ${PLATFORM_LIMITS[platform].name} actualizada en ${cl.companyName}.`);
+      setBanner(`✓ Cuenta real ${accountHandle} vinculada en ${PLATFORM_LIMITS[platform].name} con cifrado AES-256-GCM.`);
+    }
+
+    async function revokePlatformOAuthNow() {
+      if (state.platModalBusy) return;
+      const clientId = state.platModalClientId;
+      const platform = state.platModalPlatform;
+      if (!clientId || !platform) return;
+      state.platModalBusy = true;
+      state.platModalError = '';
+      render();
+      const r = await apiFetch(`/platforms/${clientId}/${platform}`, { method: 'DELETE' });
+      state.platModalBusy = false;
+      if (!r.ok) {
+        state.platModalError = friendlyError(r.data, r.status);
+        render();
+        return;
+      }
+      state.platModalOpen = false;
+      await hydrateFromApi();
+      setBanner(`Conexión con ${PLATFORM_LIMITS[platform].name} desconectada.`);
+    }
+
+    function toggleOAuth(clientId, platform) {
+      openPlatformOAuthModal(clientId, platform);
     }
 
     async function markNotificationRead(id) {
@@ -4028,6 +4122,101 @@
             }).join('')}
           </section>
         </div>
+        ${state.platModalOpen ? renderPlatformOAuthModal() : ''}
+      `;
+    }
+
+    function renderPlatformOAuthModal() {
+      const cl = state.clients.find(c => c.id === state.platModalClientId);
+      const plat = state.platModalPlatform;
+      if (!cl || !plat) return '';
+      const lim = PLATFORM_LIMITS[plat];
+      const conn = cl.connections[plat] || {};
+      const isYoutube = plat === 'YOUTUBE';
+      const isInstagram = plat === 'INSTAGRAM';
+
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this && !state.platModalBusy){state.platModalOpen=false;render();}">
+          <div class="modal-panel" style="max-width:560px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
+              <div>
+                <div class="eyebrow">VINCULACIÓN OAUTH 2.0 REAL (${lim.code})</div>
+                <h3 style="font-size:19px;font-weight:700;">Conectar ${lim.name} · ${esc(cl.companyName)}</h3>
+              </div>
+              <button class="btn btn-outline" style="padding:4px 9px;" ${state.platModalBusy ? 'disabled' : ''} onclick="state.platModalOpen=false;render();">✕</button>
+            </div>
+
+            ${conn.connected ? `
+              <div style="border:1px solid var(--tally-live);background:var(--signal-subtle-bg);padding:12px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:700;font-size:13px;color:var(--tally-live);">✓ Cuenta actualmente vinculada: ${esc(conn.handle)}</div>
+                  <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Podés reconectar con otra cuenta o revocar el permiso OAuth.</div>
+                </div>
+                <button class="btn btn-fault" style="padding:6px 10px;" ${state.platModalBusy ? 'disabled' : ''} onclick="revokePlatformOAuthNow()">
+                  Desconectar cuenta
+                </button>
+              </div>
+            ` : ''}
+
+            ${(isYoutube || isInstagram) ? `
+              <div style="border:1px solid var(--border-strong);background:var(--canvas);padding:14px;border-radius:5px;display:flex;flex-direction:column;gap:10px;">
+                <div style="font-weight:700;font-size:13.5px;">Opción 1 (Recomendada): Autorizar directamente con ${isYoutube ? 'Google / YouTube' : 'Meta / Instagram'}</div>
+                <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">
+                  ${isYoutube
+                    ? 'Iniciá sesión en Google y autorizá el permiso oficial youtube.upload para que ContentSync suba los videos directamente como YouTube Shorts a tu canal.'
+                    : 'Iniciá sesión con tu cuenta de Meta vinculada a tu cuenta de Instagram Profesional / Creator para obtener el token OAuth real.'}
+                </p>
+                <button class="btn btn-signal" style="width:100%;height:42px;" ${state.platModalBusy ? 'disabled' : ''} onclick="startRealPlatformOAuthRedirect()">
+                  ${state.platModalBusy ? 'Redirigiendo a OAuth oficial…' : (isYoutube ? '▶ Autorizar canal de YouTube con Google OAuth →' : '◉ Autorizar cuenta con Meta / Facebook OAuth →')}
+                </button>
+              </div>
+            ` : ''}
+
+            <div style="border:1px solid var(--hairline);background:var(--canvas);padding:14px;border-radius:5px;display:flex;flex-direction:column;gap:10px;">
+              <div style="font-weight:700;font-size:13.5px;">
+                ${(isYoutube || isInstagram) ? 'Opción 2: Vincular con Token de API OAuth 2.0 manual' : 'Vincular con credenciales OAuth 2.0 de TikTok Content Posting API'}
+              </div>
+              <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                Si tenés un Access Token generado desde ${isYoutube ? 'Google OAuth Playground' : isInstagram ? 'Meta Graph API Explorer (con instagram_content_publish)' : 'TikTok Developer Portal (video.publish)'}, ingresalo acá. Se guarda cifrado con AES-256-GCM en MySQL.
+              </p>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="field">
+                  <label>Usuario / Handle de la cuenta</label>
+                  <input class="input" placeholder="@mimarca" value="${esc(state.platModalHandle)}"
+                    oninput="state.platModalHandle=this.value" />
+                </div>
+                <div class="field">
+                  <label>${isYoutube ? 'ID del Canal (Channel ID)' : isInstagram ? 'Instagram Business User ID' : 'TikTok Open ID / Usuario'}</label>
+                  <input class="input mono" placeholder="${isYoutube ? 'UCxxxxxxxxxxxx' : isInstagram ? '17841400000000000' : 'open_id_xxxx'}"
+                    value="${esc(state.platModalExternalId)}" oninput="state.platModalExternalId=this.value" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Access Token OAuth 2.0 (${lim.name})</label>
+                <input class="input mono" type="password" placeholder="Pegá aquí el Access Token real (ya29... / EAA... / act...)"
+                  value="${esc(state.platModalAccessToken)}" oninput="state.platModalAccessToken=this.value" />
+              </div>
+
+              <div class="field">
+                <label>Refresh Token (opcional, para renovación automática)</label>
+                <input class="input mono" type="password" placeholder="1//0g..."
+                  value="${esc(state.platModalRefreshToken)}" oninput="state.platModalRefreshToken=this.value" />
+              </div>
+
+              <button class="btn btn-outline" style="width:100%;height:40px;" ${state.platModalBusy ? 'disabled' : ''} onclick="saveManualPlatformConnection()">
+                ${state.platModalBusy ? 'Guardando…' : 'Guardar credenciales OAuth cifradas'}
+              </button>
+            </div>
+
+            ${state.platModalError ? `
+              <div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">
+                ${esc(state.platModalError)}
+              </div>
+            ` : ''}
+          </div>
+        </div>
       `;
     }
 
@@ -4244,6 +4433,25 @@
       if (socialError) {
         window.history.replaceState({}, '', window.location.pathname);
         authUi.error = socialError;
+      }
+
+      const platConnected = q.get('platform_connected');
+      const platHandle = q.get('handle') || '';
+      const platError = q.get('platform_error');
+      if (platConnected) {
+        state.activeTab = 'accounts';
+        state.banner = {
+          msg: `✓ Cuenta oficial ${platHandle} vinculada con éxito en ${PLATFORM_LIMITS[platConnected]?.name || platConnected}.`,
+          isErr: false
+        };
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (platError) {
+        state.activeTab = 'accounts';
+        state.banner = {
+          msg: platError,
+          isErr: true
+        };
+        window.history.replaceState({}, '', window.location.pathname);
       }
 
       const inv = q.get('invitation');

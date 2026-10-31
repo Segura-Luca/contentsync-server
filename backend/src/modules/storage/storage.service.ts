@@ -90,7 +90,18 @@ export class StorageService {
       return storageKey;
     }
     if (storageKey.startsWith('/uploads/') || storageKey.startsWith('uploads/')) {
-      return '/' + storageKey.replace(/^\/+/, '');
+      const cleanPath = '/' + storageKey.replace(/^\/+/, '');
+      const appUrl = (
+        this.configService.get<string>('PUBLIC_APP_URL') ||
+        this.configService.get<string>('RENDER_EXTERNAL_URL') ||
+        ''
+      )
+        .trim()
+        .replace(/\/+$/, '');
+      if (appUrl && !appUrl.includes('localhost')) {
+        return `${appUrl}${cleanPath}`;
+      }
+      return cleanPath;
     }
     return `${this.publicBaseUrl}/${storageKey}`;
   }
