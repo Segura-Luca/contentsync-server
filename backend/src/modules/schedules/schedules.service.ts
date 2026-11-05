@@ -881,7 +881,7 @@ export class SchedulesService {
       await this.clientsService.assertClientAccess(clientIdFilter, user);
     }
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { client: { deletedAt: null } };
     if (clientIdFilter) {
       where.clientId = clientIdFilter;
     } else if (user.role === RoleCode.AGENCIA) {
@@ -989,7 +989,7 @@ export class SchedulesService {
       }
     }
 
-    const whereClause: Record<string, unknown> = {};
+    const whereClause: Record<string, unknown> = { client: { deletedAt: null } };
     if (clientIdFilter) {
       whereClause.clientId = clientIdFilter;
     } else if (user.role === RoleCode.AGENCIA) {

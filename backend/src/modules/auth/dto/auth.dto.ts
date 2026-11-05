@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  Equals,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -190,4 +191,16 @@ export class ResetPasswordDto {
       'La nueva contraseña debe tener entre 8 y 64 caracteres e incluir mayúscula, minúscula, número y carácter especial.',
   })
   newPassword!: string;
+}
+
+export class DeleteAccountDto {
+  @ApiProperty({ example: 'ELIMINAR' })
+  @Equals('ELIMINAR', { message: 'Escribí ELIMINAR para confirmar.' })
+  confirmation!: string;
+
+  @ApiPropertyOptional({ description: 'Obligatoria si la cuenta tiene contraseña' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  password?: string;
 }

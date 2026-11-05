@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   timezone?: string;
   agencyId?: string | null;
   clientId?: string | null;
+  hasPassword?: boolean;
 }
 
 export const IS_PUBLIC_KEY = 'isPublic';

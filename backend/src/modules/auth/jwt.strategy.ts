@@ -43,6 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       timezone: user.timezone,
       agencyId: user.ownedAgency?.id ?? user.clientProfile?.agencyId ?? null,
       clientId: user.clientProfile?.id ?? null,
+      hasPassword: Boolean(user.passwordHash),
     };
   }
 }

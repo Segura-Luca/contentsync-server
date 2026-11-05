@@ -11,8 +11,10 @@ import {
 } from '../../common/interceptors/refresh-cookie.interceptor';
 import { OAUTH_NONCE_COOKIE, OAuthStateService } from '../../common/utils/oauth-state.service';
 import { AppConfigService } from '../../config/app-config.service';
+import { AccountDeletionService } from './account-deletion.service';
 import { AuthService } from './auth.service';
 import {
+  DeleteAccountDto,
   ForgotPasswordDto,
   LoginDto,
   RegisterDto,
@@ -29,6 +31,7 @@ import {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly accountDeletion: AccountDeletionService,
     private readonly oauthState: OAuthStateService,
     private readonly config: AppConfigService,
   ) {}
@@ -189,6 +192,21 @@ export class AuthController {
   @ApiOperation({ summary: 'Actualizar nombre y zona horaria del usuario autenticado' })
   updateMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(user.sub, dto);
+  }
+
+  @ApiBearerAuth('jwt-auth')
+  @AuthThrottle()
+  @Post('me/delete')
+  @ApiOperation({ summary: 'Eliminar la propia cuenta. El administrador no puede hacerlo' })
+  async deleteMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: DeleteAccountDto,
+    @Ip() ip: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.accountDeletion.deleteOwnAccount(user, dto.password, ip);
+    clearRefreshCookie(res, this.config);
+    return result;
   }
 
   @Public()

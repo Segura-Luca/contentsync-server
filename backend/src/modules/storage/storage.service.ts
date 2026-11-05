@@ -1,5 +1,5 @@
 import { Injectable, Logger, PayloadTooLargeException, ServiceUnavailableException } from '@nestjs/common';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -98,6 +98,16 @@ export class StorageService {
         body.destroy();
       }
     }
+  }
+
+  async deleteObject(storageKey: string): Promise<void> {
+    if (storageKey.startsWith(LOCAL_KEY_PREFIX)) {
+      fs.rmSync(join(this.config.uploadDir, basename(storageKey)), { force: true });
+      return;
+    }
+    // Las URL externas y los datos de demostración no son archivos nuestros.
+    if (!storageKey.startsWith('clients/') || !this.usesS3) return;
+    await this.s3().send(new DeleteObjectCommand({ Bucket: this.bucket, Key: storageKey }));
   }
 
   /** Una clave solo puede apuntar a una subida local o a la carpeta S3 de ese cliente. */

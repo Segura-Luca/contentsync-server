@@ -17,6 +17,7 @@ Detalle completo en [docs/auditoria.md](docs/auditoria.md).
 - **Sesión:** refresh token en cookie `httpOnly`; access token solo en memoria.
 - **Publicación inmediata:** en segundo plano, con resultado en la interfaz y botón Reintentar.
 - **Duración:** el servidor la lee del archivo de video.
+- **Eliminar cuenta:** agencias y clientes pueden eliminar su propia cuenta desde Ajustes. Se borran sus datos personales, sus redes conectadas y sus videos. Al eliminar una agencia se eliminan también sus clientes. El administrador no puede eliminar la suya.
 - **Videos en S3:** la web guarda los archivos en el bucket configurado, en la carpeta del cliente. Sin S3 usa el disco del servidor.
 - **Android:** solo WebView, autorización de redes en el navegador del sistema, APK Release de 1 MB y clave de firma nueva.
 
