@@ -28,8 +28,8 @@ export class MailService {
 
   private order(kind: 'otp' | 'general'): MailTransport[] {
     const key = kind === 'otp' ? 'MAIL_TRANSPORTS_OTP' : 'MAIL_TRANSPORTS_GENERAL';
-    const fallback = kind === 'otp' ? 'n8n,https,smtp' : 'https,smtp';
-    return (this.config.getRaw(key) || fallback)
+    // SMTP va último: Render bloquea esos puertos en el plan gratuito.
+    return (this.config.getRaw(key) || 'n8n,https,smtp')
       .split(',')
       .map((transport) => transport.trim().toLowerCase())
       .filter((transport): transport is MailTransport => ['n8n', 'https', 'smtp'].includes(transport));

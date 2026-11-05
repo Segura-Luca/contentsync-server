@@ -22,6 +22,7 @@ Detalle completo en [docs/auditoria.md](docs/auditoria.md).
 - **Android:** solo WebView, autorización de redes en el navegador del sistema, APK Release de 1 MB y clave de firma nueva.
 
 ### Fixed
+- Las invitaciones "Sí, soy yo" no salían en Render: el relay respondía "Acceso denegado", no se probaba n8n y SMTP está bloqueado. Ahora salen primero por n8n, y la web avisa si el correo no se pudo enviar.
 - Saltos del flujo "Sí, soy yo", falsificación del `state` OAuth, fuerza bruta de códigos OTP, toma de cuentas por vinculación social y reintentos entre agencias.
 - Publicación: tokens renovados con valores inventados, TikTok marcado como publicado antes de confirmarse, permisos insuficientes de Instagram, doble publicación y hora programada dependiente de la zona del servidor.
 

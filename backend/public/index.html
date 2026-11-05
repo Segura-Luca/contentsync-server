@@ -2612,6 +2612,10 @@
 
       state.showNewClientForm = false;
       await hydrateFromApi();
+      if (r.data && r.data.emailSent === false) {
+        setBanner(`Creamos el perfil de "${companyName}", pero no pudimos enviar el correo a ${email}. Probá con "Reenviar" en unos minutos.`, true);
+        return;
+      }
       setBanner(
         `Solicitud enviada a ${email}. El perfil de "${companyName}" se activará apenas el cliente presione "Sí, soy yo" en su notificación.`
       );
@@ -2621,6 +2625,10 @@
       const r = await apiFetch(`/clients/${clientId}/resend-confirmation`, { method: 'POST' });
       if (!r.ok) {
         setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      if (r.data && r.data.emailSent === false) {
+        setBanner('No pudimos enviar el correo de confirmación. Probá de nuevo en unos minutos.', true);
         return;
       }
       setBanner('Reenviamos la notificación y el correo de confirmación "Sí, soy yo" al cliente.');

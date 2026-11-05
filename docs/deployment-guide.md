@@ -119,3 +119,20 @@ Con Supabase Storage:
 
 El plan Free admite 50 MB por archivo. Un video más pesado se rechaza con un aviso, así que conviene exportarlo comprimido o usar un plan con un límite mayor.
 
+## 10. Correo en producción
+
+Render bloquea los puertos SMTP en el plan gratuito, así que el correo sale por n8n. Los códigos de 6 dígitos y las invitaciones "Sí, soy yo" usan el mismo webhook, y el relay HTTPS queda como respaldo opcional.
+
+El flujo de n8n necesita dos nodos:
+
+1. **Webhook:** método `POST`, con autenticación **Header Auth**. El nombre de la cabecera es `X-Webhook-Secret` y el valor es el mismo de `N8N_WEBHOOK_SECRET` en Render. Sin esto, cualquiera que conozca la URL puede enviar correos desde tu cuenta.
+2. **Gmail (Send a message):** usa lo que recibe, no una plantilla fija.
+
+| Campo del correo | Valor en n8n |
+| --- | --- |
+| To | `{{ $json.body.to }}` |
+| Subject | `{{ $json.body.subject }}` |
+| Email Type | HTML |
+| Message | `{{ $json.body.html }}` |
+
+Si en Render existe `MAIL_TRANSPORTS_GENERAL` o `MAIL_TRANSPORTS_OTP`, debe incluir `n8n`.
