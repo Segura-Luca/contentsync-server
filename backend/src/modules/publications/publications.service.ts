@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -8,6 +9,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import {
+  ClientConfirmationStatus,
   NotificationType,
   PublicationStatus,
   RoleCode,
@@ -16,9 +18,12 @@ import {
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AppConfigService } from '../../config/app-config.service';
 import { ClientsService } from '../clients/clients.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PlatformsService } from '../platforms/platforms.service';
+import { NonRetryablePublishError } from '../platforms/publishers/platform-publisher.interface';
+import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../storage/storage.service';
 import { VideosService } from '../videos/videos.service';
 import { HistoryFilterDto, ScheduleOrPublishVideoDto } from './dto/publication.dto';
@@ -26,7 +31,6 @@ import { HistoryFilterDto, ScheduleOrPublishVideoDto } from './dto/publication.d
 @Injectable()
 export class PublicationsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PublicationsService.name);
-  private readonly maxRetries = 3;
   private schedulerInterval: NodeJS.Timeout | null = null;
   private processingTick = false;
 
@@ -38,12 +42,19 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
     private readonly storageService: StorageService,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
+    private readonly settings: SettingsService,
+    private readonly config: AppConfigService,
   ) {}
 
   onModuleInit() {
+    if (!this.config.schedulerEnabled) {
+      this.logger.log('Programador de publicaciones deshabilitado (PUBLISH_SCHEDULER_ENABLED=false).');
+      return;
+    }
     this.schedulerInterval = setInterval(() => {
       void this.processDueScheduledPublications();
-    }, 20000);
+    }, this.config.schedulerIntervalMs);
+    this.schedulerInterval.unref();
   }
 
   onModuleDestroy() {
@@ -60,6 +71,15 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
     if (this.processingTick) return;
     this.processingTick = true;
     try {
+      // Una publicación queda en PROCESSING si el proceso se reinició a mitad de camino: se devuelve a la cola.
+      await this.prisma.publication.updateMany({
+        where: {
+          status: PublicationStatus.PROCESSING,
+          updatedAt: { lt: new Date(Date.now() - this.config.publishStaleMinutes * 60000) },
+        },
+        data: { status: PublicationStatus.PENDING },
+      });
+
       const duePubs = await this.prisma.publication.findMany({
         where: {
           status: PublicationStatus.PENDING,
@@ -68,6 +88,12 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
             deletedAt: null,
             workflowStatus: {
               in: [VideoWorkflowStatus.APPROVED, VideoWorkflowStatus.SCHEDULED],
+            },
+            client: {
+              deletedAt: null,
+              isActive: true,
+              confirmationStatus: ClientConfirmationStatus.CONFIRMED,
+              agency: { isSuspended: false, deletedAt: null },
             },
           },
         },
@@ -98,21 +124,35 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
     }
 
     const video = await this.videosService.findOneWithAccess(dto.videoId, user);
+    await this.clientsService.assertClientAccess(video.clientId, user, true);
 
-    if (
-      video.workflowStatus !== VideoWorkflowStatus.APPROVED &&
-      video.workflowStatus !== VideoWorkflowStatus.SCHEDULED
-    ) {
+    const isReady =
+      video.workflowStatus === VideoWorkflowStatus.APPROVED ||
+      video.workflowStatus === VideoWorkflowStatus.SCHEDULED;
+    // Un video en revisión puede dejarse programado: el reloj solo lo publica cuando el cliente lo aprueba.
+    const awaitingApproval =
+      video.workflowStatus === VideoWorkflowStatus.IN_REVIEW && this.settings.current().requireClientApproval;
+
+    if (!isReady && !awaitingApproval) {
       throw new BadRequestException(
         `Bloqueo de seguridad: solo los videos APROBADOS o PROGRAMADOS pueden publicarse. Estado actual: ${video.workflowStatus}.`,
       );
     }
 
     const scheduledDate = dto.scheduledFor ? new Date(dto.scheduledFor) : new Date();
-    const isImmediate = scheduledDate.getTime() <= Date.now() + 5000;
+    const isImmediate = isReady && scheduledDate.getTime() <= Date.now() + 5000;
+
+    const alreadyPublished = new Set(
+      video.publications.filter((p) => p.status === PublicationStatus.PUBLISHED).map((p) => p.platform),
+    );
+    // Reprogramar no puede volver a subir lo que ya está publicado en una red.
+    const pendingTargets = video.platformTargets.filter((t) => !alreadyPublished.has(t.platform));
+    if (pendingTargets.length === 0) {
+      throw new BadRequestException('Este video ya está publicado en todas sus plataformas destino.');
+    }
 
     const publications = [];
-    for (const target of video.platformTargets) {
+    for (const target of pendingTargets) {
       const pub = await this.prisma.publication.upsert({
         where: {
           videoId_platform: {
@@ -130,16 +170,17 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
           platform: target.platform,
           scheduledFor: scheduledDate,
           status: PublicationStatus.PENDING,
-          bullJobId: `bull_${video.id}_${target.platform}_${scheduledDate.getTime()}`,
         },
       });
       publications.push(pub);
     }
 
-    await this.prisma.video.update({
-      where: { id: video.id },
-      data: { workflowStatus: VideoWorkflowStatus.SCHEDULED },
-    });
+    if (isReady) {
+      await this.prisma.video.update({
+        where: { id: video.id },
+        data: { workflowStatus: VideoWorkflowStatus.SCHEDULED },
+      });
+    }
 
     await this.auditService.log({
       userId: user.sub,
@@ -148,30 +189,39 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
       entityId: video.id,
       metadata: {
         scheduledFor: scheduledDate.toISOString(),
-        timezone: dto.userTimezone || 'America/Argentina/Buenos_Aires',
+        timezone: dto.userTimezone || user.timezone || this.settings.current().defaultTimezone,
         platforms: video.platformTargets.map((t) => t.platform),
       },
     });
 
     if (isImmediate) {
-      const executedResults = [];
-      for (const pub of publications) {
-        const res = await this.executeSinglePlatformPublicationWithRetries(pub.id);
-        executedResults.push(res);
-      }
+      // Instagram y TikTok pueden tardar minutos: se responde enseguida y el resultado llega por notificación.
+      this.runInBackground(publications.map((pub) => pub.id));
       return {
         mode: 'IMMEDIATE',
         videoId: video.id,
-        publications: executedResults,
+        publications,
       };
     }
 
     return {
-      mode: 'SCHEDULED',
+      mode: awaitingApproval ? 'AWAITING_APPROVAL' : 'SCHEDULED',
       videoId: video.id,
       scheduledFor: scheduledDate,
       publications,
     };
+  }
+
+  private runInBackground(publicationIds: string[]) {
+    void (async () => {
+      for (const id of publicationIds) {
+        try {
+          await this.executeSinglePlatformPublicationWithRetries(id);
+        } catch (err: any) {
+          this.logger.error(`Error al ejecutar la publicación ${id}: ${err?.message}`);
+        }
+      }
+    })();
   }
 
   /**
@@ -198,20 +248,30 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Publicación no encontrada.');
     }
 
-    await this.prisma.publication.update({
-      where: { id: publicationId },
+    // Reclamo atómico: si dos procesos toman la misma publicación, solo uno la sube.
+    const claimed = await this.prisma.publication.updateMany({
+      where: {
+        id: publicationId,
+        status: { in: [PublicationStatus.PENDING, PublicationStatus.FAILED] },
+      },
       data: { status: PublicationStatus.PROCESSING },
     });
+    if (claimed.count === 0) {
+      return publication;
+    }
 
     const targetConfig = publication.video.platformTargets.find(
       (t) => t.platform === publication.platform,
     );
     const publisher = this.platformsService.getPublisher(publication.platform);
 
-    let attemptNumber = publication.attempts.length;
+    const { publishMaxAttempts, publishRetryDelaySeconds } = this.settings.current();
+    let attemptNumber = publication.attempts.reduce((max, a) => Math.max(max, a.attemptNumber), 0);
+    // Cada ejecución abre una tanda nueva: si no, una publicación agotada nunca volvería a intentarse.
+    const lastAttempt = attemptNumber + publishMaxAttempts;
     let lastError: string | null = null;
 
-    while (attemptNumber < this.maxRetries) {
+    while (attemptNumber < lastAttempt) {
       attemptNumber++;
       const startTime = Date.now();
       try {
@@ -226,11 +286,9 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
           description:
             targetConfig?.customDescription || publication.video.description,
           hashtags: publication.video.hashtags.map((h) => h.tag),
-          publicVideoUrl: this.storageService.getPublicUrl(
-            publication.video.storageKey,
-          ),
+          publicVideoUrl: this.storageService.getPublishUrl(publication.video.storageKey),
           thumbnailUrl: publication.video.thumbnailKey
-            ? this.storageService.getPublicUrl(publication.video.thumbnailKey)
+            ? this.storageService.getPublishUrl(publication.video.thumbnailKey)
             : null,
           privacyLevel: targetConfig?.privacyLevel || 'PUBLIC',
           shareToFeed: targetConfig?.shareToFeed ?? true,
@@ -290,6 +348,11 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
             durationMs,
           },
         });
+
+        if (err instanceof NonRetryablePublishError) break;
+        if (attemptNumber < lastAttempt && publishRetryDelaySeconds > 0) {
+          await new Promise((resolve) => setTimeout(resolve, publishRetryDelaySeconds * 1000));
+        }
       }
     }
 
@@ -311,6 +374,30 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
     });
 
     return failedPub;
+  }
+
+  async retryPublication(publicationId: string, user: AuthenticatedUser) {
+    const publication = await this.prisma.publication.findUnique({
+      where: { id: publicationId },
+      include: { video: { select: { clientId: true, workflowStatus: true, deletedAt: true } } },
+    });
+    if (!publication || publication.video.deletedAt) {
+      throw new NotFoundException('Publicación no encontrada.');
+    }
+    await this.clientsService.assertClientAccess(publication.video.clientId, user, true);
+
+    if (publication.status === PublicationStatus.PUBLISHED) {
+      throw new ConflictException('Esta publicación ya se realizó con éxito.');
+    }
+    if (publication.status === PublicationStatus.PROCESSING) {
+      throw new ConflictException('Esta publicación ya se está procesando.');
+    }
+    const ready: VideoWorkflowStatus[] = [VideoWorkflowStatus.APPROVED, VideoWorkflowStatus.SCHEDULED];
+    if (!ready.includes(publication.video.workflowStatus)) {
+      throw new BadRequestException('Solo los videos aprobados pueden publicarse.');
+    }
+    this.runInBackground([publicationId]);
+    return { id: publicationId, status: PublicationStatus.PROCESSING };
   }
 
   private async syncOverallVideoPublicationStatus(videoId: string) {
@@ -352,8 +439,10 @@ export class PublicationsService implements OnModuleInit, OnModuleDestroy {
     if (filters.clientId) {
       videoFilter.clientId = filters.clientId;
     } else if (user.role === RoleCode.AGENCIA) {
+      if (!user.agencyId) return [];
       videoFilter.client = { agencyId: user.agencyId };
     } else if (user.role === RoleCode.CLIENTE) {
+      if (!user.clientId) return [];
       videoFilter.clientId = user.clientId;
     }
 

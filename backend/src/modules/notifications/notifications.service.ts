@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AppConfigService } from '../../config/app-config.service';
 
 export interface SendPushNotificationInput {
   userId: string;
@@ -14,15 +14,11 @@ export interface SendPushNotificationInput {
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly fcmMockMode: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
-  ) {
-    this.fcmMockMode =
-      this.configService.get<string>('FCM_MOCK_MODE', 'true') === 'true';
-  }
+    private readonly config: AppConfigService,
+  ) {}
 
   async notifyUser(input: SendPushNotificationInput) {
     const notification = await this.prisma.notification.create({
@@ -37,17 +33,16 @@ export class NotificationsService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: input.userId },
-      select: { fcmToken: true, email: true },
+      select: { fcmToken: true },
     });
 
     if (user?.fcmToken) {
-      if (this.fcmMockMode) {
-        this.logger.log(
-          `[FCM MOCK] Push enviado a ${user.email} (${input.type}): ${input.title}`,
-        );
-      } else {
-        this.logger.log(`[FCM LIVE] Push despachado a token ${user.fcmToken.slice(0, 12)}...`);
-      }
+      // El envío por Firebase todavía no está implementado: la notificación queda disponible dentro de la app.
+      this.logger.debug(
+        this.config.fcmMockMode
+          ? `[FCM simulado] ${input.type}: ${input.title}`
+          : `[FCM sin implementar] Push omitido para ${input.type}.`,
+      );
     }
 
     return notification;

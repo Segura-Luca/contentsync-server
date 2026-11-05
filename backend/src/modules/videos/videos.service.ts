@@ -14,36 +14,9 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ClientsService } from '../clients/clients.service';
+import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateVideoDto, RequestPresignedUrlDto } from './dto/video.dto';
-
-export interface PlatformSpecRule {
-  maxDurationSeconds: number;
-  minDurationSeconds: number;
-  maxSizeBytes: number;
-  allowedMimeTypes: string[];
-}
-
-export const PLATFORM_VIDEO_SPECS: Record<SocialPlatform, PlatformSpecRule> = {
-  [SocialPlatform.INSTAGRAM]: {
-    minDurationSeconds: 1,
-    maxDurationSeconds: 900, // 15 min para Reels
-    maxSizeBytes: 1024 * 1024 * 1024, // 1 GB
-    allowedMimeTypes: ['video/mp4', 'video/quicktime'],
-  },
-  [SocialPlatform.TIKTOK]: {
-    minDurationSeconds: 1,
-    maxDurationSeconds: 600, // 10 min
-    maxSizeBytes: 500 * 1024 * 1024, // 500 MB
-    allowedMimeTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
-  },
-  [SocialPlatform.YOUTUBE]: {
-    minDurationSeconds: 1,
-    maxDurationSeconds: 180, // 3 min máximo para YouTube Shorts
-    maxSizeBytes: 2 * 1024 * 1024 * 1024, // 2 GB
-    allowedMimeTypes: ['video/mp4', 'video/quicktime', 'video/webm'],
-  },
-};
 
 @Injectable()
 export class VideosService {
@@ -52,6 +25,7 @@ export class VideosService {
     private readonly clientsService: ClientsService,
     private readonly storageService: StorageService,
     private readonly auditService: AuditService,
+    private readonly settings: SettingsService,
   ) {}
 
   validateVideoSpecsForPlatforms(params: {
@@ -62,30 +36,41 @@ export class VideosService {
   }): void {
     const normalizedMime = params.mimeType.trim().toLowerCase();
 
+    const limits = this.settings.current().platformLimits;
     for (const platform of params.platforms) {
-      const rule = PLATFORM_VIDEO_SPECS[platform];
+      const rule = limits[platform];
       if (!rule.allowedMimeTypes.includes(normalizedMime)) {
         throw new BadRequestException(
           `Formato ${normalizedMime} no soportado por ${platform}. Permitidos: ${rule.allowedMimeTypes.join(', ')}`,
         );
       }
 
-      if (
-        params.durationSeconds < rule.minDurationSeconds ||
-        params.durationSeconds > rule.maxDurationSeconds
-      ) {
+      if (params.durationSeconds < 1 || params.durationSeconds > rule.maxDurationSeconds) {
         throw new BadRequestException(
-          `Duración de ${params.durationSeconds}s fuera del rango permitido por ${platform} (${rule.minDurationSeconds}s - ${rule.maxDurationSeconds}s).`,
+          `Duración de ${params.durationSeconds}s fuera del rango permitido por ${platform} (1s - ${rule.maxDurationSeconds}s).`,
         );
       }
 
-      if (params.sizeBytes > rule.maxSizeBytes) {
-        const maxMb = Math.round(rule.maxSizeBytes / (1024 * 1024));
+      if (params.sizeBytes > rule.maxSizeMb * 1024 * 1024) {
         throw new BadRequestException(
-          `El tamaño del archivo supera el máximo permitido por ${platform} (${maxMb} MB).`,
+          `El tamaño del archivo supera el máximo permitido por ${platform} (${rule.maxSizeMb} MB).`,
         );
       }
     }
+  }
+
+  /** "Directo" solo saltea la revisión si la plataforma no exige aprobación del cliente. */
+  private initialStatus(mode: CreateVideoDto['publishMode']): VideoWorkflowStatus {
+    if (mode === 'DIRECT') {
+      return this.settings.current().requireClientApproval
+        ? VideoWorkflowStatus.IN_REVIEW
+        : VideoWorkflowStatus.APPROVED;
+    }
+    return mode === 'REVIEW' ? VideoWorkflowStatus.IN_REVIEW : VideoWorkflowStatus.DRAFT;
+  }
+
+  async assertCanUpload(clientId: string, user: AuthenticatedUser) {
+    await this.clientsService.assertClientAccess(clientId, user, true);
   }
 
   async requestPresignedUpload(dto: RequestPresignedUrlDto, user: AuthenticatedUser) {
@@ -115,10 +100,19 @@ export class VideosService {
     }
     await this.clientsService.assertClientAccess(dto.clientId, user, true);
 
+    if (!this.storageService.isValidStorageKey(dto.storageKey, dto.clientId)) {
+      throw new BadRequestException('La referencia al archivo de video no es válida.');
+    }
+    if (dto.thumbnailKey && !this.storageService.isValidStorageKey(dto.thumbnailKey, dto.clientId)) {
+      throw new BadRequestException('La referencia a la miniatura no es válida.');
+    }
+
+    // El navegador informa la duración, pero el límite se aplica sobre la del archivo cuando se puede leer.
+    const durationSeconds = (await this.storageService.probeDurationSeconds(dto.storageKey)) ?? dto.durationSeconds;
     const platforms = dto.platformTargets.map((t) => t.platform);
     this.validateVideoSpecsForPlatforms({
       mimeType: dto.mimeType,
-      durationSeconds: dto.durationSeconds,
+      durationSeconds,
       sizeBytes: dto.sizeBytes,
       platforms,
     });
@@ -139,16 +133,11 @@ export class VideosService {
         description: dto.description.trim(),
         storageKey: dto.storageKey,
         thumbnailKey: dto.thumbnailKey ?? null,
-        durationSeconds: dto.durationSeconds,
+        durationSeconds,
         sizeBytes: BigInt(dto.sizeBytes),
         mimeType: dto.mimeType.trim().toLowerCase(),
         aspectRatio: dto.aspectRatio || '9:16',
-        workflowStatus:
-          dto.publishMode === 'DIRECT'
-            ? VideoWorkflowStatus.APPROVED
-            : dto.publishMode === 'REVIEW'
-              ? VideoWorkflowStatus.IN_REVIEW
-              : VideoWorkflowStatus.DRAFT,
+        workflowStatus: this.initialStatus(dto.publishMode),
         hashtags: {
           create: cleanTags.map((tag, index) => ({
             tag,
@@ -207,8 +196,11 @@ export class VideosService {
     if (clientIdFilter) {
       whereClause.clientId = clientIdFilter;
     } else if (user.role === RoleCode.AGENCIA) {
+      // Con un filtro undefined, Prisma devolvería los registros de todas las agencias.
+      if (!user.agencyId) return [];
       whereClause.client = { agencyId: user.agencyId };
     } else if (user.role === RoleCode.CLIENTE) {
+      if (!user.clientId) return [];
       whereClause.clientId = user.clientId;
     }
 
@@ -241,8 +233,13 @@ export class VideosService {
       where: { id, deletedAt: null },
       include: {
         client: {
-          include: {
-            agency: true,
+          select: {
+            id: true,
+            agencyId: true,
+            companyName: true,
+            industry: true,
+            confirmationStatus: true,
+            agency: { select: { id: true, name: true } },
             user: { select: { id: true, email: true, fullName: true } },
           },
         },

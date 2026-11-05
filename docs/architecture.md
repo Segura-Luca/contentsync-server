@@ -6,11 +6,8 @@
 
 ```mermaid
 flowchart LR
-    subgraph Android["App Android (Kotlin + Compose + Material 3)"]
-        UI["Presentation Layer\n(MVVM + StateFlow + WindowSizeClass)"]
-        DOM["Domain Layer\n(UseCases + Pure Models)"]
-        DATA["Data Layer\n(Repository + Room + EncryptedPrefs + WorkManager)"]
-        UI --> DOM --> DATA
+    subgraph Android["App Android (Kotlin + WebView)"]
+        WV["WebView de la app web\n(CredentialManager + selector de archivos)"]
     end
 
     subgraph Backend["Backend API (NestJS + TypeScript)"]
@@ -21,8 +18,7 @@ flowchart LR
     end
 
     subgraph Infra["Infraestructura & Persistencia"]
-        PG[("PostgreSQL 16\n(Esquema 3FN)")]
-        REDIS[("Redis 7 + BullMQ\n(Cola Programada)")]
+        PG[("MySQL 8+\n(Esquema 3FN)")]
         S3[("S3 / MinIO\n(Presigned URLs)")]
     end
 
@@ -32,10 +28,9 @@ flowchart LR
         YT["YouTube Data API v3\n(Resumable Upload)"]
     end
 
-    DATA -->|HTTPS REST + JWT| GUARD
-    DATA -->|PUT Presigned URL| S3
+    WV -->|HTTPS REST + JWT| GUARD
+    WV -->|PUT Presigned URL| S3
     MOD --> PG
-    MOD --> REDIS
     STRAT --> IG
     STRAT --> TT
     STRAT --> YT
@@ -43,24 +38,14 @@ flowchart LR
 
 ---
 
-## 2. Arquitectura en Android (MVVM + Clean Architecture)
+## 2. Arquitectura en Android (WebView)
 
-La aplicación Android (`minSdk = 26`, `targetSdk = 34`) está dividida en tres capas desacopladas e inyectadas con **Dagger Hilt**:
+La aplicación Android (`minSdk = 26`, `targetSdk = 34`) es un WebView de la app web, sin lógica de negocio propia. `MainActivity` aporta lo que la web no puede hacer sola:
 
-1. **Capa de Dominio (`com.contentsync.app.domain`):**
-   - Modelos inmutables (`UserSession`, `AgencyItem`, `ClientItem`, `WeeklyScheduleItem`, `VideoItem`, `PlatformPublicationState`).
-   - Interfaces de repositorio (`ContentSyncRepository`) basadas en `Flow`.
-   - Casos de uso atómicos (`ValidateVideoForPlatformsUseCase`) que validan política de contraseña fuerte, especificaciones técnicas de video por red social y bloqueo de publicación si el video no está aprobado.
-2. **Capa de Datos (`com.contentsync.app.data` y `com.contentsync.app.core`):**
-   - `SecureSessionStorage`: Guarda `accessToken` y `refreshToken` cifrados con **Android Keystore (`EncryptedSharedPreferences` AES256-GCM)** y preferencias de tema en **Jetpack DataStore**.
-   - `ContentSyncDatabase`: Base de datos local **Room** (`CachedVideoDao`) para caché offline.
-   - `ContentSyncApiService`: Cliente **Retrofit + OkHttp** con `JwtAuthInterceptor` y `TokenRefreshAuthenticator` para renovación transparente ante expiración.
-   - `ResumableVideoUploadWorker`: Tarea en segundo plano con **WorkManager + HiltWorker** para subida reanudable de videos hacia URLs prefirmadas S3.
-3. **Capa de Presentación (`com.contentsync.app.presentation`):**
-   - `MainViewModel`: Único punto de coordinación de estado (`StateFlow<ContentSyncUiState>`) sin lógica de negocio en los Composables.
-   - `ContentSyncAdaptiveShell`: Adapta automáticamente la navegación usando `WindowSizeClass` (**Bottom Navigation Bar** en teléfonos verticales y **Navigation Rail** en tablets u orientación horizontal) y oculta/muestra secciones según el rol RBAC.
-
----
+- Selector de videos de la galería (`WebChromeClient.onShowFileChooser`).
+- Acceso con Google nativo (`CredentialManager`), expuesto a la web por el puente `ContentSyncAndroid`.
+- Autorización de YouTube, Instagram y TikTok en el navegador del sistema (`openExternal`), porque los proveedores la bloquean dentro de un WebView. Al volver, la app avisa a la web para refrescar el estado.
+- Sesión persistente: el refresh token es una cookie `httpOnly` que `CookieManager` guarda al pasar a segundo plano.
 
 ## 3. Arquitectura en Backend (NestJS Modular + Patrón Strategy)
 

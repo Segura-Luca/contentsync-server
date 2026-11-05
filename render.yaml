@@ -5,16 +5,68 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install --include=dev && npm run build:cloud
-    startCommand: node dist/main.js
+    startCommand: node prisma/deploy.js && node dist/main.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: JWT_ACCESS_EXPIRES_IN
-        value: 7d
-      - key: JWT_REFRESH_EXPIRES_IN
-        value: 30d
       - key: MOCK_PLATFORMS
-        value: "true"
-      - key: FCM_MOCK_MODE
-        value: "true"
+        value: "false"
+      # Secretos: se cargan en el panel de Render, nunca en este archivo.
+      # El servidor no arranca en producción si falta alguno de los cuatro primeros.
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: OAUTH_ENCRYPTION_KEY
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      # Videos: sin S3 quedan en el disco de Render, que se borra al reiniciar.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_PUBLIC_URL
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      # Supabase Free admite hasta 50 MB por archivo.
+      - key: UPLOAD_MAX_MB
+        value: "50"
+      - key: MAIL_SENDER_ADDRESS
+        sync: false
+      - key: N8N_WEBHOOK_URL
+        sync: false
+      - key: GMAIL_HTTPS_WEBHOOK_URL
+        sync: false
+      - key: GMAIL_WEBHOOK_SECRET
+        sync: false
+      - key: GOOGLE_AUTH_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: INSTAGRAM_APP_ID
+        sync: false
+      - key: INSTAGRAM_APP_SECRET
+        sync: false
+      - key: FACEBOOK_AUTH_APP_ID
+        sync: false
+      - key: FACEBOOK_AUTH_APP_SECRET
+        sync: false
+      - key: GITHUB_AUTH_CLIENT_ID
+        sync: false
+      - key: GITHUB_AUTH_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false

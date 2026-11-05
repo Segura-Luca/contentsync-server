@@ -2,6 +2,31 @@
 
 Todos los cambios relevantes de este proyecto se documentan en este archivo siguiendo [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y [Semantic Versioning (SemVer)](https://semver.org/lang/es/).
 
+## [1.1.0] - 2026-11-04
+
+Detalle completo en [docs/auditoria.md](docs/auditoria.md).
+
+### Changed
+- **Base de datos:** historial de migraciones, Docker y documentación migrados de PostgreSQL a MySQL. `deploy.js` adopta bases existentes.
+- **Configuración:** variables de entorno validadas al arrancar y nuevos Ajustes editables en MySQL, sin reiniciar el servidor.
+- **Sesiones:** access token de 15 minutos con renovación automática en la SPA.
+- **Límites por defecto:** Reels 90 s, TikTok 600 s, Shorts 60 s, según la especificación (editables en Ajustes).
+- **Visado:** solo el cliente aprueba, y por defecto nada se publica sin su aprobación (desactivable en Ajustes).
+- **Alta de clientes:** la agencia ya no define la contraseña; el cliente la crea con un código por correo.
+
+- **Sesión:** refresh token en cookie `httpOnly`; access token solo en memoria.
+- **Publicación inmediata:** en segundo plano, con resultado en la interfaz y botón Reintentar.
+- **Duración:** el servidor la lee del archivo de video.
+- **Videos en S3:** la web guarda los archivos en el bucket configurado, en la carpeta del cliente. Sin S3 usa el disco del servidor.
+- **Android:** solo WebView, autorización de redes en el navegador del sistema, APK Release de 1 MB y clave de firma nueva.
+
+### Fixed
+- Saltos del flujo "Sí, soy yo", falsificación del `state` OAuth, fuerza bruta de códigos OTP, toma de cuentas por vinculación social y reintentos entre agencias.
+- Publicación: tokens renovados con valores inventados, TikTok marcado como publicado antes de confirmarse, permisos insuficientes de Instagram, doble publicación y hora programada dependiente de la zona del servidor.
+
+### Removed
+- Redis y BullMQ, que estaban instalados pero sin uso, y la columna `bull_job_id`. Pantallas Compose sin uso de Android. Keystore de firma y datos de usuarios del repositorio.
+
 ## [1.0.0] - 2026-10-22
 
 ### Added

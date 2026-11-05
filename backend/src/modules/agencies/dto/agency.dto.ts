@@ -33,7 +33,7 @@ export class CreateAgencyDto {
   @MaxLength(150)
   ownerFullName!: string;
 
-  @ApiProperty({ example: 'ContentSync2026!' })
+  @ApiProperty({ example: 'ClaveSegura2026!' })
   @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,64}$/, {

@@ -1,22 +1,20 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AppConfigService } from '../../config/app-config.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    configService: ConfigService,
+    config: AppConfigService,
     private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        configService.get<string>('JWT_ACCESS_SECRET') ||
-        'change_this_to_a_64_char_random_hex_secret_for_access_tokens_2026',
+      secretOrKey: config.jwtAccessSecret,
     });
   }
 
@@ -26,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       include: {
         role: true,
         ownedAgency: true,
-        clientProfile: true,
+        clientProfile: { include: { agency: { select: { isSuspended: true } } } },
       },
     });
 
@@ -34,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Cuenta de usuario inactiva o suspendida.');
     }
 
-    if (user.ownedAgency?.isSuspended) {
+    if (user.ownedAgency?.isSuspended || user.clientProfile?.agency?.isSuspended) {
       throw new UnauthorizedException('La agencia asociada se encuentra suspendida.');
     }
 
@@ -42,6 +40,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       sub: user.id,
       email: user.email,
       role: user.role.code,
+      timezone: user.timezone,
       agencyId: user.ownedAgency?.id ?? user.clientProfile?.agencyId ?? null,
       clientId: user.clientProfile?.id ?? null,
     };

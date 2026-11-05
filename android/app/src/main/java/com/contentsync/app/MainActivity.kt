@@ -50,11 +50,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.contentsync.app.presentation.auth.requestGoogleIdToken
-import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -122,12 +121,11 @@ class MainActivity : ComponentActivity() {
                                 domStorageEnabled = true
                                 databaseEnabled = true
                                 mediaPlaybackRequiresUserGesture = false
-                                allowFileAccess = true
+                                allowFileAccess = false
                                 allowContentAccess = true
                                 loadWithOverviewMode = true
                                 useWideViewPort = true
-                                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                                userAgentString = userAgentString.replace("; wv", "")
+                                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                             }
 
                             val wv = this
@@ -156,10 +154,11 @@ class MainActivity : ComponentActivity() {
 
                                     val appHost = Uri.parse(targetUrl).host?.lowercase()
                                     val reqHost = uri.host?.lowercase()
+                                    // Acceso social con Facebook y GitHub: necesita la cookie de la sesión del WebView.
+                                    // Google lo resuelve el selector nativo y bloquea su autorización dentro de un WebView.
+                                    val inAppHosts = listOf("facebook.com", "github.com")
                                     if (appHost != null && reqHost != null && reqHost != appHost &&
-                                        !reqHost.endsWith("accounts.google.com") &&
-                                        !reqHost.endsWith("facebook.com") &&
-                                        !reqHost.endsWith("github.com")
+                                        inAppHosts.none { reqHost == it || reqHost.endsWith(".$it") }
                                     ) {
                                         return try {
                                             startActivity(Intent(Intent.ACTION_VIEW, uri))
@@ -325,10 +324,40 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        webViewRef?.evaluateJavascript("window.__onAppResume && window.__onAppResume();", null)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // El WebView escribe las cookies con demora: si Android cierra la app se perdería la sesión.
+        CookieManager.getInstance().flush()
+    }
+
     inner class AndroidWebBridge {
+        /** Abre la autorización de una red en el navegador. Solo la acepta desde nuestra propia web. */
+        @JavascriptInterface
+        fun openExternal(url: String) {
+            val target = Uri.parse(url)
+            if (target.scheme?.lowercase() != "https") return
+            runOnUiThread {
+                val currentHost = webViewRef?.url?.let { Uri.parse(it).host?.lowercase() }
+                if (currentHost != Uri.parse(BuildConfig.WEB_APP_URL).host?.lowercase()) return@runOnUiThread
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, target))
+                } catch (_: Exception) {
+                    webViewRef?.loadUrl(url)
+                }
+            }
+        }
+
         @JavascriptInterface
         fun signInWithGoogle() {
-            lifecycleScope.launch {
+            lifecycleScope.launch(Dispatchers.Main) {
+                // El token de Google solo se entrega a nuestra propia web, nunca a un proveedor abierto en el WebView.
+                val currentHost = webViewRef?.url?.let { Uri.parse(it).host?.lowercase() }
+                if (currentHost != Uri.parse(BuildConfig.WEB_APP_URL).host?.lowercase()) return@launch
                 val res = requestGoogleIdToken(this@MainActivity)
                 res.fold(
                     onSuccess = { token ->

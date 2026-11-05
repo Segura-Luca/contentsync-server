@@ -13,6 +13,21 @@ jobs:
     defaults:
       run:
         working-directory: ./backend
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root
+          MYSQL_DATABASE: contentsync_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_root --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:ci_root@127.0.0.1:3306/contentsync_ci
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,6 +45,15 @@ jobs:
       - name: Generate Prisma Client (3NF Schema)
         run: npx prisma generate
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Apply MySQL migrations from scratch
+        run: npx prisma migrate deploy
+
+      - name: Verify migrations match the Prisma schema
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
       - name: Build NestJS Backend
         run: npm run build
 
@@ -40,7 +64,7 @@ jobs:
         run: npm run test:e2e
 
   android-ci:
-    name: Android App (Kotlin + Compose + Unit Tests + APK Build)
+    name: Android App (WebView + APK Build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,9 +81,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-
-      - name: Run Android Unit Tests
-        run: gradle testDebugUnitTest
 
       - name: Build Signed Debug & Release APKs
         run: gradle assembleDebug assembleRelease

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -57,6 +58,8 @@ export class CreateContentIdeaDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  // Solo http(s): el enlace se muestra como <a href>, y un "javascript:" se ejecutaría al abrirlo.
+  @Matches(/^(https?:\/\/\S+)?$/i, { message: 'El enlace de referencia debe comenzar con http:// o https://.' })
   referenceUrl?: string;
 
   @ApiPropertyOptional({ example: 'INSTAGRAM,TIKTOK,YOUTUBE' })

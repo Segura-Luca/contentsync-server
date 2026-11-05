@@ -46,7 +46,10 @@ export class AgenciesService {
     if (!agency) {
       throw new NotFoundException('Agencia no encontrada.');
     }
-    return agency;
+    return {
+      ...agency,
+      clients: agency.clients.map(({ confirmationToken: _omitted, ...client }) => client),
+    };
   }
 
   async create(dto: CreateAgencyDto, adminUserId: string) {

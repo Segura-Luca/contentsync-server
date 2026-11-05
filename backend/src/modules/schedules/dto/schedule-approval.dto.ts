@@ -48,6 +48,7 @@ export class InlineBlockVideoDto {
   @ApiProperty({ example: '/uploads/videos/reel_lunes.mp4' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(500)
   storageKey!: string;
 
   @ApiProperty({ example: 'Reel Educativo Espresso' })
@@ -76,7 +77,7 @@ export class InlineBlockVideoDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(900)
+  @Max(86400)
   durationSeconds?: number;
 
   @ApiPropertyOptional({ default: 15000000 })
@@ -115,7 +116,7 @@ export class CreateScheduleBlockDto {
   @ApiProperty({ example: 1, description: 'Día de la semana: 1 (Lunes) a 5 (Viernes)' })
   @IsInt()
   @Min(1)
-  @Max(7)
+  @Max(5)
   dayOfWeek!: number;
 
   @ApiProperty({ example: 'Reel Educativo: 3 errores al moler café' })
@@ -140,7 +141,7 @@ export class CreateScheduleBlockDto {
   @ApiPropertyOptional({ example: '18:30' })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'La hora debe tener formato HH:mm' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'La hora debe tener formato HH:mm' })
   plannedTime?: string;
 
   @ApiPropertyOptional({ default: true })
@@ -165,7 +166,7 @@ export class UpdateScheduleBlockDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(7)
+  @Max(5)
   dayOfWeek?: number;
 
   @ApiPropertyOptional()
@@ -188,7 +189,7 @@ export class UpdateScheduleBlockDto {
   @ApiPropertyOptional({ example: '19:00' })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{2}:\d{2}$/, { message: 'La hora debe tener formato HH:mm' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'La hora debe tener formato HH:mm' })
   plannedTime?: string;
 
   @ApiPropertyOptional()
@@ -241,10 +242,10 @@ export class AddScheduleItemDto {
   @IsUUID()
   videoId!: string;
 
-  @ApiProperty({ example: 3, description: 'Día de la semana: 1 (Lunes) a 7 (Domingo)' })
+  @ApiProperty({ example: 3, description: 'Día de la semana: 1 (Lunes) a 5 (Viernes)' })
   @IsInt()
   @Min(1)
-  @Max(7)
+  @Max(5)
   dayOfWeek!: number;
 
   @ApiProperty({ example: '2026-10-23T18:00:00.000Z' })

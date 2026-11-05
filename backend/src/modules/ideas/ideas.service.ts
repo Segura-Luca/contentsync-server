@@ -323,6 +323,15 @@ export class IdeasService {
       }
     }
 
+    if (dto.clientId) {
+      const client = await this.prisma.client.findFirst({
+        where: { id: dto.clientId, agencyId: idea.agencyId, deletedAt: null },
+      });
+      if (!client) {
+        throw new BadRequestException('El cliente seleccionado no pertenece a tu agencia.');
+      }
+    }
+
     return this.prisma.contentIdea.update({
       where: { id },
       data: {

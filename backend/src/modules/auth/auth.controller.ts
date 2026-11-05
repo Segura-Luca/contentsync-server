@@ -1,87 +1,89 @@
-import { Body, Controller, Get, Ip, Param, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Patch, Post, Query, Req, Res, UnauthorizedException, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { AuthThrottle } from '../../common/decorators/auth-throttle.decorator';
+import { AuthenticatedUser, CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import {
-  AuthenticatedUser,
-  CurrentUser,
-  Public,
-} from '../../common/decorators/auth.decorators';
+  clearRefreshCookie,
+  REFRESH_COOKIE,
+  RefreshCookieInterceptor,
+  setRefreshCookie,
+} from '../../common/interceptors/refresh-cookie.interceptor';
+import { OAUTH_NONCE_COOKIE, OAuthStateService } from '../../common/utils/oauth-state.service';
+import { AppConfigService } from '../../config/app-config.service';
 import { AuthService } from './auth.service';
 import {
   ForgotPasswordDto,
   LoginDto,
-  RefreshTokenDto,
   RegisterDto,
   ResetPasswordDto,
   SocialLoginDto,
-  VerifyEmailDto,
+  UpdateProfileDto,
   VerifyOtpCodeDto,
   VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
 
 @ApiTags('Autenticación y Seguridad')
 @Controller('auth')
+@UseInterceptors(RefreshCookieInterceptor)
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly oauthState: OAuthStateService,
+    private readonly config: AppConfigService,
+  ) {}
 
-  private resolvePublicBase(req: Request): string {
-    const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
-    const host = (req.headers['x-forwarded-host'] as string) || req.get('host') || 'localhost:3000';
-    return `${proto.split(',')[0].trim()}://${host.split(',')[0].trim()}`.replace(/\/+$/, '');
+  /** `req.protocol` respeta `trust proxy`; en producción manda PUBLIC_APP_URL (ver AppConfigService). */
+  private requestBase(req: Request): string | undefined {
+    const host = req.get('host');
+    return host ? `${req.protocol}://${host}` : undefined;
   }
 
   @Public()
+  @AuthThrottle()
   @Post('register')
-  @ApiOperation({
-    summary:
-      'Iniciar registro de Agencia y enviar código de verificación de 6 dígitos vía n8n desde lucasegura2007@gmail.com',
-  })
+  @ApiOperation({ summary: 'Iniciar registro de Agencia y enviar código de verificación de 6 dígitos' })
   register(@Body() dto: RegisterDto, @Ip() ip: string) {
     return this.authService.register(dto, ip);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('verify-registration')
-  @ApiOperation({
-    summary: 'Verificar código de 6 dígitos enviado al correo al crear cuenta y abrir sesión',
-  })
+  @ApiOperation({ summary: 'Verificar código de 6 dígitos enviado al correo al crear cuenta y abrir sesión' })
   verifyRegistration(@Body() dto: VerifyRegistrationCodeDto, @Ip() ip: string) {
     return this.authService.verifyRegistrationCode(dto, ip);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('login')
   @ApiOperation({
-    summary:
-      'Iniciar sesión con email y contraseña (o enviar código de 6 dígitos si la cuenta fue creada con Google sin contraseña)',
+    summary: 'Iniciar sesión con email y contraseña (o enviar código de 6 dígitos si la cuenta aún no tiene contraseña)',
   })
   login(@Body() dto: LoginDto, @Ip() ip: string) {
     return this.authService.login(dto, ip);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('social')
-  @ApiOperation({
-    summary: 'Inicio de sesión social (Google, Facebook, GitHub) con Nombre, Apellido y Agencia',
-  })
+  @ApiOperation({ summary: 'Inicio de sesión social (Google, Facebook, GitHub) con Nombre, Apellido y Agencia' })
   socialLogin(@Body() dto: SocialLoginDto, @Ip() ip: string) {
     return this.authService.socialLogin(dto, ip);
   }
 
   @Public()
   @Get('social/config')
-  @ApiOperation({
-    summary: 'Identificadores públicos de apps para iniciar sesión con Google, Facebook y GitHub',
-  })
+  @ApiOperation({ summary: 'Identificadores públicos de apps para iniciar sesión con Google, Facebook y GitHub' })
   socialConfig() {
     return this.authService.getSocialPublicConfig();
   }
 
   @Public()
+  @AuthThrottle()
   @Get('oauth/:provider')
-  @ApiOperation({
-    summary: 'Redirigir al flujo OAuth 2.0 de Facebook o GitHub',
-  })
+  @ApiOperation({ summary: 'Redirigir al flujo OAuth 2.0 de Facebook o GitHub' })
   oauthRedirect(
     @Param('provider') provider: string,
     @Query('firstName') firstName: string | undefined,
@@ -90,25 +92,33 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const publicBase = this.resolvePublicBase(req);
+    const base = this.config.publicBaseUrl(this.requestBase(req));
     try {
+      const nonce = this.oauthState.newNonce();
       const url = this.authService.getOAuthAuthorizeUrl(
         provider,
         { firstName, lastName, agencyName },
-        publicBase,
+        this.requestBase(req),
+        nonce,
       );
+      res.cookie(OAUTH_NONCE_COOKIE, nonce, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: base.startsWith('https://'),
+        maxAge: this.oauthState.ttlSeconds * 1000,
+        path: '/',
+      });
       return res.redirect(url);
     } catch (err: any) {
       const msg = encodeURIComponent(err.message || 'No se pudo iniciar el acceso social.');
-      return res.redirect(`${publicBase}/?social_error=${msg}`);
+      return res.redirect(`${base}/?social_error=${msg}`);
     }
   }
 
   @Public()
+  @AuthThrottle()
   @Get('oauth/:provider/callback')
-  @ApiOperation({
-    summary: 'Callback OAuth 2.0 de Facebook y GitHub',
-  })
+  @ApiOperation({ summary: 'Callback OAuth 2.0 de Facebook y GitHub' })
   async oauthCallback(
     @Param('provider') provider: string,
     @Query('code') code: string | undefined,
@@ -118,10 +128,11 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const publicBase = this.resolvePublicBase(req);
+    const base = this.config.publicBaseUrl(this.requestBase(req));
+    res.clearCookie(OAUTH_NONCE_COOKIE, { path: '/' });
     if (oauthError || !code) {
       const msg = encodeURIComponent('Se canceló o no se pudo autorizar el acceso social.');
-      return res.redirect(`${publicBase}/?social_error=${msg}`);
+      return res.redirect(`${base}/?social_error=${msg}`);
     }
 
     try {
@@ -129,33 +140,41 @@ export class AuthController {
         provider,
         code,
         state,
+        this.oauthState.readCookie(req.headers.cookie, OAUTH_NONCE_COOKIE),
         ip,
-        publicBase,
+        this.requestBase(req),
       );
-      const encodedSession = Buffer.from(JSON.stringify(tokens), 'utf8').toString('base64url');
-      return res.redirect(`${publicBase}/?social_session=${encodeURIComponent(encodedSession)}`);
+      // Los tokens viajan en el fragmento (#): nunca llegan a servidores, proxies ni logs de acceso.
+      const { refreshToken, ...session } = tokens;
+      setRefreshCookie(res, refreshToken, this.config);
+      const encodedSession = Buffer.from(JSON.stringify(session), 'utf8').toString('base64url');
+      return res.redirect(`${base}/#social_session=${encodedSession}`);
     } catch (err: any) {
-      const msg = encodeURIComponent(
-        err.message || 'No pudimos completar el inicio de sesión social.',
-      );
-      return res.redirect(`${publicBase}/?social_error=${msg}`);
+      const msg = encodeURIComponent(err.message || 'No pudimos completar el inicio de sesión social.');
+      return res.redirect(`${base}/?social_error=${msg}`);
     }
   }
 
   @Public()
   @Post('refresh')
-  @ApiOperation({
-    summary: 'Rotar Refresh Token y obtener nuevo par Access/Refresh con detección de reuso',
-  })
-  refresh(@Body() dto: RefreshTokenDto, @Ip() ip: string) {
-    return this.authService.refreshTokens(dto, ip);
+  @ApiOperation({ summary: 'Rotar Refresh Token y obtener nuevo par Access/Refresh con detección de reuso' })
+  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Ip() ip: string) {
+    const refreshToken = this.oauthState.readCookie(req.headers.cookie, REFRESH_COOKIE);
+    if (!refreshToken) throw new UnauthorizedException('No hay una sesión para renovar.');
+    try {
+      return await this.authService.refreshTokens({ refreshToken }, ip);
+    } catch (err) {
+      clearRefreshCookie(res, this.config);
+      throw err;
+    }
   }
 
-  @ApiBearerAuth('jwt-auth')
+  @Public()
   @Post('logout')
   @ApiOperation({ summary: 'Cerrar sesión y revocar refresh tokens activos' })
-  logout(@CurrentUser() user: AuthenticatedUser, @Ip() ip: string) {
-    return this.authService.logout(user.sub, ip);
+  logout(@Req() req: Request, @Ip() ip: string, @Res({ passthrough: true }) res: Response) {
+    clearRefreshCookie(res, this.config);
+    return this.authService.logoutWithRefreshToken(this.oauthState.readCookie(req.headers.cookie, REFRESH_COOKIE), ip);
   }
 
   @ApiBearerAuth('jwt-auth')
@@ -165,33 +184,31 @@ export class AuthController {
     return user;
   }
 
-  @Public()
-  @Post('verify-email')
-  @ApiOperation({ summary: 'Verificar correo electrónico mediante token' })
-  verifyEmail(@Body() dto: VerifyEmailDto) {
-    return this.authService.verifyEmail(dto);
+  @ApiBearerAuth('jwt-auth')
+  @Patch('me')
+  @ApiOperation({ summary: 'Actualizar nombre y zona horaria del usuario autenticado' })
+  updateMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
+    return this.authService.updateProfile(user.sub, dto);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('forgot-password')
-  @ApiOperation({
-    summary: 'Solicitar código de 6 dígitos por email (recuperar o crear contraseña de Google)',
-  })
+  @ApiOperation({ summary: 'Solicitar código de 6 dígitos por email (recuperar o crear contraseña)' })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('verify-otp')
-  @ApiOperation({
-    summary:
-      'Comprobar identidad con código de 6 dígitos antes de habilitar el campo para guardar la contraseña',
-  })
+  @ApiOperation({ summary: 'Comprobar identidad con código de 6 dígitos antes de habilitar el campo de contraseña' })
   verifyOtp(@Body() dto: VerifyOtpCodeDto) {
     return this.authService.verifyOtpCode(dto);
   }
 
   @Public()
+  @AuthThrottle()
   @Post('reset-password')
   @ApiOperation({ summary: 'Guardar nueva contraseña tras verificar el código de 6 dígitos' })
   resetPassword(@Body() dto: ResetPasswordDto, @Ip() ip: string) {

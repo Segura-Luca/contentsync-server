@@ -1,11 +1,13 @@
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { AppConfigService } from '../../config/app-config.service';
 import { SocialProvider } from '@prisma/client';
 
 export interface VerifiedSocialIdentity {
   providerUserId: string;
   email: string;
   fullName: string;
+  /** El proveedor garantiza que esta persona controla el correo. Sin esto no se vincula a cuentas existentes. */
+  emailVerified: boolean;
 }
 
 /**
@@ -14,7 +16,11 @@ export interface VerifiedSocialIdentity {
  */
 @Injectable()
 export class SocialTokenVerifierService {
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: AppConfigService) {}
+
+  private graphVersion(): string {
+    return this.config.metaGraphVersion;
+  }
 
   async verify(provider: SocialProvider, token: string): Promise<VerifiedSocialIdentity> {
     switch (provider) {
@@ -49,7 +55,7 @@ export class SocialTokenVerifierService {
   }
 
   private async verifyGoogle(idToken: string): Promise<VerifiedSocialIdentity> {
-    const clientId = this.config.get<string>('GOOGLE_AUTH_CLIENT_ID');
+    const clientId = this.config.get('GOOGLE_AUTH_CLIENT_ID');
     if (!clientId) {
       throw new ServiceUnavailableException('El acceso con Google no está configurado.');
     }
@@ -68,12 +74,13 @@ export class SocialTokenVerifierService {
       providerUserId: String(info.sub),
       email: String(info.email),
       fullName: String(info.name || String(info.email).split('@')[0]),
+      emailVerified: true,
     };
   }
 
   async verifyFacebook(accessToken: string): Promise<VerifiedSocialIdentity> {
-    const appId = this.config.get<string>('FACEBOOK_AUTH_APP_ID');
-    const appSecret = this.config.get<string>('FACEBOOK_AUTH_APP_SECRET');
+    const appId = this.config.get('FACEBOOK_AUTH_APP_ID');
+    const appSecret = this.config.get('FACEBOOK_AUTH_APP_SECRET');
     if (!appId || !appSecret) {
       throw new ServiceUnavailableException('El acceso con Facebook no está configurado.');
     }
@@ -86,7 +93,7 @@ export class SocialTokenVerifierService {
       throw new UnauthorizedException('No pudimos validar tu cuenta de Facebook.');
     }
     const me = await this.getJson(
-      `https://graph.facebook.com/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`,
+      `https://graph.facebook.com/${this.graphVersion()}/me?fields=id,name,email&access_token=${encodeURIComponent(accessToken)}`,
     );
     const resolvedEmail = me.email
       ? String(me.email).trim().toLowerCase()
@@ -95,6 +102,8 @@ export class SocialTokenVerifierService {
       providerUserId: String(data.user_id),
       email: resolvedEmail,
       fullName: String(me.name || resolvedEmail.split('@')[0]),
+      // Facebook no informa si el correo fue verificado.
+      emailVerified: false,
     };
   }
 
@@ -109,32 +118,27 @@ export class SocialTokenVerifierService {
       throw new UnauthorizedException('No pudimos validar tu cuenta de GitHub.');
     }
 
-    let email = user.email ? String(user.email).trim().toLowerCase() : '';
-    if (!email) {
-      try {
-        const res = await fetch('https://api.github.com/user/emails', {
-          headers: ghHeaders,
-          signal: AbortSignal.timeout(8000),
-        });
-        if (res.ok) {
-          const emails = (await res.json()) as Array<{
-            email: string;
-            primary?: boolean;
-            verified?: boolean;
-          }>;
-          if (Array.isArray(emails) && emails.length > 0) {
-            const primary =
-              emails.find((e) => e.primary && e.verified) ||
-              emails.find((e) => e.verified) ||
-              emails[0];
-            if (primary?.email) {
-              email = String(primary.email).trim().toLowerCase();
-            }
+    // Solo se aceptan correos que GitHub confirma como verificados: el campo público `email` y el
+    // listado completo pueden contener direcciones ajenas que alguien agregó sin comprobarlas.
+    let email = '';
+    let emailVerified = false;
+    try {
+      const res = await fetch('https://api.github.com/user/emails', {
+        headers: ghHeaders,
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.ok) {
+        const emails = (await res.json()) as Array<{ email: string; primary?: boolean; verified?: boolean }>;
+        if (Array.isArray(emails)) {
+          const primary = emails.find((e) => e.primary && e.verified) || emails.find((e) => e.verified);
+          if (primary?.email) {
+            email = String(primary.email).trim().toLowerCase();
+            emailVerified = true;
           }
         }
-      } catch {
-        // Fallback abajo si user/emails no está disponible
       }
+    } catch {
+      // Sin acceso al listado se usa la dirección noreply de abajo, que nunca se vincula a otra cuenta.
     }
 
     if (!email) {
@@ -146,17 +150,18 @@ export class SocialTokenVerifierService {
       providerUserId: String(user.id),
       email,
       fullName: String(user.name || user.login || email.split('@')[0]),
+      emailVerified,
     };
   }
 
   async exchangeFacebookCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
-    const appId = this.config.get<string>('FACEBOOK_AUTH_APP_ID');
-    const appSecret = this.config.get<string>('FACEBOOK_AUTH_APP_SECRET');
+    const appId = this.config.get('FACEBOOK_AUTH_APP_ID');
+    const appSecret = this.config.get('FACEBOOK_AUTH_APP_SECRET');
     if (!appId || !appSecret) {
       throw new ServiceUnavailableException('El acceso con Facebook no está configurado.');
     }
     const tokenData = await this.getJson(
-      `https://graph.facebook.com/v19.0/oauth/access_token` +
+      `https://graph.facebook.com/${this.graphVersion()}/oauth/access_token` +
         `?client_id=${encodeURIComponent(appId)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&client_secret=${encodeURIComponent(appSecret)}` +
@@ -169,8 +174,8 @@ export class SocialTokenVerifierService {
   }
 
   async exchangeGithubCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
-    const clientId = this.config.get<string>('GITHUB_AUTH_CLIENT_ID');
-    const clientSecret = this.config.get<string>('GITHUB_AUTH_CLIENT_SECRET');
+    const clientId = this.config.get('GITHUB_AUTH_CLIENT_ID');
+    const clientSecret = this.config.get('GITHUB_AUTH_CLIENT_SECRET');
     if (!clientId || !clientSecret) {
       throw new ServiceUnavailableException('El acceso con GitHub no está configurado.');
     }

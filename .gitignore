@@ -18,6 +18,11 @@ android/local.properties
 *.iml
 .idea/
 
+# Firma de la app: nunca en un repositorio público
+*.jks
+*.keystore
+keystore.properties
+
 # OS & Temp
 .DS_Store
 Thumbs.db

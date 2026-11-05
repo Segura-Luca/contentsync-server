@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Response } from 'express';
+import { AuthThrottle } from '../../common/decorators/auth-throttle.decorator';
 import {
   AuthenticatedUser,
   CurrentUser,
@@ -22,6 +23,7 @@ import {
 import { ClientsService } from './clients.service';
 import {
   ConfirmClientIdentityDto,
+  ConfirmInvitationByTokenDto,
   CreateClientDto,
   UpdateClientDto,
 } from './dto/client.dto';
@@ -32,29 +34,31 @@ import {
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
+  /**
+   * El enlace del correo solo lleva a una pantalla de confirmación. Si este GET confirmara por sí mismo,
+   * los escáneres de correo que abren los enlaces aceptarían la vinculación sin que la persona decida nada.
+   */
   @Public()
   @Get('confirm-invitation')
-  @ApiOperation({
-    summary:
-      'Confirmar ("Sí, soy yo") o rechazar vinculación de cliente desde el enlace de seguridad enviado al email',
-  })
-  async confirmFromEmail(
+  @ApiOperation({ summary: 'Abrir la pantalla de confirmación "Sí, soy yo" desde el enlace enviado al email' })
+  openInvitation(
     @Query('token') token: string,
     @Query('decision') decision: string,
     @Res() res: Response,
   ) {
-    try {
-      const result = await this.clientsService.confirmIdentityByToken(
-        token,
-        decision || 'accept',
-      );
-      const flag = result.status === 'CONFIRMED' ? 'confirmed' : 'rejected';
-      return res.redirect(
-        `/?invitation=${flag}&company=${encodeURIComponent(result.companyName)}`,
-      );
-    } catch {
-      return res.redirect('/?invitation=invalid');
-    }
+    const params = new URLSearchParams({
+      invitation_token: token || '',
+      decision: decision === 'reject' ? 'reject' : 'accept',
+    });
+    return res.redirect(`/?${params.toString()}`);
+  }
+
+  @Public()
+  @AuthThrottle()
+  @Post('confirm-invitation')
+  @ApiOperation({ summary: 'Confirmar ("Sí, soy yo") o rechazar la vinculación con el token del correo' })
+  confirmInvitation(@Body() dto: ConfirmInvitationByTokenDto) {
+    return this.clientsService.confirmIdentityByToken(dto.token, dto.decision);
   }
 
   @Get('pending-confirmation')

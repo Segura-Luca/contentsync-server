@@ -3,64 +3,49 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   ClientConfirmationStatus,
   NotificationType,
   RoleCode,
 } from '@prisma/client';
-import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
-import * as nodemailer from 'nodemailer';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
+import { MailService } from '../../common/mail/mail.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { escapeHtml } from '../../common/utils/html';
+import { AppConfigService } from '../../config/app-config.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SettingsService } from '../settings/settings.service';
 import {
   ConfirmClientIdentityDto,
   CreateClientDto,
   UpdateClientDto,
 } from './dto/client.dto';
 
+/** Quita datos que nunca deben salir del servidor: con el token, una agencia podría auto-confirmarse. */
+function withoutConfirmationToken<T extends { confirmationToken?: string | null }>(
+  client: T,
+): Omit<T, 'confirmationToken'> {
+  const { confirmationToken: _omitted, ...safe } = client;
+  return safe;
+}
+
 @Injectable()
 export class ClientsService {
-  private readonly logger = new Logger(ClientsService.name);
-  private mailerTransporter: nodemailer.Transporter | null = null;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    @Optional() private readonly notificationsService?: NotificationsService,
-    @Optional() private readonly configService?: ConfigService,
+    private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
+    private readonly config: AppConfigService,
+    private readonly settings: SettingsService,
   ) {}
 
-  private getMailer(): nodemailer.Transporter | null {
-    if (this.mailerTransporter) return this.mailerTransporter;
-    if (!this.configService) return null;
-    const host = this.configService.get<string>('SMTP_HOST');
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASS');
-    const port = parseInt(this.configService.get<string>('SMTP_PORT', '587'), 10);
-    const secure =
-      this.configService.get<string>('SMTP_SECURE', 'false') === 'true' ||
-      port === 465;
-
-    if (host && user && pass) {
-      this.mailerTransporter = nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-      });
-      return this.mailerTransporter;
-    }
-    return null;
+  private inviteExpiry(): Date {
+    return new Date(Date.now() + this.settings.current().clientInviteTtlHours * 3600000);
   }
 
   private async sendClientConfirmationEmail(params: {
@@ -70,36 +55,26 @@ export class ClientsService {
     agencyName: string;
     token: string;
   }): Promise<boolean> {
-    const mailer = this.getMailer();
-    const port = this.configService?.get<string>('PORT') || '3000';
-    // En producción toma PUBLIC_APP_URL o automáticamente RENDER_EXTERNAL_URL
-    // para que el enlace del correo se abra desde cualquier celular sin depender de localhost.
-    const publicBase = (
-      this.configService?.get<string>('PUBLIC_APP_URL') ||
-      process.env.RENDER_EXTERNAL_URL ||
-      `http://localhost:${port}`
-    ).replace(/\/+$/, '');
-    const baseUrl = `${publicBase}/api/v1/clients/confirm-invitation`;
+    const baseUrl = this.config.apiUrl('clients/confirm-invitation');
     const acceptUrl = `${baseUrl}?token=${encodeURIComponent(params.token)}&decision=accept`;
     const rejectUrl = `${baseUrl}?token=${encodeURIComponent(params.token)}&decision=reject`;
-
-    const from =
-      this.configService?.get<string>('SMTP_FROM') ||
-      '"ContentSync" <no-reply@contentsync.io>';
+    const { appName } = this.settings.current();
+    const agency = escapeHtml(params.agencyName);
+    const company = escapeHtml(params.companyName);
     const subject = `Confirmación de seguridad: ¿Sos cliente de ${params.agencyName}?`;
 
     const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 540px; margin: 0 auto; padding: 32px 26px; background: #0f1116; color: #f2f3f5; border: 1px solid #2b3140; border-radius: 8px;">
-        <div style="font-family: monospace; font-size: 12px; letter-spacing: 0.08em; color: #d4f238; text-transform: uppercase; margin-bottom: 10px;">CONTENTSYNC · VERIFICACIÓN DE IDENTIDAD</div>
+        <div style="font-family: monospace; font-size: 12px; letter-spacing: 0.08em; color: #d4f238; text-transform: uppercase; margin-bottom: 10px;">${escapeHtml(appName)} · VERIFICACIÓN DE IDENTIDAD</div>
         <h2 style="color: #ffffff; margin: 0 0 14px 0; font-size: 21px;">¿Reconocés esta solicitud de vinculación?</h2>
-        <p style="color: #cbd5e1; font-size: 15px; line-height: 1.55;">Hola <strong>${params.fullName}</strong>,</p>
+        <p style="color: #cbd5e1; font-size: 15px; line-height: 1.55;">Hola <strong>${escapeHtml(params.fullName)}</strong>,</p>
         <p style="color: #cbd5e1; font-size: 15px; line-height: 1.55;">
-          La agencia <strong>${params.agencyName}</strong> indicó tu correo electrónico para asociarte como cliente de la marca <strong>${params.companyName}</strong>.
+          La agencia <strong>${agency}</strong> indicó tu correo electrónico para asociarte como cliente de la marca <strong>${company}</strong>.
         </p>
         <p style="color: #94a3b8; font-size: 14px; line-height: 1.5;">
           Por seguridad, ningún perfil de cliente queda activo hasta que confirmes que realmente sos vos:
         </p>
-        <div style="margin: 26px 0; display: flex; gap: 12px; flex-wrap: wrap;">
+        <div style="margin: 26px 0;">
           <a href="${acceptUrl}" style="display: inline-block; background: #d4f238; color: #0b0c0e; font-weight: 700; text-decoration: none; padding: 13px 22px; border-radius: 4px; font-size: 14px; margin-right: 10px;">
             ✓ Sí, soy yo
           </a>
@@ -108,62 +83,17 @@ export class ClientsService {
           </a>
         </div>
         <p style="color: #64748b; font-size: 12px; line-height: 1.45; margin-top: 20px;">
-          También podés iniciar sesión en ContentSync y confirmar presionando <strong>"Sí, soy yo"</strong> en tu panel de notificaciones. Si no reconocés a esta agencia, rechazá o ignorá este mensaje.
+          Al abrir el enlace vas a confirmar tu decisión en ${escapeHtml(appName)}. Si no reconocés a esta agencia, rechazá o ignorá este mensaje.
         </p>
       </div>
     `;
+    const text = `Hola ${params.fullName},\n\nLa agencia ${params.agencyName} solicitó vincularte como cliente de ${params.companyName}.\n\nPara confirmar ("Sí, soy yo"): ${acceptUrl}\nPara rechazar: ${rejectUrl}`;
 
-    const textBody = `Hola ${params.fullName},\n\nLa agencia ${params.agencyName} solicitó vincularte como cliente de ${params.companyName}.\n\nPara confirmar ("Sí, soy yo"): ${acceptUrl}\nPara rechazar: ${rejectUrl}`;
-    const webhookUrl = this.configService?.get<string>('GMAIL_HTTPS_WEBHOOK_URL');
-    const webhookSecret = this.configService?.get<string>('GMAIL_WEBHOOK_SECRET') || '';
-
-    if (webhookUrl) {
-      try {
-        const res = await fetch(webhookUrl, {
-          method: 'POST',
-          redirect: 'follow',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            secret: webhookSecret,
-            to: params.email,
-            subject,
-            text: textBody,
-            html,
-            fromName: 'ContentSync',
-          }),
-        });
-        if (res.ok) {
-          this.logger.log(`[HTTPS-MAIL] Notificación "Sí, soy yo" enviada a ${params.email}`);
-          return true;
-        }
-      } catch (err: any) {
-        this.logger.warn(`[HTTPS-MAIL] Falló relay HTTPS, probando SMTP: ${err.message}`);
-      }
-    }
-
-    if (!mailer) {
-      this.logger.warn(
-        `[SMTP NO CONFIGURADO] Invitación pendiente para ${params.email}. Link de confirmación: ${acceptUrl}`,
-      );
-      return false;
-    }
-
-    try {
-      await mailer.sendMail({
-        from,
-        to: params.email,
-        subject,
-        text: textBody,
-        html,
-      });
-      this.logger.log(`[SMTP] Notificación "Sí, soy yo" enviada a ${params.email}`);
-      return true;
-    } catch (err: any) {
-      this.logger.error(
-        `[SMTP ERROR] No se pudo enviar correo de confirmación a ${params.email}: ${err.message}`,
-      );
-      return false;
-    }
+    return this.mailService.send(
+      'general',
+      { to: params.email, subject, text, html, meta: { purpose: 'CLIENT_CONFIRMATION' } },
+      appName,
+    );
   }
 
   /**
@@ -187,7 +117,7 @@ export class ClientsService {
       whereClause.id = user.clientId;
     }
 
-    return this.prisma.client.findMany({
+    const clients = await this.prisma.client.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -214,6 +144,7 @@ export class ClientsService {
         },
       },
     });
+    return clients.map(withoutConfirmationToken);
   }
 
   /**
@@ -266,7 +197,7 @@ export class ClientsService {
       );
     }
 
-    return client;
+    return withoutConfirmationToken(client);
   }
 
   /**
@@ -308,16 +239,16 @@ export class ClientsService {
       create: { code: RoleCode.CLIENTE, name: 'Cliente' },
     });
 
-    const passwordHash = await argon2.hash(dto.password);
+    // El cliente crea su propia contraseña: si la eligiera la agencia, podría aprobar videos en su nombre.
     const confirmationToken = crypto.randomBytes(32).toString('hex');
 
     const client = await this.prisma.$transaction(async (tx) => {
       const clientUser = await tx.user.create({
         data: {
           email: normalizedEmail,
-          passwordHash,
           fullName: dto.fullName.trim(),
           roleId: clientRole.id,
+          timezone: this.settings.current().defaultTimezone,
           emailVerified: false,
           isActive: true,
         },
@@ -331,6 +262,7 @@ export class ClientsService {
           industry: dto.industry?.trim() ?? null,
           confirmationStatus: ClientConfirmationStatus.PENDING,
           confirmationToken,
+          confirmationExpiresAt: this.inviteExpiry(),
           invitedByUserId: user.sub,
           isActive: false,
         },
@@ -344,15 +276,13 @@ export class ClientsService {
       });
     });
 
-    if (this.notificationsService) {
-      await this.notificationsService.notifyUser({
-        userId: client.userId,
-        type: NotificationType.CLIENT_CONFIRMATION_REQUEST,
-        title: `Confirmación de seguridad: ¿Sos cliente de ${agency.name}?`,
-        body: `La agencia "${agency.name}" solicitó vincular tu correo (${normalizedEmail}) como cliente de "${client.companyName}". Presioná "Sí, soy yo" para activar tu cuenta.`,
-        referenceId: client.id,
-      });
-    }
+    await this.notificationsService.notifyUser({
+      userId: client.userId,
+      type: NotificationType.CLIENT_CONFIRMATION_REQUEST,
+      title: `Confirmación de seguridad: ¿Sos cliente de ${agency.name}?`,
+      body: `La agencia "${agency.name}" solicitó vincular tu correo (${normalizedEmail}) como cliente de "${client.companyName}". Presioná "Sí, soy yo" para activar tu cuenta.`,
+      referenceId: client.id,
+    });
 
     const emailSent = await this.sendClientConfirmationEmail({
       email: normalizedEmail,
@@ -376,7 +306,7 @@ export class ClientsService {
     });
 
     return {
-      ...client,
+      ...withoutConfirmationToken(client),
       emailSent,
     };
   }
@@ -407,19 +337,18 @@ export class ClientsService {
       where: { id: fullClient.id },
       data: {
         confirmationToken: newToken,
+        confirmationExpiresAt: this.inviteExpiry(),
         confirmationStatus: ClientConfirmationStatus.PENDING,
       },
     });
 
-    if (this.notificationsService) {
-      await this.notificationsService.notifyUser({
-        userId: fullClient.userId,
-        type: NotificationType.CLIENT_CONFIRMATION_REQUEST,
-        title: `Confirmación pendiente: ¿Sos cliente de ${fullClient.agency.name}?`,
-        body: `Recordatorio de "${fullClient.agency.name}" para confirmar tu perfil de "${fullClient.companyName}". Presioná "Sí, soy yo" si reconocés esta solicitud.`,
-        referenceId: fullClient.id,
-      });
-    }
+    await this.notificationsService.notifyUser({
+      userId: fullClient.userId,
+      type: NotificationType.CLIENT_CONFIRMATION_REQUEST,
+      title: `Confirmación pendiente: ¿Sos cliente de ${fullClient.agency.name}?`,
+      body: `Recordatorio de "${fullClient.agency.name}" para confirmar tu perfil de "${fullClient.companyName}". Presioná "Sí, soy yo" si reconocés esta solicitud.`,
+      referenceId: fullClient.id,
+    });
 
     const emailSent = await this.sendClientConfirmationEmail({
       email: fullClient.user.email,
@@ -450,7 +379,7 @@ export class ClientsService {
         user: { select: { id: true, email: true, fullName: true } },
       },
     });
-    return { pendingClient: client };
+    return { pendingClient: client ? withoutConfirmationToken(client) : null };
   }
 
   /**
@@ -501,14 +430,14 @@ export class ClientsService {
       },
     });
 
-    if (!client) {
+    if (!client || !client.confirmationExpiresAt || client.confirmationExpiresAt < new Date()) {
       throw new BadRequestException(
         'Esta solicitud ya fue procesada o el enlace expiró.',
       );
     }
 
     const decision: 'ACCEPT' | 'REJECT' =
-      decisionRaw?.toLowerCase() === 'reject' ? 'REJECT' : 'ACCEPT';
+      decisionRaw?.toUpperCase() === 'REJECT' ? 'REJECT' : 'ACCEPT';
 
     return this.applyConfirmationDecision(client, decision);
   }
@@ -524,6 +453,11 @@ export class ClientsService {
     },
     decision: 'ACCEPT' | 'REJECT',
   ) {
+    // Una decisión ya tomada no se reabre: "rechazar" anula la cuenta de forma definitiva.
+    if (client.confirmationStatus !== ClientConfirmationStatus.PENDING) {
+      throw new BadRequestException('Esta solicitud ya fue procesada.');
+    }
+
     if (decision === 'ACCEPT') {
       const now = new Date();
       await this.prisma.$transaction([
@@ -533,6 +467,7 @@ export class ClientsService {
             confirmationStatus: ClientConfirmationStatus.CONFIRMED,
             confirmedAt: now,
             confirmationToken: null,
+            confirmationExpiresAt: null,
             isActive: true,
           },
         }),
@@ -552,15 +487,13 @@ export class ClientsService {
         }),
       ]);
 
-      if (this.notificationsService) {
-        await this.notificationsService.notifyUser({
-          userId: client.agency.ownerUserId,
-          type: NotificationType.CLIENT_CONFIRMATION_RESPONSE,
-          title: `¡Cliente verificado! (${client.companyName})`,
-          body: `${client.user.fullName} (${client.user.email}) presionó "Sí, soy yo" y confirmó la vinculación con tu agencia.`,
-          referenceId: client.id,
-        });
-      }
+      await this.notificationsService.notifyUser({
+        userId: client.agency.ownerUserId,
+        type: NotificationType.CLIENT_CONFIRMATION_RESPONSE,
+        title: `¡Cliente verificado! (${client.companyName})`,
+        body: `${client.user.fullName} (${client.user.email}) presionó "Sí, soy yo" y confirmó la vinculación con tu agencia.`,
+        referenceId: client.id,
+      });
 
       await this.auditService.log({
         userId: client.userId,
@@ -588,6 +521,7 @@ export class ClientsService {
         data: {
           confirmationStatus: ClientConfirmationStatus.REJECTED,
           confirmationToken: null,
+          confirmationExpiresAt: null,
           isActive: false,
           deletedAt: now,
         },
@@ -606,15 +540,13 @@ export class ClientsService {
       }),
     ]);
 
-    if (this.notificationsService) {
-      await this.notificationsService.notifyUser({
-        userId: client.agency.ownerUserId,
-        type: NotificationType.CLIENT_CONFIRMATION_RESPONSE,
-        title: `Vinculación rechazada (${client.companyName})`,
-        body: `El titular de ${client.user.email} indicó que NO reconoce la solicitud para "${client.companyName}". El perfil fue anulado por seguridad.`,
-        referenceId: client.id,
-      });
-    }
+    await this.notificationsService.notifyUser({
+      userId: client.agency.ownerUserId,
+      type: NotificationType.CLIENT_CONFIRMATION_RESPONSE,
+      title: `Vinculación rechazada (${client.companyName})`,
+      body: `El titular de ${client.user.email} indicó que NO reconoce la solicitud para "${client.companyName}". El perfil fue anulado por seguridad.`,
+      referenceId: client.id,
+    });
 
     await this.auditService.log({
       userId: client.userId,
@@ -654,7 +586,7 @@ export class ClientsService {
       entityId: id,
     });
 
-    return updated;
+    return withoutConfirmationToken(updated);
   }
 
   async softDelete(id: string, user: AuthenticatedUser) {

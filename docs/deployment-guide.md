@@ -58,11 +58,64 @@
 ## 4. Despliegue en Producción (Docker Compose / Cloud)
 
 1. Clona el repositorio en tu servidor Linux con Docker y Docker Compose instalados.
-2. Copia `.env.example` a `.env` y reemplaza todos los secretos (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`).
+2. Copia `.env.example` a `.env` y define los secretos (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `OAUTH_ENCRYPTION_KEY`, `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`) y `PUBLIC_APP_URL`. El servidor no arranca en producción si falta alguno o si conserva un valor de ejemplo.
 3. Configura un proxy inverso con HTTPS obligatorio (Nginx / Caddy / Cloudflare Tunnel).
 4. Ejecuta:
    ```bash
    docker compose up -d --build
-   docker compose exec backend npx prisma migrate deploy
-   docker compose exec backend npm run prisma:seed
    ```
+
+---
+
+## 5. Base de datos MySQL y migraciones
+
+ContentSync solo soporta MySQL 8.0.16 o superior. Al arrancar, `node prisma/deploy.js` aplica las migraciones pendientes.
+
+**Bases existentes** (creadas con `prisma db push` o importando un dump): Prisma las rechaza con `P3005` porque no tienen historial. El script lo detecta, registra `20261022000000_init_3nf_schema` como línea base sin ejecutarla, y aplica el resto. Requiere que esa base tenga el esquema de esa línea base. Hacé una copia de seguridad antes:
+
+```bash
+mysqldump --single-transaction --no-tablespaces -u USUARIO -p NOMBRE_BASE > copia.sql
+```
+
+## 6. Despliegue en Render
+
+`render.yaml` declara el servicio y las variables que debés cargar en el panel. Antes del primer despliegue con esta versión:
+
+1. Generá secretos propios si todavía usás valores de ejemplo. Cambiar `OAUTH_ENCRYPTION_KEY` obliga a reconectar las cuentas de redes de cada cliente.
+2. Definí `PUBLIC_APP_URL` si usás un dominio propio (de lo contrario se toma `RENDER_EXTERNAL_URL`).
+3. Hacé una copia de seguridad de la base: el arranque aplicará las migraciones pendientes.
+4. Agregá en cada consola de desarrollador el callback correspondiente: `https://TU_DOMINIO/api/v1/platforms/oauth/{youtube|instagram|tiktok}/callback` y `https://TU_DOMINIO/api/v1/auth/oauth/{facebook|github}/callback`.
+
+El disco del plan gratuito de Render es efímero: los videos subidos se pierden al reiniciar. Para producción, apuntá `UPLOAD_DIR` a un disco persistente.
+
+## 7. Firma del APK
+
+La clave de firma identifica a la app para siempre: si se pierde, los usuarios no pueden actualizar sin desinstalar. Guardá una copia de `android/signing/contentsync-release.jks` y de `android/keystore.properties` fuera del equipo, en un gestor de contraseñas o similar.
+
+Para el acceso con Google en la app, registrá el SHA-1 de esa clave en un cliente OAuth de tipo Android de Google Cloud (paquete `com.contentsync.app`):
+
+```bash
+keytool -list -v -keystore android/signing/contentsync-release.jks -alias contentsync
+```
+
+## 8. Sesiones y dominio
+
+El refresh token es una cookie `httpOnly` con `SameSite=Strict`, marcada `Secure` cuando `PUBLIC_APP_URL` usa HTTPS. Por eso la web y la API deben servirse desde el mismo sitio, como hace este proyecto.
+
+## 9. Almacenamiento de videos
+
+Sin S3, los videos quedan en el disco de Render y se borran al reiniciar. Con `S3_ENDPOINT`, `S3_ACCESS_KEY` y `S3_SECRET_KEY` definidas, el servidor valida cada archivo y lo guarda en `clients/<cliente>/` dentro del bucket.
+
+Con Supabase Storage:
+
+| Variable | Valor |
+| --- | --- |
+| `S3_ENDPOINT` | `https://<proyecto>.storage.supabase.co/storage/v1/s3` |
+| `S3_PUBLIC_URL` | `https://<proyecto>.supabase.co/storage/v1/object/public/<bucket>` |
+| `S3_BUCKET` | Nombre del bucket, que debe ser público |
+| `S3_REGION` | Región que indica Storage > S3 en Supabase |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Claves de Storage > S3 en Supabase |
+| `UPLOAD_MAX_MB` | `50` en el plan Free |
+
+El plan Free admite 50 MB por archivo. Un video más pesado se rechaza con un aviso, así que conviene exportarlo comprimido o usar un plan con un límite mayor.
+

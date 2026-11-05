@@ -746,16 +746,37 @@
       }
     }
   </style>
+  <script src="/app-config.js"></script>
 </head>
 <body>
   <div id="app"></div>
 
   <script>
+    // Configuración pública generada por el servidor (/app-config.js); se vuelve a leer al guardar Ajustes.
+    let APP_CONFIG = window.__CS_CONFIG__ || {};
     const PLATFORM_LIMITS = {
-      INSTAGRAM: { code: 'IG', name: 'Instagram Reels', maxSec: 900, maxMb: 1024 },
+      INSTAGRAM: { code: 'IG', name: 'Instagram Reels', maxSec: 90, maxMb: 1024 },
       TIKTOK:    { code: 'TT', name: 'TikTok',          maxSec: 600, maxMb: 500 },
-      YOUTUBE:   { code: 'YT', name: 'YouTube Shorts',  maxSec: 180, maxMb: 2048 }
+      YOUTUBE:   { code: 'YT', name: 'YouTube Shorts',  maxSec: 60, maxMb: 2048 }
     };
+
+    function applyPlatformLimits(limits) {
+      Object.keys(PLATFORM_LIMITS).forEach((platform) => {
+        const limit = limits && limits[platform];
+        if (!limit) return;
+        PLATFORM_LIMITS[platform].maxSec = limit.maxDurationSeconds;
+        PLATFORM_LIMITS[platform].maxMb = limit.maxSizeMb;
+      });
+    }
+    applyPlatformLimits(APP_CONFIG.platformLimits);
+
+    function appName() {
+      return APP_CONFIG.appName || 'ContentSync';
+    }
+
+    function senderHint() {
+      return APP_CONFIG.senderEmail ? ` desde ${APP_CONFIG.senderEmail}` : '';
+    }
 
     const WEEKDAYS = [
       { num: 1, code: 'LUN', full: 'Lunes' },
@@ -781,13 +802,18 @@
       'linear-gradient(165deg, #1B2130 0%, #374563 55%, #0E1017 100%)'
     ];
 
-    const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000/api/v1' : '/api/v1';
+    const API_BASE = APP_CONFIG.apiBase || '/api/v1';
 
     const state = {
       theme: 'dark',
       apiOnline: false,
       jwtToken: null,
       session: null,
+      platformSettings: null,
+      platformIntegrations: null,
+      inviteToken: null,
+      inviteDecision: 'accept',
+      inviteBusy: false,
       activeTab: 'schedules',
       banner: null,
       loadingData: false,
@@ -1020,7 +1046,59 @@
     // =========================================================================
     // CLIENTE HTTP AUTENTICADO + HIDRATACIÓN DESDE MYSQL
     // =========================================================================
-    async function apiFetch(path, options = {}) {
+    let refreshInFlight = null;
+
+    /** Rota el refresh token. Varias peticiones vencidas comparten una sola renovación: repetirla se detecta como robo. */
+    function refreshSession() {
+      if (refreshInFlight) return refreshInFlight;
+      refreshInFlight = (async () => {
+        const rotate = async () => {
+          try {
+            const res = await fetch(API_BASE + '/auth/refresh', { method: 'POST' });
+            if (!res.ok) {
+              if (res.status === 401) markSessionHint(false);
+              return false;
+            }
+            const data = await res.json();
+            state.jwtToken = data.accessToken;
+            state.session = sessionFromUser(data.user);
+            return true;
+          } catch (_) {
+            return false;
+          }
+        };
+        // La cookie es compartida: dos pestañas renovando a la vez se detectarían como robo del token.
+        return navigator.locks ? navigator.locks.request('cs_refresh', rotate) : rotate();
+      })().finally(() => { refreshInFlight = null; });
+      return refreshInFlight;
+    }
+
+    /** El refresh token vive en una cookie httpOnly: aquí solo se recuerda si vale la pena intentar renovarlo. */
+    function markSessionHint(active) {
+      try {
+        if (active) localStorage.setItem('cs_has_session', '1');
+        else localStorage.removeItem('cs_has_session');
+      } catch (_) {}
+    }
+
+    function hasSessionHint() {
+      try { return localStorage.getItem('cs_has_session') === '1'; } catch (_) { return false; }
+    }
+
+    function sessionFromUser(user) {
+      const u = user || {};
+      return {
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName || u.email,
+        role: u.role,
+        timezone: u.timezone || 'America/Argentina/Buenos_Aires',
+        agencyId: u.agencyId || null,
+        clientId: u.clientId || null
+      };
+    }
+
+    async function apiFetch(path, options = {}, canRefresh = true) {
       const headers = { ...(options.headers || {}) };
       if (!(options.body instanceof FormData) && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
@@ -1030,6 +1108,9 @@
       }
       try {
         const res = await fetch(API_BASE + path, { ...options, headers });
+        if (res.status === 401 && canRefresh && state.session && (!path.startsWith('/auth/') || path === '/auth/me')) {
+          if (await refreshSession()) return apiFetch(path, options, false);
+        }
         const data = await res.json().catch(() => ({}));
         return { ok: res.ok, status: res.status, data };
       } catch (_) {
@@ -1075,6 +1156,8 @@
 
       const results = await Promise.all(calls);
       const [pendRes, clRes, schRes, dupRes, vidRes, notRes] = results;
+
+      if (role === 'ADMIN_GENERAL') loadPlatformSettings();
 
       if (clRes.status === 401 && schRes.status === 401) {
         state.loadingData = false;
@@ -1163,22 +1246,8 @@
     async function applyServerSession(data, welcome) {
       state.jwtToken = data.accessToken;
       state.apiOnline = true;
-      const u = data.user || {};
-      state.session = {
-        id: u.id,
-        email: u.email,
-        fullName: u.fullName || u.email,
-        role: u.role,
-        timezone: u.timezone || 'America/Argentina/Buenos_Aires',
-        agencyId: u.agencyId || null,
-        clientId: u.clientId || null
-      };
-      try {
-        localStorage.setItem('cs_jwt', state.jwtToken);
-        localStorage.setItem('cs_user', JSON.stringify(state.session));
-        sessionStorage.setItem('cs_jwt', state.jwtToken);
-        sessionStorage.setItem('cs_user', JSON.stringify(state.session));
-      } catch (_) {}
+      state.session = sessionFromUser(data.user);
+      markSessionHint(true);
 
       authUi.error = '';
       authUi.busy = false;
@@ -1188,18 +1257,11 @@
     }
 
     function logoutSession() {
-      if (state.jwtToken) {
-        apiFetch('/auth/logout', { method: 'POST' });
-      }
+      fetch(API_BASE + '/auth/logout', { method: 'POST' }).catch(() => {});
       state.session = null;
       state.jwtToken = null;
       state.pendingConfirmation = null;
-      try {
-        localStorage.removeItem('cs_jwt');
-        localStorage.removeItem('cs_user');
-        sessionStorage.removeItem('cs_jwt');
-        sessionStorage.removeItem('cs_user');
-      } catch (_) {}
+      markSessionHint(false);
       setBanner('Cerraste sesión correctamente.');
     }
 
@@ -1319,7 +1381,7 @@
         authUi.error = '';
         setBanner(
           r.data.message ||
-            `Enviamos un código de 6 dígitos desde lucasegura2007@gmail.com a ${email}. Ingresalo para verificar tu cuenta.`
+            `Enviamos un código de 6 dígitos${senderHint()} a ${email}. Ingresalo para verificar tu cuenta.`
         );
         return;
       }
@@ -1765,10 +1827,17 @@
       render();
     }
 
-    function uploadFileWithProgress(file, onProgress) {
+    async function uploadFileWithProgress(file, clientId, onProgress) {
+      // Una subida larga no puede reintentarse sola: el token y el tamaño se comprueban antes de empezar.
+      const uploadConfig = await apiFetch('/videos/upload-config');
+      if (uploadConfig.status === 401) await refreshSession();
+      const maxMb = uploadConfig.data && uploadConfig.data.maxMb;
+      const tooBig = maxMb ? `El video pesa demasiado: el máximo es de ${maxMb} MB.` : 'El video pesa demasiado.';
+      if (maxMb && file.size > maxMb * 1024 * 1024) throw new Error(tooBig);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const form = new FormData();
+        form.append('clientId', clientId);
         form.append('file', file);
 
         xhr.open('POST', API_BASE + '/videos/upload-file');
@@ -1789,6 +1858,7 @@
         };
 
         xhr.onload = () => {
+          if (xhr.status === 413) return reject(new Error(tooBig));
           try {
             const parsed = JSON.parse(xhr.responseText || '{}');
             if (xhr.status >= 200 && xhr.status < 300) resolve(parsed);
@@ -1851,7 +1921,7 @@
           try {
             state.blkUploadProgress = 8;
             render();
-            const uploaded = await uploadFileWithProgress(state.blkVideoFile);
+            const uploaded = await uploadFileWithProgress(state.blkVideoFile, sched.clientId);
             storageKey = uploaded.storageKey;
             finalSize = uploaded.sizeBytes || finalSize;
             finalMime = uploaded.mimeType || finalMime;
@@ -1863,7 +1933,10 @@
             return;
           }
         } else if (!storageKey) {
-          storageKey = `clients/${sched.clientId}/plan_${Date.now()}.mp4`;
+          state.blkSaving = false;
+          state.blkError = 'Elegí el archivo de video antes de guardar el bloque.';
+          render();
+          return;
         }
 
         const tags = String(state.blkVideoTags || '')
@@ -1879,7 +1952,7 @@
           platforms,
           durationSeconds: dur,
           sizeBytes: Math.max(1024, Math.round(finalSize)),
-          mimeType: finalMime.includes('webm') && platforms.includes('INSTAGRAM') ? 'video/mp4' : finalMime,
+          mimeType: finalMime,
           shareToFeed: state.blkShareFeed,
           allowComments: state.blkAllowComments,
           allowDuetStitch: state.blkAllowDuet,
@@ -1991,7 +2064,64 @@
         return;
       }
       await hydrateFromApi();
-      setBanner('Video emitido exitosamente en las redes seleccionadas.');
+      if (r.data?.mode === 'IMMEDIATE') {
+        setBanner('Publicando en las redes seleccionadas. Te avisamos cuando termine.');
+        watchPublications(videoId);
+      } else {
+        setBanner('Queda a la espera de la aprobación del cliente: se publicará en cuanto la confirme.');
+      }
+    }
+
+    async function retryPublication(publicationId, videoId) {
+      const r = await apiFetch('/publications/' + publicationId + '/retry', { method: 'POST' });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Reintentando la publicación. Te avisamos cuando termine.');
+      watchPublications(videoId);
+    }
+
+    /** Volver a dibujar mientras alguien escribe borraría lo que está cargando. */
+    function isEditingField() {
+      const el = document.activeElement;
+      return Boolean(el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+    }
+
+    const WATCH_INTERVAL_MS = 5000;
+    const WATCH_MAX_POLLS = 180;
+    const watchedVideos = new Set();
+
+    /** La publicación corre en segundo plano en el servidor: se consulta hasta conocer el resultado. */
+    function watchPublications(videoId, polls = 0) {
+      if (polls === 0) {
+        if (watchedVideos.has(videoId)) return;
+        watchedVideos.add(videoId);
+      }
+      setTimeout(async () => {
+        if (!state.session) {
+          watchedVideos.delete(videoId);
+          return;
+        }
+        const r = await apiFetch('/videos/' + videoId);
+        const pubs = r.ok ? (r.data.publications || []) : [];
+        const settled = r.ok && pubs.every((p) => p.status === 'PUBLISHED' || p.status === 'FAILED');
+        if ((!settled || isEditingField()) && polls < WATCH_MAX_POLLS) {
+          watchPublications(videoId, polls + 1);
+          return;
+        }
+        watchedVideos.delete(videoId);
+        if (!settled) return;
+        await hydrateFromApi();
+        const failed = pubs.filter((p) => p.status === 'FAILED');
+        if (failed.length) {
+          const names = failed.map((p) => PLATFORM_LIMITS[p.platform]?.name || p.platform).join(', ');
+          setBanner('No se pudo publicar en ' + names + ': ' + (failed[0].lastErrorMessage || 'error desconocido') + '.', true);
+        } else {
+          setBanner('Video publicado en las redes seleccionadas.');
+        }
+      }, WATCH_INTERVAL_MS);
     }
 
     // =========================================================================
@@ -2073,7 +2203,7 @@
 
       let uploaded;
       try {
-        uploaded = await uploadFileWithProgress(state.upFile, (pct) => {
+        uploaded = await uploadFileWithProgress(state.upFile, clientId, (pct) => {
           state.upProgress = pct;
           const fill = document.getElementById('up-progress-bar');
           const lbl = document.getElementById('up-progress-pct');
@@ -2130,15 +2260,19 @@
       }
 
       const mode = state.upMode;
+      const awaitingApproval = created.data?.workflowStatus === 'IN_REVIEW';
+      if (mode !== 'DRAFT' && !scheduledFor && !awaitingApproval) watchPublications(created.data.id);
       const whenTxt = scheduledFor ? fmtDateTimeHuman(scheduledFor) : '';
       resetUploadForm();
       await hydrateFromApi();
       setBanner(
         mode === 'DRAFT'
           ? 'Video guardado como borrador.'
-          : mode === 'LATER'
+          : awaitingApproval
+            ? 'Video enviado al cliente para su aprobación: se publicará en cuanto lo apruebe.'
+            : mode === 'LATER'
             ? `Video programado para el ${whenTxt}.`
-            : 'Video enviado a publicar en las redes seleccionadas.'
+            : 'Publicando en las redes seleccionadas. Te avisamos cuando termine.'
       );
     }
 
@@ -2462,15 +2596,13 @@
       const industry = (document.getElementById('cl-ind')?.value || '').trim();
       const fullName = (document.getElementById('cl-contact')?.value || '').trim() || 'Responsable de Marca';
       const email = (document.getElementById('cl-mail')?.value || '').trim();
-      const password = (document.getElementById('cl-pass')?.value || '').trim();
 
       if (!companyName) { setBanner('Ingresá el nombre de la empresa o marca.', true); return; }
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setBanner('Ingresá un correo electrónico válido para el cliente.', true); return; }
-      if (password.length < 8) { setBanner('La contraseña inicial del cliente debe tener al menos 8 caracteres.', true); return; }
 
       const r = await apiFetch('/clients', {
         method: 'POST',
-        body: JSON.stringify({ companyName, industry, fullName, email, password })
+        body: JSON.stringify({ companyName, industry, fullName, email })
       });
 
       if (!r.ok) {
@@ -2553,6 +2685,13 @@
       const r = await apiFetch(`/platforms/oauth/${platform}/url?clientId=${encodeURIComponent(clientId)}`);
       state.platModalBusy = false;
       if (r.ok && r.data?.url) {
+        // Google y Meta bloquean la autorización dentro de un WebView: en la app se abre en el navegador.
+        if (window.ContentSyncAndroid && typeof window.ContentSyncAndroid.openExternal === 'function') {
+          window.ContentSyncAndroid.openExternal(r.data.url);
+          state.platModalError = '';
+          setBanner('Autorizá la cuenta en el navegador y volvé a la app: la conexión se actualiza sola.');
+          return;
+        }
         window.location.href = r.data.url;
         return;
       }
@@ -2672,7 +2811,7 @@
             <div class="brand-mark ${brandActive ? 'active' : ''}" aria-hidden="true"><span></span><span></span><span></span></div>
             <div style="min-width:0;">
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span class="display-tight" style="font-weight:700;font-size:16px;">ContentSync</span>
+                <span class="display-tight" style="font-weight:700;font-size:16px;">${esc(appName())}</span>
                 <span class="badge badge-review">${esc(roleLabel)}</span>
               </div>
               <div class="mono" style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
@@ -2757,7 +2896,7 @@
           <span class="mono" style="font-size:11px;color:var(--tally-live);">CÓDIGO ENVIADO</span>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-          Enviamos un código de 6 dígitos desde <strong>lucasegura2007@gmail.com</strong> (vía automatización n8n) a <strong>${esc(state.authEmail)}</strong> para comprobar que ese correo te pertenece.
+          Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong> para comprobar que ese correo te pertenece.
         </p>
         <div class="field">
           <label>Código de verificación (6 dígitos)</label>
@@ -2787,8 +2926,8 @@
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
             ${isGoogleCreate
-              ? 'Como iniciaste sesión con Google, tu cuenta aún no tiene contraseña propia. Ingresá tu Gmail para enviarte un código de 6 dígitos (vía n8n desde lucasegura2007@gmail.com) y comprobar tu identidad.'
-              : 'Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos desde lucasegura2007@gmail.com.'}
+              ? `Tu cuenta todavía no tiene contraseña propia. Ingresá tu correo para enviarte un código de 6 dígitos${esc(senderHint())} y comprobar tu identidad antes de crearla.`
+              : `Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos${esc(senderHint())}.`}
           </p>
           <div class="field">
             <label>Correo electrónico</label>
@@ -2811,7 +2950,7 @@
             <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 2 DE 3</span>
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-            Enviamos un código de 6 dígitos desde <strong>lucasegura2007@gmail.com</strong> a <strong>${esc(state.authEmail)}</strong>. Comprobá tu identidad para habilitar el campo de contraseña.
+            Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong>. Comprobá tu identidad para habilitar el campo de contraseña.
           </p>
           <div class="field">
             <label>Código recibido por email (6 dígitos)</label>
@@ -2908,7 +3047,7 @@
         </button>
 
         <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);">
-          <button onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta con email'}</button>
+          <button style="${APP_CONFIG.registrationEnabled === false ? 'display:none;' : ''}" onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta con email'}</button>
           <button onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
           <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
         </div>
@@ -3659,13 +3798,20 @@
                         <button class="btn btn-outline" onclick="submitVideoComment('${v.id}')">Comentar</button>
                       </div>
                     </div>
-                    <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;">
+                    <div style="display:${state.session.role === 'AGENCIA' ? 'none' : 'grid'};grid-template-columns:1.2fr 1fr 1fr;gap:8px;">
                       <button class="btn btn-signal" onclick="submitVideoReview('${v.id}','APPROVED')">✓ Aprobar contenido</button>
                       <button class="btn btn-warn" onclick="submitVideoReview('${v.id}','CHANGES_REQUESTED')">Pedir ajustes</button>
                       <button class="btn btn-fault" onclick="submitVideoReview('${v.id}','REJECTED')">Rechazar</button>
                     </div>
                   </div>
                 ` : ''}
+
+                ${!isClient ? (v.publications || []).filter((p) => p.status === 'FAILED').map((p) => `
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--tally-fault);border-radius:4px;padding:8px 10px;">
+                    <span style="font-size:12px;min-width:0;overflow-wrap:anywhere;">${esc(PLATFORM_LIMITS[p.platform]?.name || p.platform)}: ${esc(p.lastErrorMessage || 'No se pudo publicar.')}</span>
+                    <button class="btn btn-outline" style="padding:5px 10px;" onclick="retryPublication('${p.id}','${v.id}')">Reintentar</button>
+                  </div>
+                `).join('') : ''}
 
                 ${!isClient && v.workflowStatus !== 'PUBLISHED' ? `
                   <div style="display:flex;justify-content:flex-end;">
@@ -4033,10 +4179,6 @@
                     <label>Correo electrónico del cliente</label>
                     <input id="cl-mail" class="input" type="email" placeholder="cliente@empresa.com" />
                   </div>
-                  <div class="field">
-                    <label>Contraseña inicial asignada</label>
-                    <input id="cl-pass" class="input" type="password" value="ContentSync2026!" />
-                  </div>
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;">
                   <button class="btn btn-outline" onclick="state.showNewClientForm=false;render();">Cancelar</button>
@@ -4310,6 +4452,202 @@
       `;
     }
 
+    function timeZoneOptions() {
+      const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+      return zones.map(zone => `<option value="${esc(zone)}"></option>`).join('');
+    }
+
+    async function saveProfile() {
+      const fullName = (document.getElementById('pf-name')?.value || '').trim();
+      const timezone = (document.getElementById('pf-tz')?.value || '').trim();
+      if (!fullName) { setBanner('Ingresá tu nombre.', true); return; }
+      const r = await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName, timezone }) });
+      if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      state.session.fullName = r.data.fullName;
+      state.session.timezone = r.data.timezone;
+      setBanner('Perfil actualizado.');
+    }
+
+    async function loadPlatformSettings() {
+      const r = await apiFetch('/settings');
+      if (!r.ok) return;
+      state.platformSettings = r.data.settings;
+      state.platformIntegrations = r.data.integrations;
+      render();
+    }
+
+    function applyServerSettings(data) {
+      state.platformSettings = data.settings;
+      state.platformIntegrations = data.integrations;
+      APP_CONFIG = {
+        ...APP_CONFIG,
+        appName: data.settings.appName,
+        registrationEnabled: data.settings.registrationEnabled,
+        requireClientApproval: data.settings.requireClientApproval,
+        defaultTimezone: data.settings.defaultTimezone,
+        platformLimits: data.settings.platformLimits
+      };
+      applyPlatformLimits(data.settings.platformLimits);
+    }
+
+    function settingNumber(id) {
+      return Number(document.getElementById(id)?.value);
+    }
+
+    async function savePlatformSettings() {
+      const platformLimits = {};
+      ['INSTAGRAM', 'TIKTOK', 'YOUTUBE'].forEach((platform) => {
+        platformLimits[platform] = {
+          maxDurationSeconds: settingNumber('set-sec-' + platform),
+          maxSizeMb: settingNumber('set-mb-' + platform)
+        };
+      });
+      const r = await apiFetch('/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          appName: (document.getElementById('set-name')?.value || '').trim(),
+          registrationEnabled: Boolean(document.getElementById('set-reg')?.checked),
+          requireClientApproval: Boolean(document.getElementById('set-approval')?.checked),
+          defaultTimezone: (document.getElementById('set-tz')?.value || '').trim(),
+          otpTtlMinutes: settingNumber('set-otp-ttl'),
+          otpMaxAttempts: settingNumber('set-otp-max'),
+          otpResendCooldownSeconds: settingNumber('set-otp-wait'),
+          clientInviteTtlHours: settingNumber('set-invite'),
+          publishMaxAttempts: settingNumber('set-pub-max'),
+          publishRetryDelaySeconds: settingNumber('set-pub-wait'),
+          platformLimits
+        })
+      });
+      if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      applyServerSettings(r.data);
+      setBanner('Ajustes guardados: ya están activos, sin reiniciar el servidor.');
+    }
+
+    function askResetPlatformSettings(ask) {
+      state.confirmResetSettings = ask;
+      render();
+    }
+
+    async function resetPlatformSettings() {
+      state.confirmResetSettings = false;
+      const r = await apiFetch('/settings', { method: 'DELETE' });
+      if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
+      applyServerSettings(r.data);
+      setBanner('Ajustes restablecidos a los valores de fábrica.');
+    }
+
+    function renderPlatformSettingsPanel() {
+      const c = state.platformSettings;
+      const i = state.platformIntegrations;
+      if (!c || !i) {
+        return '<div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;font-size:13px;color:var(--text-muted);">Cargando configuración de la plataforma…</div>';
+      }
+      const numberField = (id, label, value, min, max) => `
+        <div class="field">
+          <label>${label}</label>
+          <input id="${id}" class="input" type="number" min="${min}" max="${max}" value="${Number(value)}" />
+        </div>`;
+      const toggle = (id, label, checked) => `
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;">
+          <input id="${id}" type="checkbox" ${checked ? 'checked' : ''} /> ${label}
+        </label>`;
+      const status = (label, active) => `
+        <div style="display:flex;justify-content:space-between;gap:12px;font-size:12px;">
+          <span style="color:var(--text-muted);">${label}</span>
+          <span style="color:${active ? 'var(--tally-live)' : 'var(--text-muted)'};">${active ? 'CONFIGURADO' : 'SIN CONFIGURAR'}</span>
+        </div>`;
+      const grid = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;';
+      return `
+        <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div class="eyebrow">CONFIGURACIÓN DE LA PLATAFORMA</div>
+            <p style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">Se aplica a todas las agencias, sin reiniciar el servidor.</p>
+          </div>
+          <div style="${grid}">
+            <div class="field"><label>Nombre de la aplicación</label><input id="set-name" class="input" maxlength="60" value="${esc(c.appName)}" /></div>
+            <div class="field"><label>Zona horaria predeterminada</label><input id="set-tz" class="input" list="tz-options" maxlength="80" value="${esc(c.defaultTimezone)}" /></div>
+          </div>
+          ${toggle('set-approval', 'Exigir aprobación del cliente antes de publicar', c.requireClientApproval)}
+          ${toggle('set-reg', 'Permitir el registro de nuevas agencias', c.registrationEnabled)}
+          <div class="eyebrow">SEGURIDAD</div>
+          <div style="${grid}">
+            ${numberField('set-otp-ttl', 'Vigencia del código (minutos)', c.otpTtlMinutes, 5, 1440)}
+            ${numberField('set-otp-max', 'Intentos por código', c.otpMaxAttempts, 1, 10)}
+            ${numberField('set-otp-wait', 'Espera para reenviar (segundos)', c.otpResendCooldownSeconds, 0, 3600)}
+            ${numberField('set-invite', 'Vigencia de invitaciones (horas)', c.clientInviteTtlHours, 1, 2160)}
+          </div>
+          <div class="eyebrow">PUBLICACIÓN</div>
+          <div style="${grid}">
+            ${numberField('set-pub-max', 'Intentos automáticos', c.publishMaxAttempts, 1, 10)}
+            ${numberField('set-pub-wait', 'Espera entre intentos (segundos)', c.publishRetryDelaySeconds, 0, 300)}
+          </div>
+          <div class="eyebrow">LÍMITES POR RED</div>
+          ${['INSTAGRAM', 'TIKTOK', 'YOUTUBE'].map(platform => `
+            <div style="${grid}">
+              ${numberField('set-sec-' + platform, PLATFORM_LIMITS[platform].name + ': duración máx. (s)', c.platformLimits[platform].maxDurationSeconds, 1, 86400)}
+              ${numberField('set-mb-' + platform, PLATFORM_LIMITS[platform].name + ': tamaño máx. (MB)', c.platformLimits[platform].maxSizeMb, 1, 102400)}
+            </div>`).join('')}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-signal" onclick="savePlatformSettings()">Guardar ajustes</button>
+            ${state.confirmResetSettings
+              ? '<button class="btn btn-fault" onclick="resetPlatformSettings()">Sí, restablecer</button><button class="btn btn-outline" onclick="askResetPlatformSettings(false)">Cancelar</button>'
+              : '<button class="btn btn-outline" onclick="askResetPlatformSettings(true)">Restablecer valores de fábrica</button>'}
+          </div>
+          <div style="border-top:1px solid var(--hairline);padding-top:12px;display:grid;gap:6px;" class="mono">
+            <div class="eyebrow">INTEGRACIONES (SE DEFINEN EN VARIABLES DE ENTORNO)</div>
+            <div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;"><span style="color:var(--text-muted);">BASE DE DATOS</span><span>${esc(i.database)}</span></div>
+            <div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;"><span style="color:var(--text-muted);">URL PÚBLICA</span><span>${esc(i.publicUrl)}</span></div>
+            <div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;"><span style="color:var(--text-muted);">REMITENTE</span><span>${esc(i.mail.senderAddress || 'sin definir')}</span></div>
+            ${status('CORREO · N8N', i.mail.n8n)}${status('CORREO · RELAY HTTPS', i.mail.httpsRelay)}${status('CORREO · SMTP', i.mail.smtp)}
+            ${status('ACCESO · GOOGLE', i.login.google)}${status('ACCESO · FACEBOOK', i.login.facebook)}${status('ACCESO · GITHUB', i.login.github)}
+            ${status('PUBLICAR · YOUTUBE', i.publishing.youtube)}${status('PUBLICAR · INSTAGRAM', i.publishing.instagram)}${status('PUBLICAR · TIKTOK', i.publishing.tiktok)}
+            ${i.mockPlatforms ? '<div style="font-size:12px;color:var(--tally-fault);">MODO SIMULADO ACTIVO: las cuentas de prueba no publican de verdad.</div>' : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderInvitationGate() {
+      const rejecting = state.inviteDecision === 'reject';
+      return `
+        <div class="page-pad" style="display:flex;justify-content:center;">
+          <div style="max-width:480px;width:100%;border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:24px;display:flex;flex-direction:column;gap:14px;">
+            <div class="eyebrow">VERIFICACIÓN DE IDENTIDAD</div>
+            <h2 style="font-size:22px;font-weight:700;">${rejecting ? '¿Rechazar esta vinculación?' : '¿Reconocés esta solicitud?'}</h2>
+            <p style="font-size:14px;color:var(--text-secondary);line-height:1.5;">
+              Una agencia indicó tu correo para asociarte como cliente en ${esc(appName())}. El perfil solo se activa si confirmás que sos vos.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-signal" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('ACCEPT')">✓ Sí, soy yo</button>
+              <button class="btn btn-fault" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('REJECT')">✕ No soy yo</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function answerInvitation(decision) {
+      if (state.inviteBusy) return;
+      state.inviteBusy = true;
+      render();
+      const r = await apiFetch('/clients/confirm-invitation', {
+        method: 'POST',
+        body: JSON.stringify({ token: state.inviteToken, decision })
+      });
+      state.inviteBusy = false;
+      state.inviteToken = null;
+      if (!r.ok) {
+        setBanner('Ese enlace de confirmación ya fue utilizado o expiró.', true);
+        return;
+      }
+      setBanner(
+        r.data?.status === 'CONFIRMED'
+          ? `✓ ¡Confirmaste «Sí, soy yo»! Tu cuenta de cliente para ${r.data.companyName} ya está activa. Iniciá sesión con tu correo: te enviaremos un código para crear tu contraseña.`
+          : `Rechazaste la solicitud de vinculación para ${r.data?.companyName || 'la marca'}. Tu correo fue desvinculado por seguridad.`,
+        r.data?.status !== 'CONFIRMED'
+      );
+    }
+
     function renderSettingsScreen() {
       const s = state.session;
       return `
@@ -4327,6 +4665,22 @@
               <div style="display:flex;justify-content:space-between;font-size:12px;"><span style="color:var(--text-muted);">JERARQUÍA</span><span>${esc(s.role)}</span></div>
             </div>
           </div>
+
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <div class="eyebrow">PERFIL</div>
+            <div class="field">
+              <label>Nombre visible</label>
+              <input id="pf-name" class="input" value="${esc(s.fullName)}" maxlength="150" />
+            </div>
+            <div class="field">
+              <label>Zona horaria (define a qué hora se publica lo programado en el Plan)</label>
+              <input id="pf-tz" class="input" list="tz-options" value="${esc(s.timezone || '')}" maxlength="80" />
+              <datalist id="tz-options">${timeZoneOptions()}</datalist>
+            </div>
+            <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar perfil</button>
+          </div>
+
+          ${s.role === 'ADMIN_GENERAL' ? renderPlatformSettingsPanel() : ''}
 
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
             <div class="eyebrow">APARIENCIA</div>
@@ -4348,6 +4702,12 @@
       const bannerKey = state.banner ? state.banner.msg : null;
       motionState.animateBanner = Boolean(bannerKey && bannerKey !== motionState.lastBanner);
       motionState.lastBanner = bannerKey;
+
+      if (state.inviteToken) {
+        motionState.lastTab = null;
+        root.innerHTML = renderTopBar() + renderInvitationGate();
+        return;
+      }
 
       if (!state.session) {
         motionState.lastTab = null;
@@ -4411,8 +4771,21 @@
         document.documentElement.setAttribute('data-theme', theme);
       }
 
-      const socialSession = q.get('social_session');
+      // Al volver del navegador tras autorizar una red, la app Android avisa para traer el estado nuevo.
+      window.__onAppResume = () => {
+        if (state.session && !isEditingField()) hydrateFromApi();
+      };
+
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const socialSession = hashParams.get('social_session');
       const socialError = q.get('social_error');
+
+      const inviteToken = q.get('invitation_token');
+      if (inviteToken) {
+        state.inviteToken = inviteToken;
+        state.inviteDecision = q.get('decision') === 'reject' ? 'reject' : 'accept';
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       if (socialSession) {
         try {
           const b64 = socialSession.replace(/-/g, '+').replace(/_/g, '/');
@@ -4440,8 +4813,9 @@
       const platError = q.get('platform_error');
       if (platConnected) {
         state.activeTab = 'accounts';
+        const backToApp = hasSessionHint() ? '' : ' Ya podés volver a la app.';
         state.banner = {
-          msg: `✓ Cuenta oficial ${platHandle} vinculada con éxito en ${PLATFORM_LIMITS[platConnected]?.name || platConnected}.`,
+          msg: `✓ Cuenta oficial ${platHandle} vinculada con éxito en ${PLATFORM_LIMITS[platConnected]?.name || platConnected}.${backToApp}`,
           isErr: false
         };
         window.history.replaceState({}, '', window.location.pathname);
@@ -4454,39 +4828,11 @@
         window.history.replaceState({}, '', window.location.pathname);
       }
 
-      const inv = q.get('invitation');
-      const company = q.get('company') || 'la marca';
-      if (inv === 'confirmed') {
-        state.banner = {
-          msg: `✓ ¡Confirmaste «Sí, soy yo»! Tu cuenta de cliente para ${company} ya está activa. Iniciá sesión para ver tu Plan Semanal.`,
-          isErr: false
-        };
-        window.history.replaceState({}, '', window.location.pathname);
-      } else if (inv === 'rejected') {
-        state.banner = {
-          msg: `Rechazaste la solicitud de vinculación para ${company}. Tu correo fue desvinculado por seguridad.`,
-          isErr: true
-        };
-        window.history.replaceState({}, '', window.location.pathname);
-      } else if (inv === 'invalid') {
-        state.banner = {
-          msg: 'Ese enlace de confirmación ya fue utilizado o expiró.',
-          isErr: true
-        };
-        window.history.replaceState({}, '', window.location.pathname);
+      if (hasSessionHint() && !state.inviteToken && (await refreshSession())) {
+        render();
+        await hydrateFromApi();
+        return;
       }
-
-      try {
-        const savedJwt = localStorage.getItem('cs_jwt') || sessionStorage.getItem('cs_jwt');
-        const savedUser = localStorage.getItem('cs_user') || sessionStorage.getItem('cs_user');
-        if (savedJwt && savedUser) {
-          state.jwtToken = savedJwt;
-          state.session = JSON.parse(savedUser);
-          render();
-          await hydrateFromApi();
-          return;
-        }
-      } catch (_) {}
 
       render();
     })();

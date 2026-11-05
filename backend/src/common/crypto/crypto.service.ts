@@ -11,10 +11,8 @@ export class CryptoService {
   private readonly key: Buffer;
 
   constructor(private readonly configService: ConfigService) {
-    const hexKey =
-      this.configService.get<string>('OAUTH_ENCRYPTION_KEY') ||
-      '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-    this.key = Buffer.from(hexKey.slice(0, 64), 'hex');
+    // env.validation garantiza una clave de 32 bytes y rechaza la de ejemplo en producción.
+    this.key = Buffer.from(this.configService.getOrThrow<string>('OAUTH_ENCRYPTION_KEY'), 'hex');
   }
 
   encrypt(plainText: string): string {

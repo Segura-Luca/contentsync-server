@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Post,
   Query,
@@ -19,6 +20,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Request, Response } from 'express';
@@ -41,11 +43,13 @@ export class ConnectPlatformDto {
   @ApiProperty({ example: 'ig_business_991823' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(180)
   externalAccountId!: string;
 
   @ApiProperty({ example: '@kafecitoroasters' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(120)
   accountHandle!: string;
 
   @ApiProperty({ description: 'OAuth 2.0 Access Token de la plataforma (se cifra con AES-256-GCM)' })
@@ -91,13 +95,10 @@ export class PlatformsController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
-    const host = req.get('host') || 'localhost:3000';
-    const originUrl = `${proto}://${host}`;
     const url = await this.platformsService.getOAuthAuthorizeUrl({
       platform,
       clientId,
-      originUrl,
+      requestBase: `${req.protocol}://${req.get('host')}`,
       user,
     });
     return { url };
@@ -114,16 +115,11 @@ export class PlatformsController {
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,
     @Query('error') error: string | undefined,
-    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
-    const host = req.get('host') || 'localhost:3000';
-    const originUrl = `${proto}://${host}`;
-
     if (error || !code) {
       return res.redirect(
-        `/?platform_error=${encodeURIComponent(error || 'No se completó la autorización OAuth con la red social.')}`,
+        `/?platform_error=${encodeURIComponent('No se completó la autorización con la red social.')}`,
       );
     }
 
@@ -132,7 +128,6 @@ export class PlatformsController {
         platform,
         code,
         state,
-        originUrl,
       });
       return res.redirect(
         `/?platform_connected=${encodeURIComponent(conn.platform)}&handle=${encodeURIComponent(conn.accountHandle)}`,
@@ -159,7 +154,7 @@ export class PlatformsController {
   @ApiOperation({ summary: 'Revocar conexión OAuth de una plataforma para un cliente' })
   revoke(
     @Param('clientId', ParseUUIDPipe) clientId: string,
-    @Param('platform') platform: SocialPlatform,
+    @Param('platform', new ParseEnumPipe(SocialPlatform)) platform: SocialPlatform,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.platformsService.revokePlatformConnection(clientId, platform, user);

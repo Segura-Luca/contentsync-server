@@ -5,6 +5,7 @@ export interface AuthenticatedUser {
   sub: string;
   email: string;
   role: RoleCode;
+  timezone?: string;
   agencyId?: string | null;
   clientId?: string | null;
 }

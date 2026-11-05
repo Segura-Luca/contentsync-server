@@ -8,7 +8,6 @@ import {
   IsString,
   IsUUID,
   MaxLength,
-  MinLength,
 } from 'class-validator';
 
 export class CreateClientDto {
@@ -26,6 +25,7 @@ export class CreateClientDto {
 
   @ApiProperty({ example: 'cliente.kafecito@contentsync.io' })
   @IsEmail()
+  @MaxLength(180)
   email!: string;
 
   @ApiProperty({ example: 'Martín Rossi' })
@@ -33,12 +33,6 @@ export class CreateClientDto {
   @IsNotEmpty()
   @MaxLength(150)
   fullName!: string;
-
-  @ApiProperty({ example: 'ContentSync2026!' })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(64)
-  password!: string;
 
   @ApiPropertyOptional({
     description:
@@ -61,4 +55,12 @@ export class ConfirmClientIdentityDto {
   @IsString()
   @IsIn(['ACCEPT', 'REJECT'])
   decision!: 'ACCEPT' | 'REJECT';
+}
+
+export class ConfirmInvitationByTokenDto extends ConfirmClientIdentityDto {
+  @ApiProperty({ description: 'Token del enlace recibido por correo' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  token!: string;
 }

@@ -39,10 +39,11 @@ export class PublicationsController {
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post(':publicationId/retry')
   @ApiOperation({ summary: 'Reintentar manualmente una publicación individual con error' })
-  retryPublication(@Param('publicationId', ParseUUIDPipe) publicationId: string) {
-    return this.publicationsService.executeSinglePlatformPublicationWithRetries(
-      publicationId,
-    );
+  retryPublication(
+    @Param('publicationId', ParseUUIDPipe) publicationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.publicationsService.retryPublication(publicationId, user);
   }
 
   @Get('history')

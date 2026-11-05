@@ -4,11 +4,11 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import {
   ApprovalDecision,
   ClientConfirmationStatus,
+  SocialPlatform,
   NotificationType,
   PublicationStatus,
   RoleCode,
@@ -18,8 +18,10 @@ import {
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { formatWallClockTime, wallClockToUtc } from '../../common/utils/timezone';
 import { ClientsService } from '../clients/clients.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SettingsService } from '../settings/settings.service';
 import { StorageService } from '../storage/storage.service';
 import { VideosService } from '../videos/videos.service';
 import {
@@ -41,22 +43,120 @@ export class SchedulesService {
     private readonly videosService: VideosService,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
-    @Optional() private readonly storageService?: StorageService,
+    private readonly storageService: StorageService,
+    private readonly settings: SettingsService,
   ) {}
+
+  private timezoneOf(user: AuthenticatedUser): string {
+    return user.timezone || this.settings.current().defaultTimezone;
+  }
+
+  private assertMonday(date: Date): void {
+    if (Number.isNaN(date.getTime()) || date.getUTCDay() !== 1) {
+      throw new BadRequestException('La semana del plan debe comenzar un lunes.');
+    }
+  }
+
+  private assertFuture(plannedAt: Date): void {
+    if (plannedAt.getTime() <= Date.now()) {
+      throw new BadRequestException(
+        'El día y la hora elegidos ya pasaron: elegí un horario futuro o desactivá la publicación automática.',
+      );
+    }
+  }
+
+  /**
+   * Estado de un video dentro del plan. Lo ya aprobado conserva la aprobación mientras su contenido no cambie;
+   * el resto pasa por revisión del cliente salvo que la plataforma tenga esa exigencia desactivada.
+   */
+  private blockVideoStatus(
+    autoPublish: boolean,
+    current?: VideoWorkflowStatus,
+    contentChanged = false,
+  ): VideoWorkflowStatus {
+    const approved =
+      current === VideoWorkflowStatus.APPROVED || current === VideoWorkflowStatus.SCHEDULED;
+    if (approved && !contentChanged) {
+      return autoPublish ? VideoWorkflowStatus.SCHEDULED : VideoWorkflowStatus.APPROVED;
+    }
+    if (autoPublish && !this.settings.current().requireClientApproval) {
+      return VideoWorkflowStatus.SCHEDULED;
+    }
+    return VideoWorkflowStatus.IN_REVIEW;
+  }
+
+  /** Alinea las publicaciones con el plan sin tocar lo ya publicado ni lo que se está subiendo. */
+  private async syncPublications(videoId: string, platforms: SocialPlatform[], scheduledFor: Date): Promise<void> {
+    await this.prisma.publication.deleteMany({
+      where: { videoId, platform: { notIn: platforms }, status: PublicationStatus.PENDING },
+    });
+    const existing = await this.prisma.publication.findMany({ where: { videoId } });
+    const locked = new Set(
+      existing
+        .filter((p) => p.status === PublicationStatus.PUBLISHED || p.status === PublicationStatus.PROCESSING)
+        .map((p) => p.platform),
+    );
+    for (const platform of platforms.filter((p) => !locked.has(p))) {
+      await this.prisma.publication.upsert({
+        where: { videoId_platform: { videoId, platform } },
+        update: { scheduledFor, status: PublicationStatus.PENDING, lastErrorMessage: null },
+        create: { videoId, platform, scheduledFor, status: PublicationStatus.PENDING },
+      });
+    }
+  }
+
+  private async cancelPendingPublications(videoId: string): Promise<void> {
+    await this.prisma.publication.deleteMany({
+      where: { videoId, status: PublicationStatus.PENDING },
+    });
+  }
+
+  /** Anexa un video existente al bloque validando que sea del mismo cliente y aún publicable. */
+  private async attachExistingVideo(
+    videoId: string,
+    clientId: string,
+    user: AuthenticatedUser,
+    plannedAt: Date,
+    autoPublish: boolean,
+  ): Promise<void> {
+    const video = await this.videosService.findOneWithAccess(videoId, user);
+    if (video.clientId !== clientId) {
+      throw new BadRequestException('El video pertenece a un cliente distinto al del plan.');
+    }
+    if (video.workflowStatus === VideoWorkflowStatus.PUBLISHED) {
+      if (autoPublish) {
+        throw new BadRequestException('Este video ya fue publicado: no se puede programar de nuevo.');
+      }
+      return;
+    }
+    if (autoPublish) this.assertFuture(plannedAt);
+    await this.prisma.video.update({
+      where: { id: videoId },
+      data: { workflowStatus: this.blockVideoStatus(autoPublish, video.workflowStatus) },
+    });
+    if (autoPublish) {
+      await this.syncPublications(videoId, video.platformTargets.map((t) => t.platform), plannedAt);
+    } else {
+      await this.cancelPendingPublications(videoId);
+    }
+  }
 
   private computePlannedDateTime(
     weekStartDate: Date,
     dayOfWeek: number,
     plannedTime: string,
+    timeZone: string,
   ): Date {
     const base = new Date(weekStartDate);
-    const utcYear = base.getUTCFullYear();
-    const utcMonth = base.getUTCMonth();
-    const utcDay = base.getUTCDate() + Math.max(0, dayOfWeek - 1);
-    const [hhRaw, mmRaw] = (plannedTime || '18:00').split(':');
-    const hh = Math.min(23, Math.max(0, parseInt(hhRaw || '18', 10) || 18));
-    const mm = Math.min(59, Math.max(0, parseInt(mmRaw || '0', 10) || 0));
-    return new Date(utcYear, utcMonth, utcDay, hh, mm, 0, 0);
+    const [hours, minutes] = (plannedTime || '18:00').split(':').map(Number);
+    return wallClockToUtc(
+      base.getUTCFullYear(),
+      base.getUTCMonth(),
+      base.getUTCDate() + Math.max(0, dayOfWeek - 1),
+      Number.isInteger(hours) ? hours : 18,
+      Number.isInteger(minutes) ? minutes : 0,
+      timeZone,
+    );
   }
 
   private enrichScheduleVideos<T extends { items?: Array<{ video?: any }> }>(
@@ -65,9 +165,7 @@ export class SchedulesService {
     if (!schedule.items) return schedule;
     for (const item of schedule.items) {
       if (item.video) {
-        item.video.publicVideoUrl = this.storageService
-          ? this.storageService.getPublicUrl(item.video.storageKey)
-          : item.video.storageKey;
+        item.video.publicVideoUrl = this.storageService.getPublicUrl(item.video.storageKey);
       }
     }
     return schedule;
@@ -134,6 +232,7 @@ export class SchedulesService {
     const startDate = new Date(dto.weekStartDate);
     const endDate = new Date(dto.weekEndDate);
 
+    this.assertMonday(startDate);
     if (endDate < startDate) {
       throw new BadRequestException(
         'La fecha de fin de semana no puede ser anterior a la fecha de inicio.',
@@ -203,7 +302,12 @@ export class SchedulesService {
       autoPublish,
     } = params;
 
-    const durationSeconds = inlineVideo.durationSeconds || 30;
+    if (!this.storageService.isValidStorageKey(inlineVideo.storageKey, clientId)) {
+      throw new BadRequestException('Subí un archivo de video antes de anexarlo al bloque.');
+    }
+
+    const durationSeconds =
+      (await this.storageService.probeDurationSeconds(inlineVideo.storageKey)) ?? (inlineVideo.durationSeconds || 30);
     const sizeBytes = inlineVideo.sizeBytes || 12000000;
     const mimeType = (inlineVideo.mimeType || 'video/mp4').trim().toLowerCase();
 
@@ -222,11 +326,19 @@ export class SchedulesService {
       ),
     );
 
-    const targetStatus = autoPublish
-      ? VideoWorkflowStatus.SCHEDULED
-      : VideoWorkflowStatus.IN_REVIEW;
-
     let videoId = existingVideoId || null;
+    const previous = videoId
+      ? await this.prisma.video.findUnique({ where: { id: videoId } })
+      : null;
+    if (previous?.workflowStatus === VideoWorkflowStatus.PUBLISHED) {
+      throw new BadRequestException('Este video ya fue publicado: no se puede modificar ni programar de nuevo.');
+    }
+    const contentChanged =
+      !previous ||
+      previous.storageKey !== inlineVideo.storageKey ||
+      previous.title !== inlineVideo.title.trim() ||
+      previous.description !== inlineVideo.description.trim();
+    const targetStatus = this.blockVideoStatus(autoPublish, previous?.workflowStatus, contentChanged);
 
     if (videoId) {
       await this.prisma.$transaction([
@@ -288,41 +400,10 @@ export class SchedulesService {
     }
 
     // Sincronizar programación automática para ese día y hora
-    await this.prisma.publication.deleteMany({
-      where: {
-        videoId,
-        platform: { notIn: inlineVideo.platforms },
-        status: PublicationStatus.PENDING,
-      },
-    });
-
     if (autoPublish) {
-      for (const platform of inlineVideo.platforms) {
-        await this.prisma.publication.upsert({
-          where: {
-            videoId_platform: {
-              videoId,
-              platform,
-            },
-          },
-          update: {
-            scheduledFor: plannedPublishAt,
-            status: PublicationStatus.PENDING,
-            lastErrorMessage: null,
-          },
-          create: {
-            videoId,
-            platform,
-            scheduledFor: plannedPublishAt,
-            status: PublicationStatus.PENDING,
-            bullJobId: `plan_${videoId}_${platform}_${plannedPublishAt.getTime()}`,
-          },
-        });
-      }
+      await this.syncPublications(videoId, inlineVideo.platforms, plannedPublishAt);
     } else {
-      await this.prisma.publication.deleteMany({
-        where: { videoId, status: PublicationStatus.PENDING },
-      });
+      await this.cancelPendingPublications(videoId);
     }
 
     return videoId;
@@ -356,11 +437,13 @@ export class SchedulesService {
       schedule.weekStartDate,
       dto.dayOfWeek,
       plannedTime,
+      this.timezoneOf(user),
     );
 
     let attachedVideoId: string | null = dto.videoId || null;
 
     if (dto.inlineVideo) {
+      if (autoPublish) this.assertFuture(plannedPublishAt);
       attachedVideoId = await this.createOrUpdateBlockVideo({
         clientId: schedule.clientId,
         userId: user.sub,
@@ -369,39 +452,7 @@ export class SchedulesService {
         autoPublish,
       });
     } else if (attachedVideoId) {
-      const video = await this.videosService.findOneWithAccess(
-        attachedVideoId,
-        user,
-      );
-      if (video.clientId !== schedule.clientId) {
-        throw new BadRequestException(
-          'El video pertenece a un cliente distinto al del plan.',
-        );
-      }
-      if (autoPublish) {
-        await this.prisma.video.update({
-          where: { id: attachedVideoId },
-          data: { workflowStatus: VideoWorkflowStatus.SCHEDULED },
-        });
-        for (const pt of video.platformTargets) {
-          await this.prisma.publication.upsert({
-            where: {
-              videoId_platform: { videoId: attachedVideoId, platform: pt.platform },
-            },
-            update: {
-              scheduledFor: plannedPublishAt,
-              status: PublicationStatus.PENDING,
-            },
-            create: {
-              videoId: attachedVideoId,
-              platform: pt.platform,
-              scheduledFor: plannedPublishAt,
-              status: PublicationStatus.PENDING,
-              bullJobId: `plan_${attachedVideoId}_${pt.platform}_${plannedPublishAt.getTime()}`,
-            },
-          });
-        }
-      }
+      await this.attachExistingVideo(attachedVideoId, schedule.clientId, user, plannedPublishAt, autoPublish);
     }
 
     const existingBlocksCount = await this.prisma.scheduleItem.count({
@@ -460,7 +511,7 @@ export class SchedulesService {
       },
     });
 
-    if (block.video && this.storageService) {
+    if (block.video) {
       (block.video as any).publicVideoUrl = this.storageService.getPublicUrl(
         block.video.storageKey,
       );
@@ -502,16 +553,21 @@ export class SchedulesService {
       existing.schedule.weekStartDate,
       nextDay,
       nextTime,
+      this.timezoneOf(user),
     );
+    const timeChanged = nextDay !== existing.dayOfWeek || nextTime !== existing.plannedTime;
 
     let nextVideoId: string | null = existing.videoId;
 
     if (dto.removeVideo && existing.videoId) {
-      await this.prisma.publication.deleteMany({
-        where: { videoId: existing.videoId, status: PublicationStatus.PENDING },
-      });
+      await this.cancelPendingPublications(existing.videoId);
       nextVideoId = null;
+    } else if (dto.videoId && dto.videoId !== existing.videoId) {
+      await this.attachExistingVideo(dto.videoId, existing.schedule.clientId, user, nextPlannedAt, nextAuto);
+      if (existing.videoId) await this.cancelPendingPublications(existing.videoId);
+      nextVideoId = dto.videoId;
     } else if (dto.inlineVideo) {
+      if (nextAuto && (timeChanged || !existing.videoId)) this.assertFuture(nextPlannedAt);
       nextVideoId = await this.createOrUpdateBlockVideo({
         existingVideoId: existing.videoId,
         clientId: existing.schedule.clientId,
@@ -523,26 +579,18 @@ export class SchedulesService {
     } else if (nextVideoId) {
       // Si cambió día, hora o autoPublish, actualizar las publicaciones pendientes
       if (nextAuto) {
-        const targets = existing.video?.platformTargets || [];
-        for (const pt of targets) {
-          await this.prisma.publication.upsert({
-            where: {
-              videoId_platform: { videoId: nextVideoId, platform: pt.platform },
-            },
-            update: { scheduledFor: nextPlannedAt },
-            create: {
-              videoId: nextVideoId,
-              platform: pt.platform,
-              scheduledFor: nextPlannedAt,
-              status: PublicationStatus.PENDING,
-              bullJobId: `plan_${nextVideoId}_${pt.platform}_${nextPlannedAt.getTime()}`,
-            },
-          });
-        }
-      } else {
-        await this.prisma.publication.deleteMany({
-          where: { videoId: nextVideoId, status: PublicationStatus.PENDING },
+        if (timeChanged) this.assertFuture(nextPlannedAt);
+        await this.prisma.video.update({
+          where: { id: nextVideoId },
+          data: { workflowStatus: this.blockVideoStatus(true, existing.video?.workflowStatus) },
         });
+        await this.syncPublications(
+          nextVideoId,
+          (existing.video?.platformTargets || []).map((t) => t.platform),
+          nextPlannedAt,
+        );
+      } else {
+        await this.cancelPendingPublications(nextVideoId);
       }
     }
 
@@ -574,7 +622,7 @@ export class SchedulesService {
       },
     });
 
-    if (updated.video && this.storageService) {
+    if (updated.video) {
       (updated.video as any).publicVideoUrl = this.storageService.getPublicUrl(
         updated.video.storageKey,
       );
@@ -599,9 +647,7 @@ export class SchedulesService {
     await this.clientsService.assertClientAccess(existing.schedule.clientId, user);
 
     if (existing.videoId) {
-      await this.prisma.publication.deleteMany({
-        where: { videoId: existing.videoId, status: PublicationStatus.PENDING },
-      });
+      await this.cancelPendingPublications(existing.videoId);
     }
 
     await this.prisma.scheduleItem.delete({ where: { id: blockId } });
@@ -654,6 +700,7 @@ export class SchedulesService {
     await this.clientsService.assertClientAccess(source.clientId, user, true);
 
     const targetStart = new Date(dto.targetWeekStartDate);
+    this.assertMonday(targetStart);
     // Fin de semana Lunes a Viernes (+4 días)
     const targetEnd = new Date(targetStart.getTime() + 4 * 24 * 60 * 60 * 1000);
 
@@ -674,7 +721,10 @@ export class SchedulesService {
     const includeVideos = dto.includeVideos ?? false;
     const newTitle = dto.title?.trim() || `${source.title} (Duplicada)`;
 
-    const createdTarget = await this.prisma.schedule.create({
+    // Todo o nada: una falla a mitad de camino no debe dejar una semana copiada a medias.
+    const timeZone = this.timezoneOf(user);
+    const { createdTarget, copiedCount, duplicationLog } = await this.prisma.$transaction(async (tx) => {
+    const createdTarget = await tx.schedule.create({
       data: {
         clientId: source.clientId,
         createdByUserId: user.sub,
@@ -693,11 +743,12 @@ export class SchedulesService {
         targetStart,
         item.dayOfWeek,
         item.plannedTime,
+        timeZone,
       );
 
       let clonedVideoId: string | null = null;
       if (includeVideos && item.video) {
-        const clonedVid = await this.prisma.video.create({
+        const clonedVid = await tx.video.create({
           data: {
             clientId: source.clientId,
             uploadedByUserId: user.sub,
@@ -709,9 +760,7 @@ export class SchedulesService {
             sizeBytes: item.video.sizeBytes,
             mimeType: item.video.mimeType,
             aspectRatio: item.video.aspectRatio,
-            workflowStatus: item.autoPublish
-              ? VideoWorkflowStatus.SCHEDULED
-              : VideoWorkflowStatus.IN_REVIEW,
+            workflowStatus: this.blockVideoStatus(item.autoPublish),
             hashtags: {
               create: item.video.hashtags.map((h) => ({
                 tag: h.tag,
@@ -736,20 +785,19 @@ export class SchedulesService {
 
         if (item.autoPublish) {
           for (const pt of item.video.platformTargets) {
-            await this.prisma.publication.create({
+            await tx.publication.create({
               data: {
                 videoId: clonedVideoId,
                 platform: pt.platform,
                 scheduledFor: plannedAt,
                 status: PublicationStatus.PENDING,
-                bullJobId: `dup_${clonedVideoId}_${pt.platform}_${plannedAt.getTime()}`,
               },
             });
           }
         }
       }
 
-      await this.prisma.scheduleItem.create({
+      await tx.scheduleItem.create({
         data: {
           scheduleId: createdTarget.id,
           videoId: clonedVideoId,
@@ -766,7 +814,7 @@ export class SchedulesService {
       copiedCount++;
     }
 
-    const duplicationLog = await this.prisma.scheduleDuplicationLog.create({
+    const duplicationLog = await tx.scheduleDuplicationLog.create({
       data: {
         agencyId: source.client.agencyId,
         clientId: source.clientId,
@@ -789,6 +837,9 @@ export class SchedulesService {
         client: { select: { id: true, companyName: true } },
         duplicatedByUser: { select: { id: true, fullName: true } },
       },
+    });
+
+    return { createdTarget, copiedCount, duplicationLog };
     });
 
     await this.notificationsService.notifyUser({
@@ -834,8 +885,10 @@ export class SchedulesService {
     if (clientIdFilter) {
       where.clientId = clientIdFilter;
     } else if (user.role === RoleCode.AGENCIA) {
+      if (!user.agencyId) return [];
       where.agencyId = user.agencyId;
     } else if (user.role === RoleCode.CLIENTE) {
+      if (!user.clientId) return [];
       where.clientId = user.clientId;
     }
 
@@ -882,9 +935,11 @@ export class SchedulesService {
       );
     }
 
+    if (video.workflowStatus === VideoWorkflowStatus.PUBLISHED) {
+      throw new BadRequestException('Este video ya fue publicado.');
+    }
+
     const publishDate = new Date(dto.plannedPublishAt);
-    const hh = String(publishDate.getHours()).padStart(2, '0');
-    const mm = String(publishDate.getMinutes()).padStart(2, '0');
 
     const [item] = await this.prisma.$transaction([
       this.prisma.scheduleItem.create({
@@ -894,7 +949,7 @@ export class SchedulesService {
           dayOfWeek: dto.dayOfWeek,
           blockTitle: video.title,
           noteColor: 'LIME',
-          plannedTime: `${hh}:${mm}`,
+          plannedTime: formatWallClockTime(publishDate, this.timezoneOf(user)),
           plannedPublishAt: publishDate,
           notes: dto.notes ?? null,
         },
@@ -938,8 +993,10 @@ export class SchedulesService {
     if (clientIdFilter) {
       whereClause.clientId = clientIdFilter;
     } else if (user.role === RoleCode.AGENCIA) {
+      if (!user.agencyId) return [];
       whereClause.client = { agencyId: user.agencyId, deletedAt: null };
     } else if (user.role === RoleCode.CLIENTE) {
+      if (!user.clientId) return [];
       whereClause.clientId = user.clientId;
     }
 
@@ -957,6 +1014,11 @@ export class SchedulesService {
     dto: ReviewVideoDecisionDto,
     user: AuthenticatedUser,
   ) {
+    // El visado es del cliente: si la agencia pudiera aprobar sus propios videos, el control no existiría.
+    if (user.role === RoleCode.AGENCIA) {
+      throw new ForbiddenException('La aprobación corresponde al cliente: la agencia puede dejar comentarios.');
+    }
+
     const video = await this.videosService.findOneWithAccess(videoId, user);
 
     if (video.workflowStatus === VideoWorkflowStatus.PUBLISHED) {

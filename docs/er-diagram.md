@@ -2,7 +2,7 @@
 
 ## 1. Justificación de Formas Normales (1FN, 2FN y 3FN)
 
-El esquema relacional de **ContentSync** en PostgreSQL fue diseñado rigurosamente aplicando la teoría de normalización relacional hasta **Tercera Forma Normal (3FN)**:
+El esquema relacional de **ContentSync** en MySQL fue diseñado rigurosamente aplicando la teoría de normalización relacional hasta **Tercera Forma Normal (3FN)**:
 
 ### Primera Forma Normal (1FN) — Atomicidad y ausencia de grupos repetitivos
 - **Regla:** Todos los atributos de cada relación contienen valores atómicos (indivisibles), no existen arreglos ni listas separadas por comas, y cada tabla posee una clave primaria (`UUID`) bien definida.

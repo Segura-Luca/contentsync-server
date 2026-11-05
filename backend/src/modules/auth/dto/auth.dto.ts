@@ -9,7 +9,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { RoleCode, SocialProvider } from '@prisma/client';
+import { SocialProvider } from '@prisma/client';
 
 const STRONG_PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,64}$/;
@@ -21,7 +21,7 @@ export class RegisterDto {
   email!: string;
 
   @ApiProperty({
-    example: 'ContentSync2026!',
+    example: 'ClaveSegura2026!',
     description:
       'Mínimo 8 caracteres, al menos 1 mayúscula, 1 minúscula, 1 número y 1 símbolo especial.',
   })
@@ -58,14 +58,25 @@ export class RegisterDto {
   @MaxLength(150)
   agencyName?: string;
 
-  @ApiPropertyOptional({ enum: RoleCode, default: RoleCode.AGENCIA })
+  @ApiPropertyOptional({ example: 'America/Argentina/Buenos_Aires' })
   @IsOptional()
-  @IsEnum(RoleCode)
-  role?: RoleCode;
+  @IsString()
+  @MaxLength(80)
+  timezone?: string;
+}
+
+export class UpdateProfileDto {
+  @ApiPropertyOptional({ example: 'Valentina Gómez' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(150)
+  fullName?: string;
 
   @ApiPropertyOptional({ example: 'America/Argentina/Buenos_Aires' })
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   timezone?: string;
 }
 
@@ -87,22 +98,21 @@ export class LoginDto {
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
   email!: string;
 
-  @ApiPropertyOptional({ example: 'ContentSync2026!' })
+  @ApiPropertyOptional({ example: 'ClaveSegura2026!' })
   @IsOptional()
   @IsString()
+  @MaxLength(128)
   password?: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8 Pro - Android 15' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   deviceInfo?: string;
 }
 
-export class RefreshTokenDto {
-  @ApiProperty({ description: 'Refresh token emitido en el último inicio de sesión o rotación' })
-  @IsString()
-  @IsNotEmpty()
-  refreshToken!: string;
+export interface RefreshTokenDto {
+  refreshToken: string;
 }
 
 export class SocialLoginDto {
@@ -117,39 +127,29 @@ export class SocialLoginDto {
 
   @IsOptional()
   @IsString()
-  email?: string;
-
-  @IsOptional()
-  @IsString()
-  providerUserId?: string;
-
-  @IsOptional()
-  @IsString()
+  @MaxLength(80)
   firstName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   lastName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(150)
   fullName?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(150)
   agencyName?: string;
 
   @ApiPropertyOptional({ example: 'Pixel 8 Pro - Android 15' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   deviceInfo?: string;
-}
-
-export class VerifyEmailDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  token!: string;
 }
 
 export class ForgotPasswordDto {
@@ -172,14 +172,15 @@ export class VerifyOtpCodeDto {
 }
 
 export class ResetPasswordDto {
-  @ApiPropertyOptional({ example: 'usuario@gmail.com' })
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+  @ApiProperty({ example: 'usuario@gmail.com' })
+  @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
+  @MaxLength(180)
+  email!: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(6)
   token!: string;
 
   @ApiProperty({ example: 'NuevaClaveSegura2026!' })

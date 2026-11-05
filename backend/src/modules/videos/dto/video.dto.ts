@@ -41,7 +41,7 @@ export class RequestPresignedUrlDto {
   @ApiProperty({ example: 45 })
   @IsInt()
   @Min(1)
-  @Max(900)
+  @Max(86400)
   durationSeconds!: number;
 
   @ApiProperty({ enum: SocialPlatform, isArray: true })
@@ -112,17 +112,19 @@ export class CreateVideoDto {
   @ApiProperty({ example: '/uploads/videos/17296_cold_brew.mp4' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(500)
   storageKey!: string;
 
   @ApiPropertyOptional({ example: '/uploads/videos/17296_thumb.jpg' })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   thumbnailKey?: string;
 
   @ApiProperty({ example: 45 })
   @IsInt()
   @Min(1)
-  @Max(900)
+  @Max(86400)
   durationSeconds!: number;
 
   @ApiProperty({ example: 28500000 })

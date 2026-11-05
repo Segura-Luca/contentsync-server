@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -18,8 +19,7 @@ const prisma = new PrismaClient();
 
 function encryptDemoToken(plainText: string): string {
   const keyHex =
-    process.env.OAUTH_ENCRYPTION_KEY ||
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    process.env.OAUTH_ENCRYPTION_KEY || '0'.repeat(64);
   const key = Buffer.from(keyHex.slice(0, 64), 'hex');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
@@ -128,7 +128,15 @@ async function main() {
     },
   });
 
-  const defaultPasswordHash = await argon2.hash('ContentSync2026!');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('El seed carga cuentas de demostración: no se ejecuta en producción.');
+  }
+  const seedPassword = process.env.SEED_DEFAULT_PASSWORD;
+  if (!seedPassword) {
+    throw new Error('Definí SEED_DEFAULT_PASSWORD con la contraseña de las cuentas de demostración.');
+  }
+  const seedOwnerEmail = (process.env.SEED_OWNER_EMAIL || 'agencia.demo@contentsync.io').trim().toLowerCase();
+  const defaultPasswordHash = await argon2.hash(seedPassword);
 
   // 2. Usuario ADMIN_GENERAL
   const adminUser = await prisma.user.upsert({
@@ -195,14 +203,14 @@ async function main() {
     },
   });
 
-  // Usuario Luca Segura (Agencia)
+  // Agencia demo propia: SEED_OWNER_EMAIL permite iniciar sesión con un correo real
   const lucasUser = await prisma.user.upsert({
-    where: { email: 'lucasegura2007@gmail.com' },
+    where: { email: seedOwnerEmail },
     update: {},
     create: {
-      email: 'lucasegura2007@gmail.com',
+      email: seedOwnerEmail,
       passwordHash: defaultPasswordHash,
-      fullName: 'SEGURA Luca',
+      fullName: 'Agencia Demo',
       roleId: agencyRole.id,
       emailVerified: true,
       timezone: 'America/Argentina/Buenos_Aires',
@@ -214,9 +222,8 @@ async function main() {
     update: {},
     create: {
       ownerUserId: lucasUser.id,
-      name: 'Luca Segura Media',
-      taxId: '20-48192831-4',
-      contactPhone: '+54 9 11 2345-6789',
+      name: 'Agencia Demo',
+      taxId: '20-00000000-0',
       website: 'https://contentsync.io',
     },
   });
@@ -307,8 +314,8 @@ async function main() {
           platform,
           externalAccountId: `${platform.toLowerCase()}_${client.id.slice(0, 8)}`,
           accountHandle: `@${c.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18)}`,
-          encryptedAccessToken: encryptDemoToken(`demo_access_${platform}_${client.id}`),
-          encryptedRefreshToken: encryptDemoToken(`demo_refresh_${platform}_${client.id}`),
+          encryptedAccessToken: encryptDemoToken(`mock_access_${platform}_${client.id}`),
+          encryptedRefreshToken: encryptDemoToken(`mock_refresh_${platform}_${client.id}`),
           tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
         },
       });
