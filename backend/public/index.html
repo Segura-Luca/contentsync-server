@@ -477,11 +477,13 @@
       z-index: 65;
       background: var(--scrim);
       display: flex;
-      align-items: center;
+      /* Arriba y no centrado: si el contenido crece, el pop up se queda donde está. */
+      align-items: flex-start;
       justify-content: center;
       padding: 18px;
       overflow-y: auto;
     }
+    .modal-backdrop.modal-centered { align-items: center; }
     .modal-panel {
       /* El contenido se redibuja con la misma altura: el anclaje del navegador moveria la ventana al aparecer cada foto. */
       overflow-anchor: none;
@@ -772,6 +774,23 @@
       newWeekTitle: '',
       newWeekNotes: '',
 
+      inspectNote: '',
+      inspectNoteFor: null,
+      reviewConfirm: null,
+
+      ideaProposals: [],
+      proposalTitle: '',
+      proposalContent: '',
+      proposalRefUrl: '',
+      proposalSectionChoice: {},
+      confirmRejectProposalId: null,
+      acceptingProposalId: null,
+
+      ideaNewSectionOpen: false,
+      ideaNewSectionName: '',
+      ideaNewSectionColor: '#38BDF8',
+      ideaNewSectionError: '',
+
       showDuplicateModal: false,
       dupSourceId: null,
       dupTargetStart: '',
@@ -944,7 +963,6 @@
         email: u.email,
         fullName: u.fullName || u.email,
         role: u.role,
-        timezone: u.timezone || 'America/Argentina/Buenos_Aires',
         agencyId: u.agencyId || null,
         clientId: u.clientId || null
       };
@@ -994,6 +1012,7 @@
         apiFetch('/clients'),
         apiFetch('/schedules'),
         apiFetch('/notifications'),
+        apiFetch('/idea-proposals'),
       ];
 
       if (role !== 'CLIENTE') {
@@ -1005,7 +1024,7 @@
       }
 
       const results = await Promise.all(calls);
-      const [pendRes, clRes, schRes, notRes] = results;
+      const [pendRes, clRes, schRes, notRes, propRes] = results;
 
       if (role === 'ADMIN_GENERAL') loadPlatformSettings();
 
@@ -1028,15 +1047,18 @@
       if (notRes.ok && Array.isArray(notRes.data)) {
         state.notifications = notRes.data;
       }
+      if (propRes.ok && Array.isArray(propRes.data)) {
+        state.ideaProposals = propRes.data;
+      }
 
       if (role !== 'CLIENTE') {
-        const secRes = results[4];
-        const idRes = results[5];
+        const secRes = results[5];
+        const idRes = results[6];
         if (secRes?.ok && Array.isArray(secRes.data)) state.ideaSections = secRes.data;
         if (idRes?.ok && Array.isArray(idRes.data)) state.ideas = idRes.data;
       }
       if (role === 'ADMIN_GENERAL') {
-        const agRes = results[6];
+        const agRes = results[7];
         if (agRes?.ok && Array.isArray(agRes.data)) state.agencies = agRes.data;
       }
 
@@ -1465,7 +1487,7 @@
       if (role === 'CLIENTE') {
         return [
           { id: 'schedules', code: '01', label: 'Cronograma' },
-          { id: 'accounts',  code: '02', label: 'Mi marca' },
+          { id: 'proposals', code: '02', label: 'Proponer ideas' },
           { id: 'history',   code: '03', label: 'Avisos' },
           { id: 'settings',  code: '04', label: 'Ajustes' }
         ];
@@ -1828,23 +1850,68 @@
       setBanner('Bloque eliminado del cronograma.');
     }
 
-    async function submitBlockReview(blockId, decision) {
-      const noteEl = document.getElementById('inspect-review-note');
-      const feedbackNotes = noteEl ? noteEl.value.trim() : '';
-      if ((decision === 'CHANGES_REQUESTED' || decision === 'REJECTED') && feedbackNotes.length < 3) {
-        setBanner('Contá brevemente qué cambiarías o por qué lo rechazás.', true);
-        return;
+    function setInspectNote(blockId, text) {
+      state.inspectNoteFor = blockId;
+      state.inspectNote = text;
+    }
+
+    function inspectNoteOf(blockId) {
+      return state.inspectNoteFor === blockId ? state.inspectNote : '';
+    }
+
+    async function submitBlockReview(blockId, decision, confirmed = false) {
+      const block = (getActiveSchedule()?.items || []).find(x => x.id === blockId);
+      const feedbackNotes = inspectNoteOf(blockId).trim();
+      const hadChanges = block?.reviewStatus === 'CHANGES_REQUESTED';
+
+      if (!confirmed) {
+        const dropsChanges = decision !== 'CHANGES_REQUESTED' && hadChanges;
+        const dropsText = decision === 'APPROVED' && feedbackNotes;
+        if (dropsChanges || dropsText) {
+          state.reviewConfirm = { blockId, decision, hadChanges, hasText: Boolean(feedbackNotes) };
+          render();
+          return;
+        }
+        if (decision !== 'APPROVED' && feedbackNotes.length < 3) {
+          setBanner('Contá brevemente qué cambiarías o por qué lo rechazás.', true);
+          return;
+        }
       }
+
+      state.reviewConfirm = null;
       const r = await apiFetch(`/schedules/blocks/${blockId}/review`, {
         method: 'POST',
-        body: JSON.stringify({ decision, feedbackNotes: feedbackNotes || undefined })
+        // Confirmado el aviso, solo viaja la decisión: lo escrito no se le manda a la agencia.
+        body: JSON.stringify({ decision, feedbackNotes: confirmed ? undefined : feedbackNotes || undefined })
       });
       if (!r.ok) {
         setBanner(friendlyError(r.data, r.status), true);
         return;
       }
+      setInspectNote(blockId, '');
       await hydrateFromApi();
       setBanner('Listo: le avisamos a tu agencia.');
+    }
+
+    function renderReviewConfirm() {
+      const { blockId, decision, hadChanges, hasText } = state.reviewConfirm;
+      const rejecting = decision === 'REJECTED';
+      const verb = rejecting ? 'rechazar' : 'aprobar';
+      const past = rejecting ? 'rechazaste' : 'aprobaste';
+      return `
+        <div class="modal-backdrop modal-centered" onclick="if(event.target===this){state.reviewConfirm=null;render();}">
+          <div class="modal-panel" role="alertdialog" aria-modal="true" style="max-width:440px;">
+            <h3 style="font-size:18px;font-weight:700;">¿${rejecting ? 'Rechazar' : 'Aprobar'} este contenido?</h3>
+            ${hadChanges ? `<p style="font-size:14px;color:var(--text-secondary);">Ya pediste cambios en este contenido. Si seguís, ese pedido queda sin efecto y no se vuelve a notificar.</p>` : ''}
+            ${hasText ? `<p style="font-size:14px;color:var(--text-secondary);">Lo que escribiste en el comentario no se va a enviar.</p>` : ''}
+            <p style="font-size:14px;font-weight:600;">A tu agencia solo le va a llegar que ${past} el contenido.</p>
+            <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="state.reviewConfirm=null;render();">Volver</button>
+              <button class="btn ${rejecting ? 'btn-fault' : 'btn-signal'}" onclick="submitBlockReview('${blockId}','${decision}',true)">Sí, ${verb}</button>
+            </div>
+          </div>
+        </div>
+      `;
     }
 
     async function submitBlockComment(blockId) {
@@ -1860,6 +1927,7 @@
         return;
       }
       if (noteEl) noteEl.value = '';
+      setInspectNote(blockId, '');
       await hydrateFromApi();
     }
 
@@ -1901,6 +1969,47 @@
     // =========================================================================
     // ACCIONES DE DOMINIO: IDEAS DE CONTENIDO (PRIVADAS DE LA AGENCIA)
     // =========================================================================
+    /** Un color libre: dos secciones no pueden compartirlo. */
+    function nextSectionColor() {
+      const used = state.ideaSections.map(sec => sec.color.toLowerCase());
+      return ['#38BDF8', '#F97316', '#A855F7', '#22C55E', '#EC4899', '#EAB308', '#14B8A6', '#EF4444']
+        .find(color => !used.includes(color.toLowerCase())) || '#6366F1';
+    }
+
+    function chooseIdeaFormSection(value) {
+      state.ideaNewSectionError = '';
+      state.ideaNewSectionOpen = value === '__new__';
+      if (state.ideaNewSectionOpen) {
+        state.ideaNewSectionName = '';
+        state.ideaNewSectionColor = nextSectionColor();
+      } else {
+        state.ideaFormSectionId = value;
+      }
+      render();
+    }
+
+    async function createSectionFromIdeaModal() {
+      const name = state.ideaNewSectionName.trim();
+      if (!name) {
+        state.ideaNewSectionError = 'Escribile un nombre a la sección.';
+        render();
+        return;
+      }
+      const r = await apiFetch('/ideas/sections', {
+        method: 'POST',
+        body: JSON.stringify({ name, color: state.ideaNewSectionColor })
+      });
+      if (!r.ok) {
+        state.ideaNewSectionError = friendlyError(r.data, r.status);
+        render();
+        return;
+      }
+      state.ideaFormSectionId = r.data.id;
+      state.ideaNewSectionOpen = false;
+      state.ideaNewSectionError = '';
+      await hydrateFromApi();
+    }
+
     async function submitNewIdeaSection() {
       const name = state.newSectionName.trim();
       if (!name) {
@@ -1935,10 +2044,11 @@
     }
 
     function openIdeaModal(idea = null) {
-      if (state.ideaSections.length === 0) {
-        setBanner('Primero creá al menos una sección para clasificar tus ideas.', true);
-        return;
-      }
+      state.acceptingProposalId = null;
+      state.ideaNewSectionOpen = state.ideaSections.length === 0;
+      state.ideaNewSectionName = '';
+      state.ideaNewSectionColor = nextSectionColor();
+      state.ideaNewSectionError = '';
       if (idea) {
         state.editingIdeaId = idea.id;
         state.ideaFormSectionId = idea.sectionId;
@@ -1949,10 +2059,9 @@
         state.ideaFormPinned = Boolean(idea.isPinned);
       } else {
         state.editingIdeaId = null;
-        state.ideaFormSectionId =
-          state.ideaSectionFilter !== 'ALL'
-            ? state.ideaSectionFilter
-            : state.ideaSections[0].id;
+        state.ideaFormSectionId = state.ideaSections.some(sec => sec.id === state.ideaSectionFilter)
+          ? state.ideaSectionFilter
+          : state.ideaSections[0]?.id || '';
         state.ideaFormClientId =
           state.ideaClientFilter !== 'ALL' && state.ideaClientFilter !== 'GENERAL'
             ? state.ideaClientFilter
@@ -1971,6 +2080,32 @@
       const content = state.ideaFormContent.trim();
       if (!title || !content) {
         setBanner('Completá el título y el desarrollo de la idea.', true);
+        return;
+      }
+      if (!state.ideaFormSectionId || state.ideaNewSectionOpen) {
+        state.ideaNewSectionError = state.ideaNewSectionOpen ? 'Primero creá la sección con el botón de abajo.' : '';
+        setBanner('Elegí una sección para la idea.', true);
+        return;
+      }
+
+      if (state.acceptingProposalId) {
+        const accepted = await apiFetch(`/idea-proposals/${state.acceptingProposalId}/accept`, {
+          method: 'POST',
+          body: JSON.stringify({
+            sectionId: state.ideaFormSectionId,
+            title,
+            content,
+            referenceUrl: state.ideaFormRefUrl.trim()
+          })
+        });
+        if (!accepted.ok) {
+          setBanner(friendlyError(accepted.data, accepted.status), true);
+          return;
+        }
+        state.acceptingProposalId = null;
+        state.ideaModalOpen = false;
+        await hydrateFromApi();
+        setBanner('Propuesta aceptada: ya está en tus ideas. Le avisamos al cliente.');
         return;
       }
 
@@ -2672,6 +2807,7 @@
         ${state.showDuplicateModal ? renderDuplicateWeekModal() : ''}
         ${state.blockModalOpen ? renderBlockEditorModal() : ''}
         ${state.inspectBlockId ? renderBlockInspectorModal() : ''}
+        ${state.inspectBlockId && state.reviewConfirm ? renderReviewConfirm() : ''}
       `;
     }
 
@@ -3064,7 +3200,7 @@
               <div class="field">
                 <label>${isClient ? 'Tu comentario o los cambios que pedís' : 'Escribile al cliente'}</label>
                 <div style="display:flex;gap:8px;">
-                  <input id="inspect-review-note" class="input" maxlength="5000" />
+                  <input id="inspect-review-note" class="input" maxlength="5000" value="${esc(inspectNoteOf(blk.id))}" oninput="setInspectNote('${blk.id}',this.value)" />
                   <button class="btn btn-outline" onclick="submitBlockComment('${blk.id}')">Comentar</button>
                 </div>
               </div>
@@ -3136,6 +3272,175 @@
       return isHexColor(color) ? `--note-dot:${color};--note-fg:${readableNoteColor(color)};--note-bg:${color}26;` : '';
     }
 
+    function pendingProposals() {
+      return state.ideaProposals.filter(p => p.status === 'PENDING');
+    }
+
+    async function acceptProposal(proposalId) {
+      const sectionId = state.proposalSectionChoice[proposalId] || state.ideaSections[0]?.id;
+      if (!sectionId) {
+        openProposalEditor(proposalId);
+        return;
+      }
+      const r = await apiFetch(`/idea-proposals/${proposalId}/accept`, {
+        method: 'POST',
+        body: JSON.stringify({ sectionId })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Propuesta aceptada: ya está en tus ideas. Le avisamos al cliente.');
+    }
+
+    function openProposalEditor(proposalId) {
+      const proposal = state.ideaProposals.find(p => p.id === proposalId);
+      if (!proposal) return;
+      openIdeaModal(null);
+      state.acceptingProposalId = proposal.id;
+      state.ideaFormSectionId = state.proposalSectionChoice[proposalId] || state.ideaFormSectionId;
+      state.ideaFormClientId = proposal.clientId;
+      state.ideaFormTitle = proposal.title;
+      state.ideaFormContent = proposal.content;
+      state.ideaFormRefUrl = proposal.referenceUrl || '';
+      render();
+    }
+
+    async function rejectProposal(proposalId) {
+      state.confirmRejectProposalId = null;
+      const r = await apiFetch(`/idea-proposals/${proposalId}/reject`, { method: 'POST' });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Propuesta rechazada. Le avisamos al cliente.');
+    }
+
+    function renderProposalLink(url) {
+      return url
+        ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12.5px;color:var(--signal-subtle-fg);overflow-wrap:anywhere;">Ver referencia ↗</a>`
+        : '';
+    }
+
+    function renderAgencyProposals() {
+      const proposals = pendingProposals();
+      if (!proposals.length) {
+        return `
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;text-align:center;">
+            <div style="font-weight:600;font-size:16px;">No hay propuestas por responder</div>
+            <p style="color:var(--text-secondary);font-size:13px;margin-top:4px;">Las ideas que te manden tus clientes van a aparecer acá.</p>
+          </div>
+        `;
+      }
+      return `
+        <div class="ideas-grid">
+          ${proposals.map(p => `
+            <article class="idea-card" data-proposal="${p.id}" style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+              <div>
+                <span class="badge badge-warn">${esc(p.client?.companyName || 'Cliente')}</span>
+                <h3 style="font-size:16px;font-weight:700;margin-top:7px;overflow-wrap:anywhere;">${esc(p.title)}</h3>
+                <div style="font-size:13px;color:var(--text-secondary);margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(p.content)}</div>
+                ${renderProposalLink(p.referenceUrl)}
+              </div>
+              <div class="field">
+                <label>Guardar en la sección</label>
+                <select class="input" onchange="state.proposalSectionChoice['${p.id}']=this.value">
+                  ${state.ideaSections.map(sec => `
+                    <option value="${sec.id}" ${(state.proposalSectionChoice[p.id] || state.ideaSections[0]?.id) === sec.id ? 'selected' : ''}>${esc(sec.name)}</option>
+                  `).join('')}
+                </select>
+              </div>
+              ${state.confirmRejectProposalId === p.id ? `
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span style="font-size:12px;color:var(--tally-fault);font-weight:600;">¿Rechazar esta propuesta?</span>
+                  <button class="btn btn-fault" style="padding:5px 10px;" onclick="rejectProposal('${p.id}')">Sí, rechazar</button>
+                  <button class="btn btn-outline" style="padding:5px 10px;" onclick="state.confirmRejectProposalId=null;render();">No</button>
+                </div>
+              ` : `
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <button class="btn btn-signal" style="padding:6px 10px;" onclick="acceptProposal('${p.id}')">✓ Aceptar</button>
+                  <button class="btn btn-outline" style="padding:6px 10px;" onclick="openProposalEditor('${p.id}')">Editar y aceptar</button>
+                  <button class="btn btn-fault" style="padding:6px 10px;" onclick="state.confirmRejectProposalId='${p.id}';render();">Rechazar</button>
+                </div>
+              `}
+            </article>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function submitClientProposal() {
+      const title = state.proposalTitle.trim();
+      const content = state.proposalContent.trim();
+      if (!title || !content) {
+        setBanner('Completá el título y contá de qué se trata tu idea.', true);
+        return;
+      }
+      const r = await apiFetch('/idea-proposals', {
+        method: 'POST',
+        body: JSON.stringify({ title, content, referenceUrl: state.proposalRefUrl.trim() || undefined })
+      });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      state.proposalTitle = '';
+      state.proposalContent = '';
+      state.proposalRefUrl = '';
+      await hydrateFromApi();
+      setBanner('Listo: le mandamos tu idea a la agencia.');
+    }
+
+    function renderClientProposalsScreen() {
+      const statusBadge = {
+        PENDING: { cls: 'badge-review', label: 'ESPERANDO RESPUESTA' },
+        ACCEPTED: { cls: 'badge-live', label: 'ACEPTADA' },
+        REJECTED: { cls: 'badge-fault', label: 'RECHAZADA' }
+      };
+      return `
+        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
+          <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
+            <div class="eyebrow">TUS IDEAS</div>
+            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Proponé ideas a tu agencia</h2>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.</p>
+          </div>
+
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <div class="field">
+              <label for="proposal-title">Título</label>
+              <input id="proposal-title" class="input" maxlength="180" value="${esc(state.proposalTitle)}" oninput="state.proposalTitle=this.value" />
+            </div>
+            <div class="field">
+              <label for="proposal-content">¿De qué se trata?</label>
+              <textarea id="proposal-content" class="input" rows="4" maxlength="5000" oninput="state.proposalContent=this.value">${esc(state.proposalContent)}</textarea>
+            </div>
+            <div class="field">
+              <label for="proposal-url">Enlace de referencia (opcional)</label>
+              <input id="proposal-url" class="input" maxlength="500" value="${esc(state.proposalRefUrl)}" oninput="state.proposalRefUrl=this.value" />
+            </div>
+            <button class="btn btn-signal" style="align-self:flex-start;" onclick="submitClientProposal()">Enviar a mi agencia →</button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div class="eyebrow">LAS QUE YA ENVIASTE (${state.ideaProposals.length})</div>
+            ${state.ideaProposals.length ? state.ideaProposals.map(p => `
+              <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:5px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                  <div style="font-weight:700;font-size:15px;overflow-wrap:anywhere;">${esc(p.title)}</div>
+                  <span class="badge ${statusBadge[p.status].cls}">${statusBadge[p.status].label}</span>
+                </div>
+                <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;overflow-wrap:anywhere;">${esc(p.content)}</div>
+                ${renderProposalLink(p.referenceUrl)}
+                <div class="mono" style="font-size:11px;color:var(--text-muted);">${fmtDateTimeHuman(p.createdAt)}</div>
+              </div>
+            `).join('') : `<div style="font-size:13px;color:var(--text-muted);">Todavía no enviaste ideas.</div>`}
+          </div>
+        </div>
+      `;
+    }
+
     function renderIdeasScreen() {
       const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       const q = state.ideaSearch.trim().toLowerCase();
@@ -3170,7 +3475,7 @@
               </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-outline" onclick="state.showNewSectionForm=!state.showNewSectionForm;render();">
+              <button class="btn btn-outline" onclick="state.showNewSectionForm=!state.showNewSectionForm;state.newSectionColor=nextSectionColor();render();">
                 ${state.showNewSectionForm ? 'Cerrar' : '+ Nuevo color'}
               </button>
               <button class="btn btn-signal" onclick="openIdeaModal(null)">
@@ -3204,6 +3509,10 @@
                 onclick="state.ideaSectionFilter='ALL';state.confirmDeleteSectionId=null;render();">
                 Todas (${state.ideas.length})
               </button>
+              <button id="tab-proposals" class="filter-tab ${state.ideaSectionFilter === 'PROPOSALS' ? 'active' : ''}"
+                onclick="state.ideaSectionFilter='PROPOSALS';state.confirmDeleteSectionId=null;render();">
+                Propuestas de clientes (${pendingProposals().length})
+              </button>
               ${state.ideaSections.map(sec => {
                 const count = state.ideas.filter(i => i.sectionId === sec.id).length;
                 return `
@@ -3232,6 +3541,7 @@
           </div>
 
           <!-- Buscador y Filtro por Marca -->
+          ${state.ideaSectionFilter === 'PROPOSALS' ? renderAgencyProposals() : `
           <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px;">
             <input class="input" aria-label="Buscar ideas"
               value="${esc(state.ideaSearch)}" oninput="state.ideaSearch=this.value;render();" />
@@ -3322,6 +3632,7 @@
               }).join('')}
             </div>
           `}
+          `}
         </div>
 
         ${state.ideaModalOpen ? renderIdeaModal() : ''}
@@ -3335,8 +3646,8 @@
           <div class="modal-panel" style="max-width:560px;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--hairline);">
               <div>
-                <div class="eyebrow">IDEA PRIVADA DE AGENCIA</div>
-                <h3 style="font-size:19px;font-weight:700;">${state.editingIdeaId ? 'Editar idea de contenido' : 'Nueva idea de contenido'}</h3>
+                <div class="eyebrow">${state.acceptingProposalId ? 'PROPUESTA DE UN CLIENTE' : 'IDEA PRIVADA DE AGENCIA'}</div>
+                <h3 style="font-size:19px;font-weight:700;">${state.acceptingProposalId ? 'Editar y aceptar' : state.editingIdeaId ? 'Editar idea de contenido' : 'Nueva idea de contenido'}</h3>
               </div>
               <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.ideaModalOpen=false;render();">✕</button>
             </div>
@@ -3344,15 +3655,16 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div class="field">
                 <label>Sección</label>
-                <select class="input" onchange="state.ideaFormSectionId=this.value">
+                <select id="idea-section" class="input" onchange="chooseIdeaFormSection(this.value)">
                   ${state.ideaSections.map(s => `
-                    <option value="${s.id}" ${state.ideaFormSectionId === s.id ? 'selected' : ''}>${esc(s.name)}</option>
+                    <option value="${s.id}" ${!state.ideaNewSectionOpen && state.ideaFormSectionId === s.id ? 'selected' : ''}>${esc(s.name)}</option>
                   `).join('')}
+                  <option value="__new__" ${state.ideaNewSectionOpen ? 'selected' : ''}>+ Crear sección</option>
                 </select>
               </div>
               <div class="field">
                 <label>Marca / Cliente (opcional)</label>
-                <select class="input" onchange="state.ideaFormClientId=this.value">
+                <select class="input" ${state.acceptingProposalId ? 'disabled' : ''} onchange="state.ideaFormClientId=this.value">
                   <option value="" ${!state.ideaFormClientId ? 'selected' : ''}>General de mi agencia</option>
                   ${confirmedClients.map(c => `
                     <option value="${c.id}" ${state.ideaFormClientId === c.id ? 'selected' : ''}>${esc(c.companyName)}</option>
@@ -3360,6 +3672,25 @@
                 </select>
               </div>
             </div>
+
+            ${state.ideaNewSectionOpen ? `
+              <div style="border:1px solid var(--border-strong);border-radius:5px;padding:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+                <div class="field">
+                  <label for="idea-section-color">Color</label>
+                  <input id="idea-section-color" type="color" value="${esc(state.ideaNewSectionColor)}"
+                    style="width:64px;height:40px;padding:3px;background:var(--canvas);border:1px solid var(--border-strong);border-radius:4px;cursor:pointer;"
+                    oninput="state.ideaNewSectionColor=this.value" />
+                </div>
+                <div class="field" style="flex:1;min-width:180px;">
+                  <label for="idea-section-name">Nombre de la sección</label>
+                  <input id="idea-section-name" class="input" maxlength="100" value="${esc(state.ideaNewSectionName)}"
+                    oninput="state.ideaNewSectionName=this.value" />
+                </div>
+                <button class="btn btn-signal" onclick="createSectionFromIdeaModal()">Crear sección</button>
+                ${state.ideaSections.length ? `<button class="btn btn-outline" onclick="chooseIdeaFormSection(state.ideaFormSectionId || state.ideaSections[0].id)">Cancelar</button>` : ''}
+                ${state.ideaNewSectionError ? `<div style="width:100%;font-size:12.5px;color:var(--tally-fault);">${esc(state.ideaNewSectionError)}</div>` : ''}
+              </div>
+            ` : ''}
 
             <div class="field">
               <label>Título o gancho principal</label>
@@ -3379,7 +3710,7 @@
                 oninput="state.ideaFormRefUrl=this.value" />
             </div>
 
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div style="display:${state.acceptingProposalId ? 'none' : 'flex'};justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
                 <input type="checkbox" ${state.ideaFormPinned ? 'checked' : ''} onchange="state.ideaFormPinned=this.checked" />
                 📌 Fijar como destacada
@@ -3388,7 +3719,7 @@
 
             <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--hairline);">
               <button class="btn btn-outline" onclick="state.ideaModalOpen=false;render();">Cancelar</button>
-              <button class="btn btn-signal" onclick="submitIdeaModal()">Guardar idea →</button>
+              <button class="btn btn-signal" onclick="submitIdeaModal()">${state.acceptingProposalId ? 'Aceptar con estos cambios →' : 'Guardar idea →'}</button>
             </div>
           </div>
         </div>
@@ -3399,7 +3730,6 @@
     // PANTALLA 3: CLIENTES (CON CONFIRMACIÓN DE SEGURIDAD "SÍ, SOY YO")
     // =========================================================================
     function renderClientCard(cl) {
-      const isClient = state.session.role === 'CLIENTE';
       const isConfirmed = cl.confirmationStatus === 'CONFIRMED';
       return `
         <div style="border:1px solid ${isConfirmed ? 'var(--hairline)' : 'var(--tally-warn)'};background:var(--stage);padding:16px;border-radius:5px;display:flex;flex-direction:column;gap:12px;">
@@ -3411,7 +3741,6 @@
                 Contacto: ${esc(cl.contactFullName)} (${esc(cl.contactEmail)})
               </div>
             </div>
-            ${!isClient ? `
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <button class="btn btn-outline" style="padding:6px 10px;"
                   onclick="state.selectedClientId='${cl.id}';syncSelectedScheduleForClient();state.activeTab='schedules';render();">
@@ -3424,15 +3753,12 @@
                   <button class="btn btn-outline" style="padding:6px 10px;" onclick="state.confirmDeleteClientId='${cl.id}';render();">Eliminar</button>
                 `}
               </div>
-            ` : ''}
           </div>
         </div>
       `;
     }
 
     function renderAccountsScreen() {
-      const role = state.session.role;
-      const isClient = role === 'CLIENTE';
       const active = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       const pending = state.clients.filter(c => c.confirmationStatus !== 'CONFIRMED');
 
@@ -3441,16 +3767,14 @@
           <section style="display:flex;flex-direction:column;gap:14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid var(--hairline);flex-wrap:wrap;gap:10px;">
               <div>
-                <div class="eyebrow">${isClient ? 'PERFIL DE MARCA' : 'CARTERA DE CLIENTES'}</div>
+                <div class="eyebrow">CARTERA DE CLIENTES</div>
                 <h2 style="font-size:24px;font-weight:700;margin-top:2px;">
-                  ${isClient ? 'Mi marca' : 'Clientes y verificación de identidad'}
+                  Clientes y verificación de identidad
                 </h2>
               </div>
-              ${!isClient ? `
-                <button class="btn btn-signal" onclick="state.showNewClientForm=!state.showNewClientForm;render();">
-                  ${state.showNewClientForm ? 'Cerrar' : '+ Nuevo cliente'}
-                </button>
-              ` : ''}
+              <button class="btn btn-signal" onclick="state.showNewClientForm=!state.showNewClientForm;render();">
+                ${state.showNewClientForm ? 'Cerrar' : '+ Nuevo cliente'}
+              </button>
             </div>
 
             ${state.showNewClientForm ? `
@@ -3484,10 +3808,7 @@
               </div>
             ` : ''}
 
-            ${isClient ? (state.clients.length ? state.clients.map(renderClientCard).join('') : `
-              <div style="border:1px solid var(--hairline);background:var(--stage);padding:24px;border-radius:5px;color:var(--text-muted);">No hay una marca vinculada.</div>
-            `) : `
-              <div class="clients-layout">
+            <div class="clients-layout">
                 <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
                   ${active.length ? active.map(renderClientCard).join('') : `
                     <div style="border:1px solid var(--hairline);background:var(--stage);padding:24px;border-radius:5px;color:var(--text-muted);">
@@ -3519,7 +3840,6 @@
                   `).join('') : `<div style="font-size:13px;color:var(--text-muted);">No hay confirmaciones pendientes.</div>`}
                 </aside>
               </div>
-            `}
           </section>
         </div>
               `;
@@ -3569,6 +3889,11 @@
 
     /** El aviso apunta a un bloque o a una semana: se busca en lo que este usuario puede ver. */
     function findNotificationTarget(n) {
+      const proposal = state.ideaProposals.find(p => p.id === n.referenceId);
+      if (proposal) {
+        const stillOpen = state.session.role === 'CLIENTE' || proposal.status === 'PENDING';
+        return stillOpen ? { proposal } : null;
+      }
       for (const sched of state.schedules) {
         if (sched.id === n.referenceId) return { sched, block: null };
         const block = (sched.items || []).find(item => item.id === n.referenceId);
@@ -3581,10 +3906,15 @@
       const n = state.notifications.find(x => x.id === id);
       const target = n && findNotificationTarget(n);
       if (!target) return;
-      state.selectedClientId = target.sched.clientId;
-      state.selectedScheduleId = target.sched.id;
-      state.inspectBlockId = target.block ? target.block.id : null;
-      state.activeTab = 'schedules';
+      if (target.proposal) {
+        state.activeTab = state.session.role === 'CLIENTE' ? 'proposals' : 'ideas';
+        state.ideaSectionFilter = 'PROPOSALS';
+      } else {
+        state.selectedClientId = target.sched.clientId;
+        state.selectedScheduleId = target.sched.id;
+        state.inspectBlockId = target.block ? target.block.id : null;
+        state.activeTab = 'schedules';
+      }
       if (!n.isRead) {
         n.isRead = true;
         apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
@@ -3909,6 +4239,7 @@
       if (state.activeTab === 'schedules') activeView = renderSchedulesScreen();
       else if (state.activeTab === 'ideas') activeView = renderIdeasScreen();
       else if (state.activeTab === 'accounts') activeView = renderAccountsScreen();
+      else if (state.activeTab === 'proposals') activeView = renderClientProposalsScreen();
       else if (state.activeTab === 'history') {
         activeView = renderHistoryScreen();
         markAllNotificationsRead();
@@ -3974,6 +4305,8 @@
       if (grid) grid.scrollLeft = saved.grid;
       const panel = document.querySelector('.modal-panel');
       if (!panel || !key || key !== saved.modalKey) return;
+      // La animación de entrada es solo para cuando se abre: redibujando, haría saltar el pop up.
+      panel.style.animation = 'none';
       // Las fotos y los videos se dibujan sin altura hasta cargar: se les reserva la que ya tenían para que nada se mueva.
       const heights = new Map(saved.slots);
       panel.querySelectorAll('[data-media-slot]').forEach(el => {

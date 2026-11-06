@@ -225,6 +225,15 @@ describe('SchedulesService (cronogramas, revisión y confirmación)', () => {
       );
     });
 
+    it('después de pedir cambios se puede rechazar sin escribir otro motivo', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.CHANGES_REQUESTED }));
+
+      const res = await service.reviewBlock('b1', { decision: ApprovalDecision.REJECTED }, clientUser);
+
+      expect(res.reviewStatus).toBe(BlockReviewStatus.REJECTED);
+      expect(mockPrisma.blockComment.create).not.toHaveBeenCalled();
+    });
+
     it('aprobar actualiza el bloque y avisa a la agencia', async () => {
       const res = await service.reviewBlock('b1', { decision: ApprovalDecision.APPROVED }, clientUser);
 

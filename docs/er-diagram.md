@@ -47,6 +47,8 @@ erDiagram
     AGENCIES ||--o{ CONTENT_IDEA_SECTIONS : "organiza"
     CONTENT_IDEA_SECTIONS ||--o{ CONTENT_IDEAS : "agrupa"
     CLIENTS |o--o{ CONTENT_IDEAS : "referencia"
+    CLIENTS ||--o{ CLIENT_IDEA_PROPOSALS : "propone"
+    AGENCIES ||--o{ CLIENT_IDEA_PROPOSALS : "recibe"
     USERS ||--o{ NOTIFICATIONS : "recibe"
     USERS |o--o{ AUDIT_LOGS : "genera"
     USERS |o--o{ APP_SETTINGS : "actualiza"
@@ -154,4 +156,4 @@ erDiagram
     }
 ```
 
-Las tablas `auth_sessions`, `social_auth_accounts`, `content_idea_sections`, `content_ideas`, `audit_logs` y `app_settings` se omiten en el detalle de columnas. Su definición completa está en [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma).
+Las tablas `auth_sessions`, `social_auth_accounts`, `content_idea_sections`, `content_ideas`, `client_idea_proposals`, `audit_logs` y `app_settings` se omiten en el detalle de columnas. Su definición completa está en [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma).

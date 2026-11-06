@@ -20,8 +20,11 @@ ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunica
 - **Archivos privados:** se ven con enlaces firmados que vencen a las 12 horas, así que el bucket puede ser privado.
 - **Avisos** reemplaza a **Historial**, y se marcan como leídos al abrir la pantalla.
 - **Semanas de lunes a domingo.**
+- **Propuestas de ideas:** el cliente le propone ideas a su agencia, y la agencia las acepta, las edita y acepta, o las rechaza desde Ideas.
 - **Duplicar semana:** ahora se elige qué semana copiar.
 - **Etiquetas en los bloques:** el bloque muestra los colores con nombre creados en Ideas, y cada etiqueta usa un color distinto.
+- **Crear sección desde la idea:** se elige nombre y color sin salir del formulario.
+- **Revisión:** aprobar o rechazar después de pedir cambios muestra un aviso antes de confirmar, y los pop ups ya no se mueven cuando crece el contenido.
 - **Modo claro:** paleta nueva con más color y mejor contraste.
 - **Clientes:** la lista muestra los activos, y los que faltan confirmar van en un panel lateral.
 - **Android:** el selector admite fotos y videos, y varios a la vez.
@@ -31,6 +34,7 @@ ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunica
 - Las ventanas volvían arriba al cambiar algo adentro, como quitar un archivo de un bloque.
 
 ### Removed
+- **Mi marca** en el menú del cliente.
 - **Zona horaria** en Ajustes.
 - Conexión con YouTube, Instagram y TikTok, publicación automática, programador, reintentos y límites por red.
 - Pantalla **Subir video**, hashtags y destinos por red.

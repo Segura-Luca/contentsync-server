@@ -509,7 +509,11 @@ export class SchedulesService {
     await this.clientsService.assertClientAccess(schedule.clientId, user);
 
     const feedback = dto.feedbackNotes?.trim() || null;
-    if (dto.decision !== ApprovalDecision.APPROVED && (!feedback || feedback.length < 3)) {
+    // Si ya pidió cambios, el motivo está dado: puede rechazar sin volver a escribirlo.
+    const needsReason =
+      dto.decision === ApprovalDecision.CHANGES_REQUESTED ||
+      (dto.decision === ApprovalDecision.REJECTED && block.reviewStatus !== BlockReviewStatus.CHANGES_REQUESTED);
+    if (needsReason && (!feedback || feedback.length < 3)) {
       throw new BadRequestException('Contá brevemente qué cambiarías o por qué lo rechazás.');
     }
 

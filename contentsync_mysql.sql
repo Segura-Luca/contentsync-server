@@ -245,10 +245,28 @@ CREATE TABLE `content_ideas` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+CREATE TABLE `client_idea_proposals` (
+    `id` VARCHAR(36) NOT NULL,
+    `agency_id` VARCHAR(36) NOT NULL,
+    `client_id` VARCHAR(36) NOT NULL,
+    `title` VARCHAR(180) NOT NULL,
+    `content` TEXT NOT NULL,
+    `reference_url` VARCHAR(500) NULL,
+    `status` ENUM('PENDING', 'ACCEPTED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    `responded_at` DATETIME(3) NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at` DATETIME(3) NOT NULL,
+
+    INDEX `client_idea_proposals_agency_id_status_idx`(`agency_id`, `status`),
+    INDEX `client_idea_proposals_client_id_idx`(`client_id`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
 CREATE TABLE `notifications` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
-    `type` ENUM('NEW_SCHEDULE', 'SCHEDULE_DUPLICATED', 'SCHEDULE_CONFIRMED', 'BLOCK_IN_REVIEW', 'BLOCK_APPROVED', 'BLOCK_CHANGES_REQUESTED', 'BLOCK_REJECTED', 'BLOCK_COMMENT', 'CLIENT_CONFIRMATION_REQUEST', 'CLIENT_CONFIRMATION_RESPONSE') NOT NULL,
+    `type` ENUM('NEW_SCHEDULE', 'SCHEDULE_DUPLICATED', 'SCHEDULE_CONFIRMED', 'BLOCK_IN_REVIEW', 'BLOCK_APPROVED', 'BLOCK_CHANGES_REQUESTED', 'BLOCK_REJECTED', 'BLOCK_COMMENT', 'CLIENT_CONFIRMATION_REQUEST', 'CLIENT_CONFIRMATION_RESPONSE', 'IDEA_PROPOSED', 'IDEA_ACCEPTED', 'IDEA_REJECTED') NOT NULL,
     `title` VARCHAR(160) NOT NULL,
     `body` TEXT NOT NULL,
     `reference_id` VARCHAR(36) NULL,
@@ -351,6 +369,12 @@ ALTER TABLE `content_ideas` ADD CONSTRAINT `content_ideas_client_id_fkey` FOREIG
 ALTER TABLE `content_ideas` ADD CONSTRAINT `content_ideas_created_by_user_id_fkey` FOREIGN KEY (`created_by_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE `client_idea_proposals` ADD CONSTRAINT `client_idea_proposals_agency_id_fkey` FOREIGN KEY (`agency_id`) REFERENCES `agencies`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `client_idea_proposals` ADD CONSTRAINT `client_idea_proposals_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE `notifications` ADD CONSTRAINT `notifications_user_id_fkey` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -372,8 +396,9 @@ CREATE TABLE `_prisma_migrations` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT INTO `_prisma_migrations` (`id`, `checksum`, `finished_at`, `migration_name`, `logs`, `rolled_back_at`, `started_at`, `applied_steps_count`) VALUES
-('3d484284-40f5-4a76-a9e4-710a0c9f97a1','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
-('2587d88c-a2dd-444c-b135-b2d392ea840b','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
-('b4d1177f-313b-408b-ac44-aeec874d9470','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
-('70314e7d-29a8-4f94-8470-972911a1c02a','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1),
-('89cf535e-1648-4adc-9b3f-4a8faa729f56','b3ae151566a1c050394465b3efa02ed58ac4e1fa30a92a18d6d8ce1db2be158a',NOW(3),'20261106120000_week_status_and_cleanup',NULL,NULL,NOW(3),1);
+('801f0bde-3e9f-411f-9841-11cc3ad8b72e','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
+('21a2991b-0637-469a-8fb2-5cc392d3deec','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
+('526aaf80-3694-4c9f-ad82-5b255538ab6f','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
+('235fe371-ead1-44b1-a7dc-69e8cb0e5636','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1),
+('fd14e615-28a7-4800-a457-d072f98231d7','b3ae151566a1c050394465b3efa02ed58ac4e1fa30a92a18d6d8ce1db2be158a',NOW(3),'20261106120000_week_status_and_cleanup',NULL,NULL,NOW(3),1),
+('92c93f52-8c8d-4490-bda7-9172d65375ea','83814d3e868c3ca3f176a54617cfc99bccc1b5122d3bdc5881a66460fa8c887d',NOW(3),'20261106180000_client_idea_proposals',NULL,NULL,NOW(3),1);
