@@ -1138,7 +1138,27 @@
     // =========================================================================
     const authUi = { error: '', busy: false, cfg: null, googleReady: false, facebookReady: false };
 
+    /** Lo que se escribió para entrar no debe quedar a la vista de quien use el equipo después. */
+    function clearAuthForm() {
+      Object.assign(state, {
+        authEmail: '',
+        authPass: '',
+        authFirstName: '',
+        authLastName: '',
+        authAgencyName: '',
+        authRegister: false,
+        authVerifyReg: false,
+        regVerifyCode: '',
+        authRecover: false,
+        authRecoverStep: 1,
+        recoveryCode: '',
+        recoveryNewPass: ''
+      });
+      authUi.error = '';
+    }
+
     async function applyServerSession(data, welcome) {
+      clearAuthForm();
       state.jwtToken = data.accessToken;
       state.apiOnline = true;
       state.session = sessionFromUser(data.user);
@@ -1156,6 +1176,7 @@
       state.session = null;
       state.jwtToken = null;
       state.pendingConfirmation = null;
+      clearAuthForm();
       markSessionHint(false);
       setBanner('Cerraste sesión correctamente.');
     }
@@ -1906,6 +1927,16 @@
       if (noteEl) noteEl.value = '';
       setInspectNote(blockId, '');
       await hydrateFromApi();
+    }
+
+    async function resubmitBlock(blockId) {
+      const r = await apiFetch(`/schedules/blocks/${blockId}/resubmit`, { method: 'POST' });
+      if (!r.ok) {
+        setBanner(friendlyError(r.data, r.status), true);
+        return;
+      }
+      await hydrateFromApi();
+      setBanner('Listo: le avisamos al cliente que ya puede revisarlo.');
     }
 
     async function setBlockProductionStatus(blockId, productionStatus) {
@@ -2748,6 +2779,10 @@
                                 <span class="badge ${wf.cls}" style="font-size:10px;padding:1px 5px;">${wf.label}</span>
                               </span>
                             </div>
+                            ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
+                              <button class="btn btn-warn" style="width:100%;padding:6px 8px;font-size:11px;"
+                                onclick="event.stopPropagation();resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
+                            ` : ''}
                           </article>
                         `;
                       }).join('')}
@@ -2789,7 +2824,7 @@
         return `
           <div style="border:1px solid var(--hairline);background:var(--stage);padding:11px 14px;border-radius:5px;font-size:13px;color:var(--text-secondary);">
             ${blockedCount
-              ? `El cliente pidió cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}. Al editarlos, vuelven a revisión.`
+              ? `El cliente pidió cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}. Al editarlos o reenviarlos, vuelven a revisión.`
               : (hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.')}
           </div>
         `;
@@ -3109,6 +3144,13 @@
               </div>
             </div>
 
+            ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
+              <div style="border:1px solid var(--tally-warn);background:var(--tally-warn-bg);border-radius:4px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:13px;">El cliente pidió cambios. Cuando estén listos, reenvialo para que lo revise.</span>
+                <button class="btn btn-warn" onclick="resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
+              </div>
+            ` : ''}
+
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <span class="eyebrow">ESTADO</span>
               ${isClient
@@ -3236,6 +3278,30 @@
     function sectionColorStyle(color) {
       return isHexColor(color) ? `--note-dot:${color};--note-fg:${readableNoteColor(color)};--note-bg:${color}26;` : '';
     }
+
+    function tabCount(tabId) {
+      if (tabId !== 'ideas') return '';
+      const count = pendingProposals().length;
+      return count ? ` <span class="badge badge-warn" data-tab-count style="font-size:10px;padding:0 5px;">${count}</span>` : '';
+    }
+
+    function openTab(tabId) {
+      state.activeTab = tabId;
+      render();
+      if (tabId === 'ideas') refreshInbox();
+    }
+
+    /** Trae lo que mandó la otra parte. Si alguien está escribiendo, espera a la próxima vuelta. */
+    async function refreshInbox() {
+      if (!state.session || document.hidden || state.loadingData) return;
+      const [notifications, proposals] = await Promise.all([apiFetch('/notifications'), apiFetch('/idea-proposals')]);
+      if (!state.session || !notifications.ok || !proposals.ok) return;
+      const fingerprint = (notes, props) => JSON.stringify([notes.map(n => n.id), props.map(p => p.id + p.status)]);
+      const changed = fingerprint(notifications.data, proposals.data) !== fingerprint(state.notifications, state.ideaProposals);
+      if (changed && !isEditingField()) await hydrateFromApi();
+    }
+
+    setInterval(refreshInbox, 30000);
 
     function pendingProposals() {
       return state.ideaProposals.filter(p => p.status === 'PENDING');
@@ -3518,6 +3584,13 @@
               `).join('')}
             </select>
           </div>
+
+          ${state.ideaSectionFilter === 'ALL' && pendingProposals().length ? `
+            <section aria-label="Propuestas de clientes" style="display:flex;flex-direction:column;gap:10px;">
+              <div class="eyebrow">PROPUESTAS DE CLIENTES POR RESPONDER (${pendingProposals().length})</div>
+              ${renderAgencyProposals()}
+            </section>
+          ` : ''}
 
           <!-- Grilla de Ideas -->
           ${filteredIdeas.length === 0 ? `
@@ -4228,9 +4301,9 @@
           <nav class="side-rail" aria-label="Navegación Principal">
             <div>
               ${dests.map(d => `
-                <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="state.activeTab='${d.id}';render();">
+                <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
                   <span class="mono" style="font-size:11px;opacity:0.7;">${d.code}</span>
-                  <span>${d.label}</span>
+                  <span>${d.label}${tabCount(d.id)}</span>
                 </button>
               `).join('')}
             </div>
@@ -4243,9 +4316,9 @@
 
         <nav class="bottom-bar" aria-label="Navegación Móvil">
           ${dests.map(d => `
-            <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="state.activeTab='${d.id}';render();">
+            <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
               <span>${d.code}</span>
-              <span>${d.label}</span>
+              <span>${d.label}${tabCount(d.id)}</span>
             </button>
           `).join('')}
         </nav>

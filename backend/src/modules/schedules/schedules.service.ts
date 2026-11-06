@@ -501,6 +501,41 @@ export class SchedulesService {
     return Promise.all(schedules.map((schedule) => this.withMediaUrls(schedule)));
   }
 
+  /** La agencia resolvió el pedido sin tocar el bloque: se lo devuelve al cliente para que lo revise. */
+  async resubmitBlock(blockId: string, user: AuthenticatedUser) {
+    this.assertCanEdit(user);
+
+    const block = await this.findBlockOrThrow(blockId);
+    const schedule = block.schedule;
+    await this.clientsService.assertClientAccess(schedule.clientId, user, true);
+
+    if (block.reviewStatus !== BlockReviewStatus.CHANGES_REQUESTED) {
+      throw new ConflictException('Este bloque no tiene cambios pedidos por el cliente.');
+    }
+
+    await this.prisma.scheduleItem.update({
+      where: { id: blockId },
+      data: { reviewStatus: BlockReviewStatus.IN_REVIEW },
+    });
+
+    await this.notificationsService.notifyUser({
+      userId: schedule.client.userId,
+      type: NotificationType.BLOCK_IN_REVIEW,
+      title: 'Contenido listo para revisar de nuevo',
+      body: `Tu agencia reenvió "${block.blockTitle}" del cronograma "${schedule.title}".`,
+      referenceId: blockId,
+    });
+
+    await this.auditService.log({
+      userId: user.sub,
+      action: 'SCHEDULE_BLOCK_RESUBMITTED',
+      entityType: 'ScheduleItem',
+      entityId: blockId,
+    });
+
+    return { id: blockId, reviewStatus: BlockReviewStatus.IN_REVIEW };
+  }
+
   async reviewBlock(blockId: string, dto: ReviewBlockDto, user: AuthenticatedUser) {
     this.assertCanReview(user);
 

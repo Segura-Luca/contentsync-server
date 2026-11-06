@@ -82,6 +82,12 @@ export class SchedulesController {
     return this.schedulesService.confirmSchedule(scheduleId, user);
   }
 
+  @Post('blocks/:blockId/resubmit')
+  @ApiOperation({ summary: 'Reenviar a revisión un bloque con cambios pedidos (agencia)' })
+  resubmit(@Param('blockId', ParseUUIDPipe) blockId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.schedulesService.resubmitBlock(blockId, user);
+  }
+
   @Post('blocks/:blockId/review')
   @ApiOperation({ summary: 'Aprobar, pedir cambios o rechazar un bloque (cliente)' })
   review(

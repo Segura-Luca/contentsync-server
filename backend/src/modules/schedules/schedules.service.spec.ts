@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import {
   ApprovalDecision,
   BlockReviewStatus,
@@ -265,6 +265,35 @@ describe('SchedulesService (cronogramas, revisión y confirmación)', () => {
       await expect(service.reviewBlock('b1', { decision: ApprovalDecision.APPROVED }, agencyUser)).rejects.toThrow(
         ForbiddenException,
       );
+    });
+  });
+
+  describe('reenviar a revisión', () => {
+    const agency: any = { sub: 'agency-user', role: RoleCode.AGENCIA, agencyId: 'a1' };
+
+    it('vuelve a revisión y avisa al cliente', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.CHANGES_REQUESTED }));
+
+      const res = await service.resubmitBlock('b1', agency);
+
+      expect(res.reviewStatus).toBe(BlockReviewStatus.IN_REVIEW);
+      expect(mockPrisma.scheduleItem.update).toHaveBeenCalledWith({
+        where: { id: 'b1' },
+        data: { reviewStatus: BlockReviewStatus.IN_REVIEW },
+      });
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ type: NotificationType.BLOCK_IN_REVIEW }),
+      );
+    });
+
+    it('solo aplica a un bloque con cambios pedidos', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.APPROVED }));
+      await expect(service.resubmitBlock('b1', agency)).rejects.toThrow(ConflictException);
+    });
+
+    it('el cliente no puede reenviarlo', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.CHANGES_REQUESTED }));
+      await expect(service.resubmitBlock('b1', clientUser)).rejects.toThrow(ForbiddenException);
     });
   });
 
