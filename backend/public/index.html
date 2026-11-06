@@ -489,6 +489,8 @@
     .modal-backdrop {
       position: fixed;
       inset: 0;
+      /* --app-height es el alto real medido por syncAppHeight(): en el WebView de Android, vh puede valer 0. */
+      height: var(--app-height, 100%);
       z-index: 65;
       background: var(--scrim);
       display: flex;
@@ -504,7 +506,7 @@
       overflow-anchor: none;
       width: 100%;
       max-width: 660px;
-      max-height: 90vh;
+      max-height: calc(var(--app-height, 100vh) * 0.9);
       overflow-y: auto;
       background: var(--stage);
       border: 1px solid var(--border-strong);
@@ -643,7 +645,8 @@
       padding: 22px;
     }
 
-    .stage-enter { animation: stageReveal 200ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+    /* backwards: al terminar no deja un transform, que haría que los pop ups se ubiquen respecto de este contenedor y no de la pantalla. */
+    .stage-enter { animation: stageReveal 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards; }
     .feedback-enter { animation: bannerSlide 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
     @keyframes tallyBreath { 0%, 100% { opacity: 0.42; } 50% { opacity: 1; } }
@@ -697,6 +700,14 @@
         font-weight: 700;
         border-top-color: var(--signal-subtle-fg);
       }
+      /* En el teléfono los pop ups ocupan casi toda la pantalla. Los avisos breves (modal-centered) miden lo que su contenido. */
+      .modal-backdrop { padding: 12px; }
+      .modal-panel { max-height: calc(var(--app-height, 100vh) - 24px); }
+      .modal-panel > * { flex-shrink: 0; }
+      .modal-backdrop:not(.modal-centered) .modal-panel {
+        height: calc(var(--app-height, 100vh) - 24px);
+        max-width: none !important;
+      }
     }
 
     /* Quita animaciones a quien lo configuró así en su sistema. */
@@ -716,6 +727,19 @@
   <div id="app"></div>
 
   <script>
+    /**
+     * Publica en --app-height el alto real de la pantalla, para los pop ups. No se usa vh porque en el
+     * WebView de Android puede valer 0. Si el navegador todavía no midió, se usa el alto de la pantalla.
+     */
+    function syncAppHeight() {
+      const measured = Math.max(window.innerHeight || 0, window.visualViewport?.height || 0, document.documentElement.clientHeight || 0);
+      const height = measured >= 200 ? measured : (screen.availHeight || screen.height || 600);
+      document.documentElement.style.setProperty('--app-height', height + 'px');
+    }
+    syncAppHeight();
+    window.addEventListener('resize', syncAppHeight);
+    window.visualViewport?.addEventListener('resize', syncAppHeight);
+
     // Configuración pública generada por el servidor (/app-config.js); se vuelve a leer al guardar Ajustes.
     let APP_CONFIG = window.__CS_CONFIG__ || {};
     // Tipos de contenido de un bloque y su nombre visible.
@@ -4420,6 +4444,7 @@
      * Muestra la invitación, la pantalla de acceso o la aplicación, según corresponda.
      */
     function render() {
+      syncAppHeight();
       const root = document.getElementById('app');
       const bannerKey = state.banner ? state.banner.msg : null;
       motionState.animateBanner = Boolean(bannerKey && bannerKey !== motionState.lastBanner);

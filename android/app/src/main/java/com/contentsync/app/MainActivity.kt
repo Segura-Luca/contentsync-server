@@ -12,6 +12,7 @@ import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
@@ -124,6 +125,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         WebView(context).apply {
+                            // Sin un alto explícito, el WebView puede calcular vh como 0 y los pop ups quedan sin altura.
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
                             webViewRef = this
                             setBackgroundColor(AndroidColor.parseColor("#0B0C0E"))
 

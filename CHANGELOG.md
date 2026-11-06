@@ -2,6 +2,11 @@
 
 Todos los cambios relevantes de este proyecto se documentan en este archivo siguiendo [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y [Semantic Versioning (SemVer)](https://semver.org/lang/es/).
 
+## [Sin publicar]
+
+### Fixed
+- **Pop ups en la app Android:** quedaban con menos de 1 cm de alto. Ahora ocupan casi toda la pantalla en el teléfono.
+
 ## [2.0.0] - 2026-11-06
 
 ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunicación, revisiones y cronogramas. Ya no publica en redes.
