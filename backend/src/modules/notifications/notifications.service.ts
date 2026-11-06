@@ -64,6 +64,14 @@ export class NotificationsService {
     return { id, isRead: true };
   }
 
+  async markAllAsRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
+    return { isRead: true };
+  }
+
   async updateFcmToken(userId: string, fcmToken: string) {
     await this.prisma.user.update({
       where: { id: userId },

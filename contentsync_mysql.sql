@@ -156,6 +156,7 @@ CREATE TABLE `schedule_items` (
     `caption` TEXT NULL,
     `planned_time` VARCHAR(10) NOT NULL DEFAULT '18:00',
     `review_status` ENUM('IN_REVIEW', 'CHANGES_REQUESTED', 'REJECTED', 'APPROVED') NOT NULL DEFAULT 'IN_REVIEW',
+    `production_status` ENUM('PENDING', 'RECORDED', 'EDITED', 'UPLOADED') NOT NULL DEFAULT 'PENDING',
     `sort_order` INTEGER NOT NULL DEFAULT 0,
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updated_at` DATETIME(3) NOT NULL,
@@ -205,24 +206,6 @@ CREATE TABLE `block_comments` (
 
     INDEX `block_comments_schedule_item_id_created_at_idx`(`schedule_item_id`, `created_at`),
     INDEX `block_comments_author_user_id_idx`(`author_user_id`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- CreateTable
-CREATE TABLE `schedule_duplication_logs` (
-    `id` VARCHAR(36) NOT NULL,
-    `agency_id` VARCHAR(36) NOT NULL,
-    `client_id` VARCHAR(36) NOT NULL,
-    `source_schedule_id` VARCHAR(36) NOT NULL,
-    `target_schedule_id` VARCHAR(36) NOT NULL,
-    `duplicated_by_user_id` VARCHAR(36) NOT NULL,
-    `blocks_copied_count` INTEGER NOT NULL,
-    `include_media` BOOLEAN NOT NULL DEFAULT false,
-    `notes` VARCHAR(500) NULL,
-    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-
-    INDEX `schedule_duplication_logs_agency_id_created_at_idx`(`agency_id`, `created_at`),
-    INDEX `schedule_duplication_logs_client_id_created_at_idx`(`client_id`, `created_at`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -353,21 +336,6 @@ ALTER TABLE `block_comments` ADD CONSTRAINT `block_comments_schedule_item_id_fke
 ALTER TABLE `block_comments` ADD CONSTRAINT `block_comments_author_user_id_fkey` FOREIGN KEY (`author_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE `schedule_duplication_logs` ADD CONSTRAINT `schedule_duplication_logs_agency_id_fkey` FOREIGN KEY (`agency_id`) REFERENCES `agencies`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `schedule_duplication_logs` ADD CONSTRAINT `schedule_duplication_logs_client_id_fkey` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `schedule_duplication_logs` ADD CONSTRAINT `schedule_duplication_logs_source_schedule_id_fkey` FOREIGN KEY (`source_schedule_id`) REFERENCES `schedules`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `schedule_duplication_logs` ADD CONSTRAINT `schedule_duplication_logs_target_schedule_id_fkey` FOREIGN KEY (`target_schedule_id`) REFERENCES `schedules`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE `schedule_duplication_logs` ADD CONSTRAINT `schedule_duplication_logs_duplicated_by_user_id_fkey` FOREIGN KEY (`duplicated_by_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE `content_idea_sections` ADD CONSTRAINT `content_idea_sections_agency_id_fkey` FOREIGN KEY (`agency_id`) REFERENCES `agencies`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -404,7 +372,8 @@ CREATE TABLE `_prisma_migrations` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT INTO `_prisma_migrations` (`id`, `checksum`, `finished_at`, `migration_name`, `logs`, `rolled_back_at`, `started_at`, `applied_steps_count`) VALUES
-('8b0598b5-77e4-486c-8acd-ecaef73a5534','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
-('4fa08984-13c6-4d48-a4d2-a061d0db226d','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
-('4cd10d27-6414-4201-94c0-359bcfce3b31','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
-('0cf83108-a8b3-429a-9ae5-53ca37b1dc54','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1);
+('3d484284-40f5-4a76-a9e4-710a0c9f97a1','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
+('2587d88c-a2dd-444c-b135-b2d392ea840b','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
+('b4d1177f-313b-408b-ac44-aeec874d9470','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
+('70314e7d-29a8-4f94-8470-972911a1c02a','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1),
+('89cf535e-1648-4adc-9b3f-4a8faa729f56','b3ae151566a1c050394465b3efa02ed58ac4e1fa30a92a18d6d8ce1db2be158a',NOW(3),'20261106120000_week_status_and_cleanup',NULL,NULL,NOW(3),1);

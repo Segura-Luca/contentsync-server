@@ -44,8 +44,6 @@ erDiagram
     USERS ||--o{ BLOCK_REVIEWS : "decide"
     USERS ||--o{ BLOCK_COMMENTS : "escribe"
     USERS ||--o{ SCHEDULES : "confirma"
-    AGENCIES ||--o{ SCHEDULE_DUPLICATION_LOGS : "registra"
-    SCHEDULES ||--o{ SCHEDULE_DUPLICATION_LOGS : "origen o destino"
     AGENCIES ||--o{ CONTENT_IDEA_SECTIONS : "organiza"
     CONTENT_IDEA_SECTIONS ||--o{ CONTENT_IDEAS : "agrupa"
     CLIENTS |o--o{ CONTENT_IDEAS : "referencia"
@@ -115,6 +113,7 @@ erDiagram
         varchar planned_time
         varchar note_color
         enum review_status "IN_REVIEW | CHANGES_REQUESTED | REJECTED | APPROVED"
+        enum production_status "PENDING | RECORDED | EDITED | UPLOADED"
     }
 
     SCHEDULE_ITEM_MEDIA {
@@ -155,4 +154,4 @@ erDiagram
     }
 ```
 
-Las tablas `auth_sessions`, `social_auth_accounts`, `schedule_duplication_logs`, `content_idea_sections`, `content_ideas`, `audit_logs` y `app_settings` se omiten en el detalle de columnas. Su definición completa está en [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma).
+Las tablas `auth_sessions`, `social_auth_accounts`, `content_idea_sections`, `content_ideas`, `audit_logs` y `app_settings` se omiten en el detalle de columnas. Su definición completa está en [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma).

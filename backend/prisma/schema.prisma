@@ -61,6 +61,13 @@ enum BlockReviewStatus {
   APPROVED
 }
 
+enum ProductionStatus {
+  PENDING
+  RECORDED
+  EDITED
+  UPLOADED
+}
+
 enum ApprovalDecision {
   APPROVED
   CHANGES_REQUESTED
@@ -121,7 +128,6 @@ model User {
   ownedAgency         Agency?                  @relation("AgencyOwner")
   clientProfile       Client?                  @relation("ClientUser")
   createdSchedules    Schedule[]               @relation("ScheduleCreator")
-  duplicatedSchedules ScheduleDuplicationLog[] @relation("DuplicationActor")
   createdIdeas        ContentIdea[]            @relation("IdeaCreator")
   blockReviews        BlockReview[]
   blockComments       BlockComment[]
@@ -189,7 +195,6 @@ model Agency {
 
   ownerUser       User                     @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   clients         Client[]
-  duplicationLogs ScheduleDuplicationLog[]
   ideaSections    ContentIdeaSection[]
   contentIdeas    ContentIdea[]
 
@@ -217,7 +222,6 @@ model Client {
   agency              Agency                   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
   user                User                     @relation("ClientUser", fields: [userId], references: [id], onDelete: Restrict)
   schedules           Schedule[]
-  duplicationLogs     ScheduleDuplicationLog[]
   contentIdeas        ContentIdea[]
 
   @@index([agencyId])
@@ -252,8 +256,6 @@ model Schedule {
   duplicatedFrom       Schedule?                @relation("ScheduleCloneChain", fields: [duplicatedFromId], references: [id], onDelete: SetNull)
   duplicatedChildren   Schedule[]               @relation("ScheduleCloneChain")
   items                ScheduleItem[]
-  duplicationsAsSource ScheduleDuplicationLog[] @relation("DuplicationSource")
-  duplicationsAsTarget ScheduleDuplicationLog[] @relation("DuplicationTarget")
 
   @@unique([clientId, weekStartDate])
   @@index([clientId, weekStartDate])
@@ -273,6 +275,7 @@ model ScheduleItem {
   caption      String?           @db.Text
   plannedTime  String            @default("18:00") @map("planned_time") @db.VarChar(10)
   reviewStatus BlockReviewStatus @default(IN_REVIEW) @map("review_status")
+  productionStatus ProductionStatus @default(PENDING) @map("production_status")
   sortOrder    Int               @default(0) @map("sort_order")
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
@@ -333,29 +336,6 @@ model BlockComment {
   @@index([scheduleItemId, createdAt])
   @@index([authorUserId])
   @@map("block_comments")
-}
-
-model ScheduleDuplicationLog {
-  id                 String   @id @default(uuid()) @db.VarChar(36)
-  agencyId           String   @map("agency_id") @db.VarChar(36)
-  clientId           String   @map("client_id") @db.VarChar(36)
-  sourceScheduleId   String   @map("source_schedule_id") @db.VarChar(36)
-  targetScheduleId   String   @map("target_schedule_id") @db.VarChar(36)
-  duplicatedByUserId String   @map("duplicated_by_user_id") @db.VarChar(36)
-  blocksCopiedCount  Int      @map("blocks_copied_count")
-  includeMedia       Boolean  @default(false) @map("include_media")
-  notes              String?  @db.VarChar(500)
-  createdAt          DateTime @default(now()) @map("created_at")
-
-  agency           Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
-  client           Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sourceSchedule   Schedule @relation("DuplicationSource", fields: [sourceScheduleId], references: [id], onDelete: Cascade)
-  targetSchedule   Schedule @relation("DuplicationTarget", fields: [targetScheduleId], references: [id], onDelete: Cascade)
-  duplicatedByUser User     @relation("DuplicationActor", fields: [duplicatedByUserId], references: [id], onDelete: Restrict)
-
-  @@index([agencyId, createdAt])
-  @@index([clientId, createdAt])
-  @@map("schedule_duplication_logs")
 }
 
 // ----------------------------------------------------------------------------

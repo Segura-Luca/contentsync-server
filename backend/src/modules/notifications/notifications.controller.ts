@@ -24,6 +24,12 @@ export class NotificationsController {
     return this.notificationsService.listForUser(user.sub);
   }
 
+  @Patch('read-all')
+  @ApiOperation({ summary: 'Marcar todas las notificaciones como leídas' })
+  markAllRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationsService.markAllAsRead(user.sub);
+  }
+
   @Patch(':id/read')
   @ApiOperation({ summary: 'Marcar notificación como leída' })
   markRead(

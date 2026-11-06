@@ -7,6 +7,7 @@ import {
   ClientConfirmationStatus,
   ContentType,
   PrismaClient,
+  ProductionStatus,
   RoleCode,
   ScheduleStatus,
 } from '@prisma/client';
@@ -285,9 +286,9 @@ async function main() {
   await seedAgencyIdeas(lucasAgency.id, lucasUser.id, ambarClient.id);
   await seedAgencyIdeas(agency2.id, agency2Owner.id, createdClients[2].id);
 
-  // 6. Plan Semanal Lunes a Viernes con Bloques de Colores para Kafecito y para Ámbar
+  // 6. Cronograma de lunes a domingo con bloques de colores para Kafecito y para Ámbar
   const weekStart = new Date('2026-10-26T00:00:00.000Z'); // Lunes
-  const weekEnd = new Date('2026-10-30T23:59:59.000Z'); // Viernes
+  const weekEnd = new Date('2026-11-01T00:00:00.000Z'); // Domingo
 
   for (const target of [
     { client: kafecitoClient, ownerId: agency1Owner.id, label: 'Kafecito' },
@@ -307,7 +308,7 @@ async function main() {
         weekStartDate: weekStart,
         weekEndDate: weekEnd,
         title: `Especial Primavera (${target.label})`,
-        summaryNotes: 'Contenido de la semana organizado de lunes a viernes.',
+        summaryNotes: 'Contenido de la semana organizado de lunes a domingo.',
         status: ScheduleStatus.IN_REVIEW,
       },
     });
@@ -324,6 +325,7 @@ async function main() {
           caption: '¿Sabías que la molienda cambia todo? Te mostramos la ideal para prensa francesa.',
           plannedTime: '11:00',
           reviewStatus: BlockReviewStatus.APPROVED,
+          productionStatus: ProductionStatus.UPLOADED,
           sortOrder: 0,
         },
         {
@@ -346,6 +348,7 @@ async function main() {
           caption: 'Tu Cold Brew en casa, en cinco pasos. Guardá este posteo para probarlo.',
           plannedTime: '18:00',
           reviewStatus: BlockReviewStatus.CHANGES_REQUESTED,
+          productionStatus: ProductionStatus.EDITED,
           sortOrder: 0,
         },
         {

@@ -16,10 +16,11 @@ export class CreateIdeaSectionDto {
   @MaxLength(100)
   name!: string;
 
-  @ApiPropertyOptional({ example: 'ROSE' })
+  @ApiPropertyOptional({ example: '#E85D75' })
   @IsOptional()
   @IsString()
   @MaxLength(30)
+  @Matches(/^(#[0-9a-fA-F]{6}|[A-Za-z]+)$/, { message: 'Elegí un color válido.' })
   color?: string;
 
   @ApiPropertyOptional()

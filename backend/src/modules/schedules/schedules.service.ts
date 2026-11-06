@@ -234,6 +234,7 @@ export class SchedulesService {
           noteColor: (dto.noteColor || 'AMBER').trim().toUpperCase(),
           notes: dto.notes?.trim() || null,
           caption: dto.caption?.trim() || null,
+          productionStatus: dto.productionStatus,
           plannedTime: dto.plannedTime || '18:00',
           sortOrder,
           media: { create: media },
@@ -267,7 +268,8 @@ export class SchedulesService {
   }
 
   /**
-   * Si cambia algo que el cliente ve, el bloque vuelve a revisión. El color es solo de organización interna.
+   * Si cambia algo que el cliente aprueba, el bloque vuelve a revisión. El color y el estado de producción
+   * no cuentan: son el avance del trabajo, no el contenido.
    */
   async updateBlock(blockId: string, dto: UpdateScheduleBlockDto, user: AuthenticatedUser) {
     this.assertCanEdit(user);
@@ -306,6 +308,7 @@ export class SchedulesService {
         data: {
           ...next,
           noteColor: dto.noteColor?.trim().toUpperCase() ?? existing.noteColor,
+          productionStatus: dto.productionStatus ?? existing.productionStatus,
           ...(contentChanged ? { reviewStatus: BlockReviewStatus.IN_REVIEW } : {}),
         },
         include: blockInclude,
@@ -360,8 +363,8 @@ export class SchedulesService {
   }
 
   /**
-   * Duplica una semana completa dejando registro en `schedule_duplication_logs`.
-   * Los bloques copiados vuelven a revisión: el cliente no aprobó esta semana.
+   * Duplica una semana completa. Los bloques copiados vuelven a revisión y a estado pendiente:
+   * el cliente no aprobó esta semana ni se produjo todavía.
    */
   async duplicateSchedule(sourceScheduleId: string, dto: DuplicateScheduleDto, user: AuthenticatedUser) {
     this.assertCanEdit(user);
@@ -383,7 +386,7 @@ export class SchedulesService {
 
     const targetStart = new Date(dto.targetWeekStartDate);
     this.assertMonday(targetStart);
-    const targetEnd = new Date(targetStart.getTime() + 4 * 24 * 60 * 60 * 1000);
+    const targetEnd = new Date(targetStart.getTime() + 6 * 24 * 60 * 60 * 1000);
 
     const clash = await this.prisma.schedule.findUnique({
       where: { clientId_weekStartDate: { clientId: source.clientId, weekStartDate: targetStart } },
@@ -396,7 +399,7 @@ export class SchedulesService {
     const newTitle = dto.title?.trim() || `${source.title} (Duplicada)`;
 
     // Todo o nada: una falla a mitad de camino no debe dejar una semana copiada a medias.
-    const { createdTarget, duplicationLog } = await this.prisma.$transaction(async (tx) => {
+    const createdTarget = await this.prisma.$transaction(async (tx) => {
       const createdTarget = await tx.schedule.create({
         data: {
           clientId: source.clientId,
@@ -439,26 +442,7 @@ export class SchedulesService {
         });
       }
 
-      const duplicationLog = await tx.scheduleDuplicationLog.create({
-        data: {
-          agencyId: source.client.agencyId,
-          clientId: source.clientId,
-          sourceScheduleId: source.id,
-          targetScheduleId: createdTarget.id,
-          duplicatedByUserId: user.sub,
-          blocksCopiedCount: source.items.length,
-          includeMedia,
-          notes: dto.notes?.trim() || `Duplicación de "${source.title}" con ${source.items.length} bloques.`,
-        },
-        include: {
-          sourceSchedule: { select: { id: true, title: true, weekStartDate: true, weekEndDate: true } },
-          targetSchedule: { select: { id: true, title: true, weekStartDate: true, weekEndDate: true } },
-          client: { select: { id: true, companyName: true } },
-          duplicatedByUser: { select: { id: true, fullName: true } },
-        },
-      });
-
-      return { createdTarget, duplicationLog };
+      return createdTarget;
     });
 
     await this.notificationsService.notifyUser({
@@ -482,37 +466,7 @@ export class SchedulesService {
       include: scheduleInclude,
     });
 
-    return { schedule: await this.withMediaUrls(fullSchedule), duplicationLog };
-  }
-
-  /** Lista el registro de semanas duplicadas según permisos del usuario. */
-  async listDuplicationLogs(user: AuthenticatedUser, clientIdFilter?: string) {
-    if (clientIdFilter) {
-      await this.clientsService.assertClientAccess(clientIdFilter, user);
-    }
-
-    const where: Record<string, unknown> = { client: { deletedAt: null } };
-    if (clientIdFilter) {
-      where.clientId = clientIdFilter;
-    } else if (user.role === RoleCode.AGENCIA) {
-      if (!user.agencyId) return [];
-      where.agencyId = user.agencyId;
-    } else if (user.role === RoleCode.CLIENTE) {
-      if (!user.clientId) return [];
-      where.clientId = user.clientId;
-    }
-
-    return this.prisma.scheduleDuplicationLog.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: {
-        sourceSchedule: { select: { id: true, title: true, weekStartDate: true, weekEndDate: true } },
-        targetSchedule: { select: { id: true, title: true, weekStartDate: true, weekEndDate: true } },
-        client: { select: { id: true, companyName: true } },
-        duplicatedByUser: { select: { id: true, fullName: true } },
-      },
-    });
+    return { schedule: await this.withMediaUrls(fullSchedule) };
   }
 
   async listSchedules(user: AuthenticatedUser, clientIdFilter?: string) {

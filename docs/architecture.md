@@ -31,16 +31,17 @@ flowchart LR
 
 ## 2. Flujo de trabajo
 
-1. **La agencia crea el cronograma** de una semana (lunes a viernes) para un cliente que confirmó "Sí, soy yo".
+1. **La agencia crea el cronograma** de una semana (lunes a domingo) para un cliente que confirmó "Sí, soy yo".
 2. **Agrega bloques de contenido.** Cada bloque tiene:
    - Tipo: reel, carrusel, historia, publicación, video u otro.
    - Título, contenido (de qué trata), texto de la publicación, día y hora prevista.
+   - Estado de producción: pendiente, grabado, editado o subido.
    - Hasta 20 fotos o videos, cada uno con su descripción y en el orden elegido.
 3. **El cliente revisa** cada bloque: lo aprueba, pide cambios o lo rechaza. Pedir cambios o rechazar exige un comentario.
 4. **Ambos conversan** con comentarios en cada bloque. Cada comentario le avisa a la otra parte.
 5. **El cliente confirma el cronograma.** No se puede con cambios pendientes; lo que siga en revisión queda aprobado. Se registra quién y cuándo.
 
-**Lo aprobado no se desactualiza en silencio:** si la agencia cambia algo que el cliente ve, el bloque vuelve a revisión y una semana confirmada se reabre. El color del bloque no cuenta, porque es solo de organización.
+**Lo aprobado no se desactualiza en silencio:** si la agencia cambia algo que el cliente ve, el bloque vuelve a revisión y una semana confirmada se reabre. El color y el estado de producción no cuentan, porque son el avance del trabajo.
 
 ## 3. Arquitectura en Android (WebView)
 

@@ -2,7 +2,7 @@
 
 **ContentSync** conecta a agencias de marketing con sus clientes para comunicarse, pedir revisiones, confirmar cronogramas y tener todo organizado. Incluye una **web**, una **app Android en Kotlin con WebView** y un **backend en NestJS con MySQL en 3FN**.
 
-La agencia arma el cronograma de la semana con bloques de contenido: cada uno dice qué es (reel, carrusel, historia, publicación, video u otro), de qué trata y lleva sus fotos o videos, cada uno con su descripción. El cliente los ve dentro de la plataforma, comenta, aprueba o pide cambios, y confirma la semana.
+La agencia arma el cronograma de la semana con bloques de contenido: cada uno dice qué es (reel, carrusel, historia, publicación, video u otro), de qué trata, en qué estado está (pendiente, grabado, editado o subido) y lleva sus fotos o videos, cada uno con su descripción. El cliente los ve dentro de la plataforma, comenta, aprueba o pide cambios, y confirma la semana.
 
 ContentSync **no publica en redes sociales**: la agencia publica por su cuenta lo que el cliente aprobó.
 

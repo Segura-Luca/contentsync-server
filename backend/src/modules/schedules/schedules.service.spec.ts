@@ -5,6 +5,7 @@ import {
   ContentType,
   MediaKind,
   NotificationType,
+  ProductionStatus,
   RoleCode,
   ScheduleStatus,
 } from '@prisma/client';
@@ -154,6 +155,19 @@ describe('SchedulesService (cronogramas, revisión y confirmación)', () => {
 
       expect(tx.scheduleItem.update.mock.calls[0][0].data.reviewStatus).toBeUndefined();
       expect(tx.scheduleItem.update.mock.calls[0][0].data.noteColor).toBe('ROSE');
+      expect(mockNotifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('cambiar el estado de producción no pide otra revisión', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(
+        block({ reviewStatus: BlockReviewStatus.APPROVED, productionStatus: ProductionStatus.PENDING }),
+      );
+
+      await service.updateBlock('b1', { productionStatus: ProductionStatus.RECORDED }, agencyUser);
+
+      const data = tx.scheduleItem.update.mock.calls[0][0].data;
+      expect(data.productionStatus).toBe(ProductionStatus.RECORDED);
+      expect(data.reviewStatus).toBeUndefined();
       expect(mockNotifications.notifyUser).not.toHaveBeenCalled();
     });
 

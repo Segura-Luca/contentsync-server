@@ -17,7 +17,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { ApprovalDecision, ContentType } from '@prisma/client';
+import { ApprovalDecision, ContentType, ProductionStatus } from '@prisma/client';
 
 export const MAX_MEDIA_PER_BLOCK = 20;
 
@@ -73,10 +73,10 @@ export class BlockMediaInputDto {
 }
 
 export class CreateScheduleBlockDto {
-  @ApiProperty({ example: 1, description: 'Día de la semana: 1 (Lunes) a 5 (Viernes)' })
+  @ApiProperty({ example: 1, description: 'Día de la semana: 1 (lunes) a 7 (domingo)' })
   @IsInt()
   @Min(1)
-  @Max(5)
+  @Max(7)
   dayOfWeek!: number;
 
   @ApiProperty({ enum: ContentType, example: ContentType.REEL })
@@ -105,6 +105,11 @@ export class CreateScheduleBlockDto {
   @IsString()
   caption?: string;
 
+  @ApiPropertyOptional({ enum: ProductionStatus })
+  @IsOptional()
+  @IsEnum(ProductionStatus)
+  productionStatus?: ProductionStatus;
+
   @ApiPropertyOptional({ example: '18:30' })
   @IsOptional()
   @IsString()
@@ -125,13 +130,18 @@ export class UpdateScheduleBlockDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(5)
+  @Max(7)
   dayOfWeek?: number;
 
   @ApiPropertyOptional({ enum: ContentType })
   @IsOptional()
   @IsEnum(ContentType)
   contentType?: ContentType;
+
+  @ApiPropertyOptional({ enum: ProductionStatus })
+  @IsOptional()
+  @IsEnum(ProductionStatus)
+  productionStatus?: ProductionStatus;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -187,11 +197,6 @@ export class DuplicateScheduleDto {
   @IsBoolean()
   includeMedia?: boolean;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  notes?: string;
 }
 
 export class ReviewBlockDto {

@@ -10,21 +10,27 @@ ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunica
 - **Tipo de contenido por bloque:** reel, carrusel, historia, publicación, video u otro, con contenido y texto de la publicación.
 - **Varias fotos y videos por bloque,** cada uno con su descripción y en el orden elegido, para que el cliente los vea desde la plataforma.
 - **Confirmación del cronograma:** el cliente confirma la semana y queda registrado quién y cuándo. Si después cambia algo, vuelve a revisión.
+- **Estado de producción por bloque:** pendiente, grabado, editado o subido.
+- **Colores propios en Ideas:** cada agencia elige un color y le pone nombre.
 - **Comentarios con aviso a la otra parte,** y botón **Ver** en los avisos para ir directo al bloque.
 
 ### Changed
 - **Mensaje de la web y la app:** el producto se presenta como comunicación entre agencias y clientes.
 - **Revisión:** ahora se hace por bloque, no por video.
 - **Archivos privados:** se ven con enlaces firmados que vencen a las 12 horas, así que el bucket puede ser privado.
-- **Avisos** reemplaza a **Historial**.
+- **Avisos** reemplaza a **Historial**, y se marcan como leídos al abrir la pantalla.
+- **Semanas de lunes a domingo.**
+- **Clientes:** la lista muestra los activos, y los que faltan confirmar van en un panel lateral.
 - **Android:** el selector admite fotos y videos, y varios a la vez.
 
 ### Fixed
 - Reenviar la invitación dejaba inservibles los correos anteriores. Ahora se conserva el enlace mientras siga vigente.
+- Las ventanas volvían arriba al cambiar algo adentro, como quitar un archivo de un bloque.
 
 ### Removed
 - Conexión con YouTube, Instagram y TikTok, publicación automática, programador, reintentos y límites por red.
 - Pantalla **Subir video**, hashtags y destinos por red.
+- Registro de semanas duplicadas y textos de ejemplo en los campos.
 - Cifrado de tokens de redes y la variable `OAUTH_ENCRYPTION_KEY`.
 
 ## [1.1.0] - 2026-11-04

@@ -34,15 +34,8 @@ export class SchedulesController {
     return this.schedulesService.listSchedules(user, clientId);
   }
 
-  @Get('duplication-logs')
-  @ApiOperation({ summary: 'Consultar el registro de semanas duplicadas' })
-  @ApiQuery({ name: 'clientId', required: false })
-  listDuplicationLogs(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
-    return this.schedulesService.listDuplicationLogs(user, clientId);
-  }
-
   @Post()
-  @ApiOperation({ summary: 'Crear un cronograma semanal (lunes a viernes) para un cliente confirmado' })
+  @ApiOperation({ summary: 'Crear un cronograma semanal (lunes a domingo) para un cliente confirmado' })
   create(@Body() dto: CreateScheduleDto, @CurrentUser() user: AuthenticatedUser) {
     return this.schedulesService.createSchedule(dto, user);
   }
