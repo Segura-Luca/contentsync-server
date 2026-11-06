@@ -79,6 +79,12 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(80)
   timezone?: string;
+
+  @ApiPropertyOptional({ example: 'Nova Digital' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  agencyName?: string;
 }
 
 export class VerifyRegistrationCodeDto {

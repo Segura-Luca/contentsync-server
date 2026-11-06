@@ -529,6 +529,22 @@
       justify-content: space-between;
       gap: 28px;
     }
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .auth-tab {
+      padding: 10px 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .auth-tab:hover { color: var(--text-primary); }
+    .auth-tab.active { color: var(--text-primary); border-bottom-color: var(--signal); }
+
     .auth-console-wrap {
       padding: 44px;
       display: flex;
@@ -964,6 +980,7 @@
         fullName: u.fullName || u.email,
         role: u.role,
         agencyId: u.agencyId || null,
+        agencyName: u.agencyName || '',
         clientId: u.clientId || null
       };
     }
@@ -1146,42 +1163,6 @@
       render();
     }
 
-    function areSocialProfileFieldsValid() {
-      return (
-        String(state.authFirstName || '').trim().length >= 2 &&
-        String(state.authLastName || '').trim().length >= 2 &&
-        String(state.authAgencyName || '').trim().length >= 2
-      );
-    }
-
-    function updateSocialGuardState() {
-      const overlay = document.getElementById('social-guard-overlay');
-      const hint = document.getElementById('social-guard-hint');
-      const ok = areSocialProfileFieldsValid();
-      if (overlay) overlay.style.display = ok ? 'none' : 'block';
-      if (hint) {
-        hint.textContent = ok
-          ? '✓ Datos listos: ya podés elegir tu cuenta de Google, Facebook o GitHub.'
-          : 'Completá Nombre, Apellido y Nombre de la agencia arriba para habilitar Google, Facebook o GitHub.';
-        hint.style.color = ok ? 'var(--tally-live)' : 'var(--text-muted)';
-      }
-    }
-
-    function requireSocialProfileFields(providerLabel) {
-      if (areSocialProfileFieldsValid()) return true;
-      setAuthError(
-        `Completá los campos de Nombre, Apellido y Nombre de la agencia antes de seleccionar tu cuenta de ${providerLabel}.`
-      );
-      setTimeout(() => {
-        const el =
-          (!String(state.authFirstName || '').trim() && document.getElementById('auth-first-name')) ||
-          (!String(state.authLastName || '').trim() && document.getElementById('auth-last-name')) ||
-          document.getElementById('auth-agency-name');
-        if (el) el.focus();
-      }, 30);
-      return false;
-    }
-
     async function performLogin(email, password) {
       if (authUi.busy) return;
       email = String(email || '').trim();
@@ -1290,22 +1271,29 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
+    /** Lo único que el proveedor no sabe. Solo se usa si la persona lo escribió al crear la cuenta. */
+    function socialAgencyName() {
+      return isRegisterTab() ? String(state.authAgencyName || '').trim() : '';
+    }
+
+    function isRegisterTab() {
+      return Boolean(state.authRegister) && APP_CONFIG.registrationEnabled !== false;
+    }
+
+    function setAuthTab(register) {
+      state.authRegister = register;
+      authUi.error = '';
+      render();
+    }
+
     async function submitSocialToken(provider, token) {
-      if (!requireSocialProfileFields(provider === 'GOOGLE' ? 'Google' : provider)) return;
-      const firstName = String(state.authFirstName || '').trim();
-      const lastName = String(state.authLastName || '').trim();
-      const agencyName = String(state.authAgencyName || '').trim();
-      const fullName = `${firstName} ${lastName}`.trim();
       authUi.busy = true; authUi.error = ''; render();
       const r = await apiFetch('/auth/social', {
         method: 'POST',
         body: JSON.stringify({
           provider,
           idToken: token,
-          firstName,
-          lastName,
-          fullName,
-          agencyName,
+          agencyName: socialAgencyName() || undefined,
           deviceInfo: 'Web'
         })
       });
@@ -1315,13 +1303,7 @@
 
     function startOAuthRedirect(provider) {
       if (authUi.busy) return;
-      const label = provider === 'facebook' ? 'Facebook' : 'GitHub';
-      if (!requireSocialProfileFields(label)) return;
-      const q = new URLSearchParams({
-        firstName: String(state.authFirstName || '').trim(),
-        lastName: String(state.authLastName || '').trim(),
-        agencyName: String(state.authAgencyName || '').trim()
-      });
+      const q = new URLSearchParams({ agencyName: socialAgencyName() });
       window.location.href = `${API_BASE}/auth/oauth/${provider}?${q.toString()}`;
     }
 
@@ -1379,7 +1361,7 @@
         if (!slot.hasChildNodes()) {
           slot.innerHTML = `
             <button type="button" class="btn btn-outline" style="width:100%;height:42px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;"
-              onclick="if(requireSocialProfileFields('Google')){ window.ContentSyncAndroid.signInWithGoogle(); }">
+              onclick="window.ContentSyncAndroid.signInWithGoogle();">
               <span style="font-weight:800;font-size:15px;color:#4285F4;">G</span>
               <span>Continuar con Google</span>
             </button>
@@ -1392,7 +1374,6 @@
           text: 'continue_with', shape: 'rectangular', locale: 'es', width: 376
         });
       }
-      updateSocialGuardState();
     }
 
     async function requestRecoveryCode() {
@@ -2454,39 +2435,32 @@
     }
 
     function renderLoginRegisterConsole() {
-      const socialReady = areSocialProfileFieldsValid();
+      const registering = isRegisterTab();
+      const submit = registering ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)';
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="mono" style="font-weight:700;font-size:13px;">${state.authRegister ? 'Crear cuenta de Agencia' : 'Iniciar sesión'}</span>
-        </div>
-
-        <div style="background:var(--canvas);border:1px solid var(--hairline);border-radius:5px;padding:12px;display:flex;flex-direction:column;gap:10px;">
-          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.03em;">
-            DATOS DE PERFIL Y AGENCIA (OBLIGATORIOS PARA REGISTRO Y ACCESO SOCIAL)
+        ${APP_CONFIG.registrationEnabled !== false ? `
+          <div role="tablist" aria-label="Acceso" class="auth-tabs">
+            <button role="tab" id="tab-login" aria-selected="${!registering}" class="auth-tab ${registering ? '' : 'active'}" onclick="setAuthTab(false)">Iniciar sesión</button>
+            <button role="tab" id="tab-register" aria-selected="${registering}" class="auth-tab ${registering ? 'active' : ''}" onclick="setAuthTab(true)">Crear cuenta</button>
           </div>
+        ` : `<span class="mono" style="font-weight:700;font-size:13px;">Iniciar sesión</span>`}
+
+        ${registering ? `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
             <div class="field">
-              <label>Nombre</label>
-              <input id="auth-first-name" class="input" value="${esc(state.authFirstName)}"
-                oninput="state.authFirstName=this.value;updateSocialGuardState();" />
+              <label for="auth-first-name">Nombre</label>
+              <input id="auth-first-name" class="input" value="${esc(state.authFirstName)}" oninput="state.authFirstName=this.value" />
             </div>
             <div class="field">
-              <label>Apellido</label>
-              <input id="auth-last-name" class="input" value="${esc(state.authLastName)}"
-                oninput="state.authLastName=this.value;updateSocialGuardState();" />
+              <label for="auth-last-name">Apellido</label>
+              <input id="auth-last-name" class="input" value="${esc(state.authLastName)}" oninput="state.authLastName=this.value" />
             </div>
           </div>
           <div class="field">
-            <label>Nombre de la agencia</label>
-            <input id="auth-agency-name" class="input" value="${esc(state.authAgencyName)}"
-              oninput="state.authAgencyName=this.value;updateSocialGuardState();" />
+            <label for="auth-agency-name">Nombre de la agencia</label>
+            <input id="auth-agency-name" class="input" value="${esc(state.authAgencyName)}" oninput="state.authAgencyName=this.value" />
           </div>
-          <div id="social-guard-hint" style="font-size:11px;line-height:1.35;color:${socialReady ? 'var(--tally-live)' : 'var(--text-muted)'};">
-            ${socialReady
-              ? '✓ Datos listos: ya podés elegir tu cuenta de Google, Facebook o GitHub.'
-              : 'Completá Nombre, Apellido y Nombre de la agencia arriba antes de seleccionar tu cuenta de Google, Facebook o GitHub.'}
-          </div>
-        </div>
+        ` : ''}
 
         <div class="field">
           <label>Correo electrónico</label>
@@ -2494,24 +2468,25 @@
         </div>
 
         <div class="field">
-          <label>Contraseña ${!state.authRegister ? '<span style="font-weight:400;color:var(--text-muted);">(o dejalo vacío si entraste con Google para crear una)</span>' : ''}</label>
+          <label>Contraseña</label>
           <input class="input" type="password"
             value="${esc(state.authPass)}" oninput="state.authPass=this.value"
-            onkeydown="if(event.key==='Enter'){ ${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'} }" />
+            onkeydown="if(event.key==='Enter'){ ${submit} }" />
         </div>
 
         ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
 
         <button class="btn btn-signal" style="width:100%;height:44px;"
-          ${authUi.busy ? 'disabled' : ''} onclick="${state.authRegister ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)'}">
-          ${authUi.busy ? 'Un momento…' : (state.authRegister ? 'Enviar código de 6 dígitos y crear cuenta' : 'Ingresar')}
+          ${authUi.busy ? 'disabled' : ''} onclick="${submit}">
+          ${authUi.busy ? 'Un momento…' : (registering ? 'Crear cuenta' : 'Ingresar')}
         </button>
 
-        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);">
-          <button style="${APP_CONFIG.registrationEnabled === false ? 'display:none;' : ''}" onclick="state.authRegister=!state.authRegister;authUi.error='';render();">${state.authRegister ? '← Ya tengo cuenta' : 'Crear cuenta con email'}</button>
-          <button onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
-          <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
-        </div>
+        ${registering ? '' : `
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);">
+            <button onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
+            <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
+          </div>
+        `}
 
         <div style="display:flex;align-items:center;gap:10px;margin:4px 0 2px;">
           <div style="flex:1;height:1px;background:var(--hairline);"></div>
@@ -2519,13 +2494,7 @@
           <div style="flex:1;height:1px;background:var(--hairline);"></div>
         </div>
 
-        <div style="position:relative;width:100%;min-height:42px;">
-          <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:42px;"></div>
-          <div id="social-guard-overlay"
-            onclick="requireSocialProfileFields('Google')"
-            title="Completá Nombre, Apellido y Nombre de la agencia antes de continuar con Google"
-            style="position:absolute;inset:0;z-index:10;cursor:pointer;display:${socialReady ? 'none' : 'block'};background:transparent;"></div>
-        </div>
+        <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:42px;"></div>
 
         <button id="facebook-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#1877F2;border:1px solid #1877F2;color:#ffffff;font-weight:600;font-size:13px;border-radius:4px;"
           onclick="startOAuthRedirect('facebook')">
@@ -3924,10 +3893,14 @@
 
     async function saveProfile() {
       const fullName = (document.getElementById('pf-name')?.value || '').trim();
+      const agencyField = document.getElementById('pf-agency');
+      const agencyName = agencyField ? agencyField.value.trim() : undefined;
       if (!fullName) { setBanner('Ingresá tu nombre.', true); return; }
-      const r = await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName }) });
+      if (agencyField && !agencyName) { setBanner('Ingresá el nombre de tu agencia.', true); return; }
+      const r = await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName, agencyName }) });
       if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
       state.session.fullName = r.data.fullName;
+      if (agencyField) state.session.agencyName = r.data.agencyName || agencyName;
       setBanner('Perfil actualizado.');
     }
 
@@ -4105,6 +4078,12 @@
               <label>Nombre visible</label>
               <input id="pf-name" class="input" value="${esc(s.fullName)}" maxlength="150" />
             </div>
+            ${s.role === 'AGENCIA' ? `
+              <div class="field">
+                <label for="pf-agency">Nombre de la agencia</label>
+                <input id="pf-agency" class="input" value="${esc(s.agencyName)}" maxlength="150" />
+              </div>
+            ` : ''}
             <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar perfil</button>
           </div>
 

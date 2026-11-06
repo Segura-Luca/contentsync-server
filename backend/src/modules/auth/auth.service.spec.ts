@@ -218,6 +218,20 @@ describe('AuthService & RolesGuard', () => {
       emailVerified: true,
     };
 
+    it('crea la cuenta con el nombre del proveedor, sin pedir datos', async () => {
+      mockVerifier.verify.mockResolvedValueOnce({ ...verifiedIdentity, fullName: 'Ana Gómez' });
+      mockPrisma.socialAuthAccount.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+      tx.user.create.mockResolvedValueOnce({ id: 'user-1' });
+      tx.user.findUniqueOrThrow.mockResolvedValueOnce(baseUser);
+      mockPrisma.socialAuthAccount.create.mockResolvedValueOnce({ id: 'link-1' });
+
+      await authService.socialLogin({ provider: SocialProvider.GOOGLE, idToken: 'valid_google_id_token_123456789' });
+
+      expect(tx.user.create.mock.calls[0][0].data.fullName).toBe('Ana Gómez');
+      expect(tx.agency.create.mock.calls[0][0].data.name).toBe('Agencia de Ana');
+    });
+
     it('vincula por correo sin duplicar al usuario', async () => {
       mockVerifier.verify.mockResolvedValueOnce(verifiedIdentity);
       mockPrisma.socialAuthAccount.findUnique.mockResolvedValueOnce(null);

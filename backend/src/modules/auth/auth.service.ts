@@ -44,6 +44,7 @@ export interface AuthTokensResponse {
     timezone: string;
     emailVerified: boolean;
     agencyId: string | null;
+    agencyName: string | null;
     clientId: string | null;
   };
 }
@@ -486,16 +487,12 @@ export class AuthService {
       if (!settings.registrationEnabled) {
         throw new ForbiddenException('El registro de nuevas agencias está deshabilitado.');
       }
+      // El proveedor ya sabe cómo se llama: no se le vuelve a preguntar. La agencia se puede renombrar en Ajustes.
       const customFullName =
         params.firstName?.trim() && params.lastName?.trim()
           ? `${params.firstName.trim()} ${params.lastName.trim()}`
-          : params.fullName?.trim() || '';
-      const customAgencyName = params.agencyName?.trim() || '';
-      if (!customFullName || !customAgencyName) {
-        throw new BadRequestException(
-          'Completá los campos de Nombre, Apellido y Nombre de la agencia antes de continuar.',
-        );
-      }
+          : params.fullName?.trim() || identity.fullName.trim() || normalizedEmail.split('@')[0];
+      const customAgencyName = params.agencyName?.trim() || `Agencia de ${customFullName.split(' ')[0]}`;
 
       const defaultRole = await this.ensureRoleExists(RoleCode.AGENCIA);
       const taxId = `AG-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -746,16 +743,28 @@ export class AuthService {
     return { message: 'Sesión cerrada.' };
   }
 
-  /** Perfil propio editable: nombre visible y zona horaria. */
+  /** Perfil propio editable: nombre visible, zona horaria y el nombre de la agencia de la que es dueño. */
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.timezone && !isValidTimeZone(dto.timezone)) {
       throw new BadRequestException('Zona horaria desconocida.');
     }
+    const agencyName = dto.agencyName?.trim();
+    if (agencyName) {
+      // updateMany: quien no es dueño de una agencia, como un cliente, no cambia nada.
+      await this.prisma.agency.updateMany({ where: { ownerUserId: userId }, data: { name: agencyName } });
+    }
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { fullName: dto.fullName?.trim(), timezone: dto.timezone },
+      include: { ownedAgency: { select: { name: true } } },
     });
-    return { id: user.id, email: user.email, fullName: user.fullName, timezone: user.timezone };
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      timezone: user.timezone,
+      agencyName: user.ownedAgency?.name ?? null,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -851,7 +860,7 @@ export class AuthService {
       timezone: string;
       emailVerified: boolean;
       role: { code: RoleCode };
-      ownedAgency?: { id: string } | null;
+      ownedAgency?: { id: string; name?: string } | null;
       clientProfile?: { id: string; agencyId: string } | null;
     },
     deviceInfo?: string,
@@ -907,6 +916,7 @@ export class AuthService {
         timezone: user.timezone,
         emailVerified: user.emailVerified,
         agencyId,
+        agencyName: user.ownedAgency?.name ?? null,
         clientId,
       },
     };
