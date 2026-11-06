@@ -1,9 +1,13 @@
+-- Script para crear la base completa de una vez (por ejemplo, importándolo en MySQL Workbench).
+-- Equivale a aplicar todas las migraciones. Contiene solo estructura, sin datos de usuarios.
+-- Si se modifica el esquema, este archivo debe actualizarse también.
 -- ContentSync: esquema MySQL 8+ y control de migraciones. Sin datos de usuarios.
 -- Datos de demostracion: npm run prisma:seed (requiere SEED_DEFAULT_PASSWORD).
 CREATE DATABASE IF NOT EXISTS `contentsync` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `contentsync`;
 
 -- CreateTable
+-- Catálogo de roles: ADMIN_GENERAL, AGENCIA y CLIENTE.
 CREATE TABLE `roles` (
     `id` VARCHAR(36) NOT NULL,
     `code` ENUM('ADMIN_GENERAL', 'AGENCIA', 'CLIENTE') NOT NULL,
@@ -16,6 +20,7 @@ CREATE TABLE `roles` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Cuentas de usuario. Guarda hashes de contraseñas y códigos, nunca los valores reales.
 CREATE TABLE `users` (
     `id` VARCHAR(36) NOT NULL,
     `role_id` VARCHAR(36) NOT NULL,
@@ -44,6 +49,7 @@ CREATE TABLE `users` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Sesiones abiertas: un hash del refresh token por dispositivo, agrupados por familia.
 CREATE TABLE `auth_sessions` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
@@ -62,6 +68,7 @@ CREATE TABLE `auth_sessions` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Vínculos de una cuenta con Google, Facebook o GitHub.
 CREATE TABLE `social_auth_accounts` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
@@ -77,6 +84,7 @@ CREATE TABLE `social_auth_accounts` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Agencias de marketing. Cada una tiene un usuario propietario.
 CREATE TABLE `agencies` (
     `id` VARCHAR(36) NOT NULL,
     `owner_user_id` VARCHAR(36) NOT NULL,
@@ -97,6 +105,7 @@ CREATE TABLE `agencies` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Clientes (marcas) de una agencia, con su estado de confirmación "Sí, soy yo".
 CREATE TABLE `clients` (
     `id` VARCHAR(36) NOT NULL,
     `agency_id` VARCHAR(36) NOT NULL,
@@ -123,6 +132,7 @@ CREATE TABLE `clients` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Cronogramas semanales: uno por cliente y por lunes.
 CREATE TABLE `schedules` (
     `id` VARCHAR(36) NOT NULL,
     `client_id` VARCHAR(36) NOT NULL,
@@ -146,6 +156,7 @@ CREATE TABLE `schedules` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Bloques de contenido de cada cronograma.
 CREATE TABLE `schedule_items` (
     `id` VARCHAR(36) NOT NULL,
     `schedule_id` VARCHAR(36) NOT NULL,
@@ -167,6 +178,7 @@ CREATE TABLE `schedule_items` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Fotos y videos de cada bloque, en el orden elegido.
 CREATE TABLE `schedule_item_media` (
     `id` VARCHAR(36) NOT NULL,
     `schedule_item_id` VARCHAR(36) NOT NULL,
@@ -184,6 +196,7 @@ CREATE TABLE `schedule_item_media` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Historial de decisiones del cliente sobre cada bloque.
 CREATE TABLE `block_reviews` (
     `id` VARCHAR(36) NOT NULL,
     `schedule_item_id` VARCHAR(36) NOT NULL,
@@ -198,6 +211,7 @@ CREATE TABLE `block_reviews` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Conversación entre agencia y cliente en cada bloque.
 CREATE TABLE `block_comments` (
     `id` VARCHAR(36) NOT NULL,
     `schedule_item_id` VARCHAR(36) NOT NULL,
@@ -211,6 +225,7 @@ CREATE TABLE `block_comments` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Secciones del banco de ideas de cada agencia.
 CREATE TABLE `content_idea_sections` (
     `id` VARCHAR(36) NOT NULL,
     `agency_id` VARCHAR(36) NOT NULL,
@@ -226,6 +241,7 @@ CREATE TABLE `content_idea_sections` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Ideas de contenido privadas de la agencia.
 CREATE TABLE `content_ideas` (
     `id` VARCHAR(36) NOT NULL,
     `agency_id` VARCHAR(36) NOT NULL,
@@ -246,6 +262,7 @@ CREATE TABLE `content_ideas` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Ideas que los clientes le proponen a su agencia.
 CREATE TABLE `client_idea_proposals` (
     `id` VARCHAR(36) NOT NULL,
     `agency_id` VARCHAR(36) NOT NULL,
@@ -264,6 +281,7 @@ CREATE TABLE `client_idea_proposals` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Avisos internos que recibe cada usuario.
 CREATE TABLE `notifications` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NOT NULL,
@@ -279,6 +297,7 @@ CREATE TABLE `notifications` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Registro de auditoría: quién hizo qué y cuándo.
 CREATE TABLE `audit_logs` (
     `id` VARCHAR(36) NOT NULL,
     `user_id` VARCHAR(36) NULL,
@@ -296,6 +315,7 @@ CREATE TABLE `audit_logs` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
+-- Ajustes editables desde la aplicación, guardados como clave y valor JSON.
 CREATE TABLE `app_settings` (
     `key` VARCHAR(80) NOT NULL,
     `value` TEXT NOT NULL,
@@ -306,6 +326,7 @@ CREATE TABLE `app_settings` (
     PRIMARY KEY (`key`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- A partir de aquí: claves foráneas, es decir, las relaciones entre tablas y qué ocurre al borrar un registro.
 -- AddForeignKey
 ALTER TABLE `users` ADD CONSTRAINT `users_role_id_fkey` FOREIGN KEY (`role_id`) REFERENCES `roles`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -384,6 +405,7 @@ ALTER TABLE `audit_logs` ADD CONSTRAINT `audit_logs_user_id_fkey` FOREIGN KEY (`
 -- AddForeignKey
 ALTER TABLE `app_settings` ADD CONSTRAINT `app_settings_updated_by_user_id_fkey` FOREIGN KEY (`updated_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
+-- Tabla de control de Prisma: registra las migraciones ya aplicadas para no ejecutarlas de nuevo.
 CREATE TABLE `_prisma_migrations` (
   `id` varchar(36) NOT NULL,
   `checksum` varchar(64) NOT NULL,

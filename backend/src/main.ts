@@ -1,3 +1,8 @@
+/**
+ * Punto de entrada del backend: crea la aplicación NestJS, le aplica la seguridad HTTP
+ * (Helmet y CORS), publica la web y los archivos subidos, activa la validación global y
+ * la documentación Swagger, y empieza a escuchar peticiones.
+ */
 import * as fs from 'fs';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -13,6 +18,7 @@ import { SettingsService } from './modules/settings/settings.service';
   return this.toString();
 };
 
+/** Devuelve el origen (protocolo + dominio) de una URL dentro de una lista, o una lista vacía si no es válida. */
 function originOf(url: string | undefined): string[] {
   if (!url) return [];
   try {
@@ -22,14 +28,18 @@ function originOf(url: string | undefined): string[] {
   }
 }
 
+/** Configura y arranca el servidor. Se ejecuta una sola vez, al iniciar el proceso. */
 async function bootstrap() {
   const logger = new Logger('ContentSyncBootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(AppConfigService);
   const settings = app.get(SettingsService);
+  // Confía en el primer proxy (Render, balanceador) para conocer la IP real y si la conexión es HTTPS.
   app.set('trust proxy', 1);
+  // Al apagar el proceso, Nest avisa a los servicios para que cierren conexiones y temporizadores.
   app.enableShutdownHooks();
 
+  // Todas las rutas de los controladores quedan bajo este prefijo (por defecto /api/v1).
   const apiPrefix = config.apiPrefix;
   app.setGlobalPrefix(apiPrefix);
 
@@ -42,6 +52,7 @@ async function bootstrap() {
       // Necesario para las ventanas emergentes de Google / Facebook al iniciar sesión.
       crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
       strictTransportSecurity: isHttps,
+      // CSP: lista de los únicos orígenes desde los que el navegador puede cargar scripts, imágenes, etc.
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
@@ -80,6 +91,7 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
+  // Rutas registradas directamente en Express, sin el prefijo de la API ni los guards de Nest.
   const http = app.getHttpAdapter();
 
   // Healthcheck liviano para Render / balanceadores en la nube
@@ -120,6 +132,7 @@ async function bootstrap() {
     }),
   );
 
+  // Documentación interactiva de la API en /api/v1/docs (se puede apagar con SWAGGER_ENABLED=false).
   if (config.swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('ContentSync API')
@@ -135,6 +148,7 @@ async function bootstrap() {
     SwaggerModule.setup(`${apiPrefix}/docs`, app, SwaggerModule.createDocument(app, swaggerConfig));
   }
 
+  // Escucha en todas las interfaces de red: es lo que necesitan Docker y Render.
   await app.listen(config.port, '0.0.0.0');
   logger.log(`ContentSync Backend corriendo en ${config.publicBaseUrl()}/${apiPrefix}`);
   if (config.swaggerEnabled) {

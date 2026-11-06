@@ -1,3 +1,4 @@
+/** Pruebas unitarias del almacenamiento: subida con reintentos, borrado de archivos sin uso y enlaces firmados. */
 import { PayloadTooLargeException, ServiceUnavailableException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as os from 'os';

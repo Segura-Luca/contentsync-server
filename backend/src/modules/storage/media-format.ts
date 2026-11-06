@@ -1,12 +1,15 @@
+/** Reconoce el formato real de fotos y videos a partir de su contenido. */
 import { MediaKind } from '@prisma/client';
 import * as fs from 'fs';
 
+/** Formato detectado: extensión, tipo MIME y si es imagen o video. */
 export interface MediaFormat {
   extension: string;
   mimeType: string;
   kind: MediaKind;
 }
 
+// Formatos admitidos, indexados por extensión.
 const FORMATS: Record<string, MediaFormat> = {
   '.jpg': { extension: '.jpg', mimeType: 'image/jpeg', kind: MediaKind.IMAGE },
   '.png': { extension: '.png', mimeType: 'image/png', kind: MediaKind.IMAGE },
@@ -33,12 +36,14 @@ export function detectMediaFormat(path: string): MediaFormat | null {
     fs.closeSync(descriptor);
   }
 
+  // Compara con la "firma" inicial de cada formato: JPG, PNG, WEBP, GIF y WebM.
   if (header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) return FORMATS['.jpg'];
   if (header.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return FORMATS['.png'];
   if (header.toString('latin1', 0, 4) === 'RIFF' && header.toString('latin1', 8, 12) === 'WEBP') return FORMATS['.webp'];
   if (['GIF87a', 'GIF89a'].includes(header.toString('latin1', 0, 6))) return FORMATS['.gif'];
   if (header.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return FORMATS['.webm'];
 
+  // MP4 y MOV comparten estructura: el tipo se distingue en los bytes 4 a 12.
   const atom = header.toString('latin1', 4, 8);
   if (atom === 'ftyp') {
     const brand = header.toString('latin1', 8, 12);

@@ -1,3 +1,4 @@
+/** Módulo de autenticación: registro, inicio de sesión, acceso social, recuperación de contraseña y eliminación de cuenta. */
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -12,6 +13,7 @@ import { SocialTokenVerifierService } from './social-token-verifier.service';
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    // Sin configuración fija: los secretos y vencimientos se indican en cada firma (AuthService).
     JwtModule.register({}),
     StorageModule,
   ],

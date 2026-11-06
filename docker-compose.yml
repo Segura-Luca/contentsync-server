@@ -1,6 +1,7 @@
 # Uso: copiá .env.example a .env, definí los secretos y ejecutá `docker compose up -d --build`.
 # MinIO es opcional: `docker compose --profile s3 up -d` (por defecto los videos quedan en el volumen uploads_data).
 services:
+  # Base de datos MySQL. El puerto solo se abre en esta máquina y los datos persisten en un volumen.
   mysql:
     image: mysql:8.4
     container_name: contentsync-mysql
@@ -15,12 +16,14 @@ services:
       - '127.0.0.1:3306:3306'
     volumes:
       - mysql_data:/var/lib/mysql
+    # Comprueba que MySQL responda: el backend no arranca hasta que esté listo.
     healthcheck:
       test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
       interval: 5s
       timeout: 5s
       retries: 20
 
+  # Almacenamiento compatible con S3. Solo se levanta con el perfil "s3".
   minio:
     image: minio/minio:latest
     container_name: contentsync-minio
@@ -36,6 +39,7 @@ services:
     volumes:
       - minio_data:/data
 
+  # API y web de ContentSync, construida desde backend/Dockerfile.
   backend:
     build:
       context: ./backend
@@ -47,14 +51,17 @@ services:
         condition: service_healthy
     env_file:
       - .env
+    # Estos valores reemplazan a los de .env: la base apunta al contenedor "mysql".
     environment:
       DATABASE_URL: mysql://${MYSQL_USER:-contentsync}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-contentsync}
       UPLOAD_DIR: /app/uploads
     ports:
       - '3000:3000'
+    # Los archivos subidos sobreviven aunque se recree el contenedor.
     volumes:
       - uploads_data:/app/uploads
 
+# Volúmenes de Docker: datos que se conservan entre reinicios.
 volumes:
   mysql_data:
   minio_data:

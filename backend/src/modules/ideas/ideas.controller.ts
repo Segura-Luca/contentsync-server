@@ -1,3 +1,4 @@
+/** Rutas HTTP de ideas y secciones (/api/v1/ideas). Exclusivas de agencias y administradores: un cliente no las ve. */
 import {
   Body,
   Controller,

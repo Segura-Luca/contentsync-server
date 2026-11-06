@@ -1,3 +1,4 @@
+/** Guarda, borra y genera enlaces de archivos, en S3 o en el disco del servidor. */
 import { Injectable, Logger, PayloadTooLargeException, ServiceUnavailableException } from '@nestjs/common';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -7,7 +8,9 @@ import { basename, join } from 'path';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppConfigService } from '../../config/app-config.service';
 
+// Las claves con este prefijo son archivos en disco; las que empiezan con clients/ están en S3.
 const LOCAL_KEY_PREFIX = '/uploads/videos/';
+// Reintentos de subida a S3 y espera base entre ellos.
 const UPLOAD_ATTEMPTS = 3;
 const UPLOAD_RETRY_DELAY_MS = 1000;
 /** Los archivos solo se ven desde la plataforma: el enlace firmado vence y la app pide otro al cargar. */
@@ -23,10 +26,12 @@ export class StorageService {
     private readonly prisma: PrismaService,
   ) {}
 
+  /** Nombre del bucket de S3. */
   private get bucket(): string {
     return this.config.get('S3_BUCKET') || 'contentsync-videos';
   }
 
+  /** Crea una sola vez el cliente de S3. Falla con un mensaje claro si faltan credenciales. */
   private s3(): S3Client {
     if (this.s3Client) return this.s3Client;
     const endpoint = this.config.get('S3_ENDPOINT');
@@ -97,6 +102,7 @@ export class StorageService {
     }
   }
 
+  /** Borra un archivo del disco o de S3. basename evita salir de la carpeta de subidas. */
   async deleteObject(storageKey: string): Promise<void> {
     if (storageKey.startsWith(LOCAL_KEY_PREFIX)) {
       fs.rmSync(join(this.config.uploadDir, basename(storageKey)), { force: true });

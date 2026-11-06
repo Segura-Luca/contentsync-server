@@ -1,3 +1,4 @@
+/** Lógica del banco de ideas de contenido, organizadas por secciones. Cada agencia solo ve las suyas. */
 import {
   BadRequestException,
   ConflictException,
@@ -16,6 +17,7 @@ import {
   UpdateIdeaSectionDto,
 } from './dto/idea.dto';
 
+// Secciones con las que empieza cada agencia.
 const DEFAULT_SECTIONS = [
   { name: 'Entretenimiento', color: 'ROSE', sortOrder: 0 },
   { name: 'Educativo', color: 'SKY', sortOrder: 1 },
@@ -29,6 +31,10 @@ export class IdeasService {
     private readonly auditService: AuditService,
   ) {}
 
+  /**
+   * Decide sobre qué agencia actuar: la propia si es agencia; la indicada o la primera si es administrador.
+   * Un cliente nunca tiene acceso.
+   */
   private async resolveAgencyId(
     user: AuthenticatedUser,
     explicitAgencyId?: string,
@@ -69,6 +75,7 @@ export class IdeasService {
     });
     if (existingCount > 0) return;
 
+    // La auditoría evita recrear las secciones si la agencia ya las tuvo y las borró a propósito.
     const alreadyInitialized = await this.prisma.auditLog.findFirst({
       where: {
         action: 'IDEA_SECTIONS_INITIALIZED',
@@ -96,6 +103,7 @@ export class IdeasService {
     });
   }
 
+  /** Lista las secciones de la agencia con la cantidad de ideas de cada una. */
   async listSections(user: AuthenticatedUser, agencyIdQuery?: string) {
     const agencyId = await this.resolveAgencyId(user, agencyIdQuery);
     await this.ensureDefaultSectionsOnce(agencyId, user.sub);
@@ -111,6 +119,7 @@ export class IdeasService {
     });
   }
 
+  /** Crea una sección, sin permitir nombres ni colores repetidos en la misma agencia. */
   async createSection(dto: CreateIdeaSectionDto, user: AuthenticatedUser) {
     const agencyId = await this.resolveAgencyId(user, dto.agencyId);
     const cleanName = dto.name.trim();
@@ -164,6 +173,7 @@ export class IdeasService {
     return section;
   }
 
+  /** Cambia el nombre o el color de una sección propia. */
   async updateSection(
     id: string,
     dto: UpdateIdeaSectionDto,
@@ -191,6 +201,7 @@ export class IdeasService {
     });
   }
 
+  /** Elimina una sección propia. Sus ideas se borran en cascada. */
   async deleteSection(id: string, user: AuthenticatedUser) {
     const section = await this.prisma.contentIdeaSection.findUnique({
       where: { id },
@@ -217,6 +228,10 @@ export class IdeasService {
     return { message: 'Sección eliminada correctamente.', id };
   }
 
+  /**
+   * Lista las ideas con filtros opcionales. clientId "GENERAL" significa ideas sin cliente asociado.
+   * Las fijadas aparecen primero.
+   */
   async listIdeas(
     user: AuthenticatedUser,
     filters: {
@@ -260,6 +275,7 @@ export class IdeasService {
     });
   }
 
+  /** Crea una idea, comprobando que la sección y el cliente pertenezcan a la agencia. */
   async createIdea(dto: CreateContentIdeaDto, user: AuthenticatedUser) {
     const agencyId = await this.resolveAgencyId(user, dto.agencyId);
 
@@ -310,6 +326,7 @@ export class IdeasService {
     return idea;
   }
 
+  /** Edita o fija una idea, con las mismas comprobaciones de pertenencia. */
   async updateIdea(
     id: string,
     dto: UpdateContentIdeaDto,
@@ -362,6 +379,7 @@ export class IdeasService {
     });
   }
 
+  /** Elimina una idea propia y lo registra en la auditoría. */
   async deleteIdea(id: string, user: AuthenticatedUser) {
     const idea = await this.prisma.contentIdea.findUnique({ where: { id } });
     if (!idea) {

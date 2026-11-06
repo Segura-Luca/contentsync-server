@@ -1,3 +1,4 @@
+/** Pruebas unitarias de la eliminación de cuentas: protección del administrador, contraseña y anonimización. */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RoleCode } from '@prisma/client';
 import * as argon2 from 'argon2';

@@ -1,8 +1,10 @@
+/** Crea, lista y marca como leídas las notificaciones internas. */
 import { Injectable, Logger } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppConfigService } from '../../config/app-config.service';
 
+/** Datos de una notificación. `referenceId` apunta al recurso relacionado (bloque, cronograma, etc.). */
 export interface SendPushNotificationInput {
   userId: string;
   type: NotificationType;
@@ -20,6 +22,7 @@ export class NotificationsService {
     private readonly config: AppConfigService,
   ) {}
 
+  /** Guarda la notificación para mostrarla dentro de la aplicación. */
   async notifyUser(input: SendPushNotificationInput) {
     const notification = await this.prisma.notification.create({
       data: {
@@ -48,6 +51,7 @@ export class NotificationsService {
     return notification;
   }
 
+  /** Devuelve las 50 notificaciones más recientes. */
   async listForUser(userId: string) {
     return this.prisma.notification.findMany({
       where: { userId },
@@ -56,6 +60,7 @@ export class NotificationsService {
     });
   }
 
+  /** Marca una como leída. Filtrar por userId impide tocar las de otra persona. */
   async markAsRead(id: string, userId: string) {
     await this.prisma.notification.updateMany({
       where: { id, userId },
@@ -64,6 +69,7 @@ export class NotificationsService {
     return { id, isRead: true };
   }
 
+  /** Marca como leídas todas las pendientes del usuario. */
   async markAllAsRead(userId: string) {
     await this.prisma.notification.updateMany({
       where: { userId, isRead: false },
@@ -72,6 +78,7 @@ export class NotificationsService {
     return { isRead: true };
   }
 
+  /** Guarda el token del dispositivo para futuras notificaciones push. */
   async updateFcmToken(userId: string, fcmToken: string) {
     await this.prisma.user.update({
       where: { id: userId },

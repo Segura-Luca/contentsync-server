@@ -1,3 +1,7 @@
+/**
+ * Pruebas de integración: levantan la aplicación completa con la base de datos simulada
+ * y comprueban la validación y la protección de las rutas.
+ */
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RoleCode } from '@prisma/client';

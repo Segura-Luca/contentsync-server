@@ -1,3 +1,4 @@
+/** Módulo de cronogramas: semanas, bloques de contenido, revisión, comentarios y confirmación. */
 import { Module } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { ClientsModule } from '../clients/clients.module';

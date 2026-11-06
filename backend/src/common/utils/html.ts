@@ -1,3 +1,5 @@
+/** Utilidad para insertar texto de usuarios en plantillas HTML sin riesgo de inyección de código. */
+/** Caracteres con significado especial en HTML y su versión segura. */
 const HTML_ESCAPES: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',

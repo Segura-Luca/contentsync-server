@@ -1,3 +1,4 @@
+/** Lógica de autenticación: registro, login, acceso social, códigos OTP, sesiones y recuperación de contraseña. */
 import {
   BadRequestException,
   ConflictException,
@@ -33,6 +34,7 @@ import {
   VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
 
+/** Respuesta de una sesión abierta: tokens y datos del usuario. */
 export interface AuthTokensResponse {
   accessToken: string;
   refreshToken: string;
@@ -51,6 +53,7 @@ export interface AuthTokensResponse {
   };
 }
 
+/** Respuesta cuando aún falta un paso antes de abrir la sesión (verificar el correo o crear contraseña). */
 export interface PendingVerificationResponse {
   requiresEmailVerification?: boolean;
   requiresPasswordCreation?: boolean;
@@ -58,8 +61,10 @@ export interface PendingVerificationResponse {
   message: string;
 }
 
+// Motivos por los que se envía un código de 6 dígitos.
 type OtpPurpose = 'REGISTER_VERIFY' | 'SET_GOOGLE_PASSWORD' | 'PASSWORD_RECOVERY';
 
+// Relaciones del usuario que se cargan siempre, necesarias para validar la cuenta y armar el token.
 const USER_RELATIONS = {
   role: true,
   ownedAgency: true,
@@ -79,6 +84,7 @@ export class AuthService {
     private readonly oauthState: OAuthStateService,
   ) {}
 
+  /** Obtiene un rol del catálogo y lo crea si todavía no existe. */
   private ensureRoleExists(code: RoleCode) {
     return this.prisma.role.upsert({
       where: { code },
@@ -87,6 +93,7 @@ export class AuthService {
     });
   }
 
+  /** Rechaza cuentas inactivas, eliminadas o que pertenecen a una agencia suspendida. */
   private assertAccountUsable(user: {
     isActive: boolean;
     deletedAt: Date | null;
@@ -105,14 +112,17 @@ export class AuthService {
   // Códigos OTP: se guardan como HMAC, vencen y admiten una cantidad limitada de intentos.
   // ---------------------------------------------------------------------------
 
+  /** Genera un código aleatorio de 6 dígitos. */
   private newOtp(): string {
     return crypto.randomInt(0, 1000000).toString().padStart(6, '0');
   }
 
+  /** Calcula el HMAC del código: en la base de datos nunca se guarda el código real. */
   private hashOtp(code: string): string {
     return crypto.createHmac('sha256', this.config.jwtRefreshSecret).update(code.trim()).digest('hex');
   }
 
+  /** Compara el código recibido con el guardado, en tiempo constante. */
   private otpMatches(storedHash: string | null, code: string): boolean {
     if (!storedHash) return false;
     const stored = Buffer.from(storedHash);
@@ -120,6 +130,7 @@ export class AuthService {
     return stored.length === received.length && crypto.timingSafeEqual(stored, received);
   }
 
+  /** Calcula cuándo vence un código nuevo según los ajustes. */
   private otpExpiry(): Date {
     return new Date(Date.now() + this.settings.current().otpTtlMinutes * 60000);
   }
@@ -155,6 +166,7 @@ export class AuthService {
     );
   }
 
+  /** Envía el código. En producción, si el correo no sale, informa el error al usuario. */
   private async sendOtpOrFail(params: { email: string; code: string; fullName: string; purpose: OtpPurpose }) {
     const sent = await this.sendSixDigitVerificationEmail(params);
     // En desarrollo el código queda en el log del servidor; en producción sería un callejón sin salida.
@@ -163,6 +175,7 @@ export class AuthService {
     }
   }
 
+  /** Arma y envía el correo con el código. El texto cambia según el motivo. */
   private async sendSixDigitVerificationEmail(params: {
     email: string;
     code: string;
@@ -214,6 +227,7 @@ export class AuthService {
     );
   }
 
+  /** Texto opcional " desde <dirección>" para los mensajes al usuario. */
   private senderHint(): string {
     const address = this.config.mailSenderAddress;
     return address ? ` desde ${address}` : '';
@@ -231,6 +245,7 @@ export class AuthService {
     }
 
     const normalizedEmail = dto.email.trim().toLowerCase();
+    // Si ya existe una cuenta sin verificar, se actualiza; si no, se crean el usuario y su agencia.
     const existing = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
       include: { ownedAgency: true, clientProfile: true },
@@ -339,6 +354,10 @@ export class AuthService {
     return this.issueSessionTokens(updatedUser, 'Registro verificado con código de 6 dígitos', ipAddress);
   }
 
+  /**
+   * Inicia sesión con correo y contraseña. Según el estado de la cuenta, puede pedir antes
+   * crear una contraseña o verificar el correo, enviando un código por correo.
+   */
   async login(dto: LoginDto, ipAddress?: string): Promise<AuthTokensResponse | PendingVerificationResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.trim().toLowerCase() },
@@ -432,6 +451,7 @@ export class AuthService {
   // Acceso social
   // ---------------------------------------------------------------------------
 
+  /** Acceso social con un token del proveedor: lo verifica y completa el inicio de sesión. */
   async socialLogin(input: SocialLoginDto, ipAddress?: string): Promise<AuthTokensResponse> {
     if (!input.idToken || input.idToken.trim().length < 10) {
       throw new UnauthorizedException('Token del proveedor social inválido.');
@@ -449,6 +469,10 @@ export class AuthService {
     });
   }
 
+  /**
+   * Con la identidad ya verificada: entra si la cuenta social existe, vincula por correo
+   * si ya hay un usuario con ese correo, o crea una agencia nueva.
+   */
   async completeVerifiedSocialLogin(params: {
     provider: SocialProvider;
     identity: VerifiedSocialIdentity;
@@ -566,10 +590,12 @@ export class AuthService {
     };
   }
 
+  /** URL a la que el proveedor debe volver tras autorizar. */
   private socialCallbackUrl(provider: string, requestBase?: string): string {
     return this.config.apiUrl(`auth/oauth/${provider}/callback`, requestBase);
   }
 
+  /** Construye la URL de autorización de Facebook o GitHub, con el `state` firmado. */
   getOAuthAuthorizeUrl(
     providerParam: string,
     query: { firstName?: string; lastName?: string; agencyName?: string },
@@ -617,6 +643,7 @@ export class AuthService {
     throw new BadRequestException('Proveedor OAuth no soportado.');
   }
 
+  /** Procesa la vuelta del proveedor: valida `state` y nonce, canjea el código y abre la sesión. */
   async handleOAuthCallback(
     providerParam: string,
     code: string,
@@ -666,6 +693,10 @@ export class AuthService {
   // Sesiones
   // ---------------------------------------------------------------------------
 
+  /**
+   * Rota el refresh token: invalida el actual y emite un par nuevo de la misma familia.
+   * Si llega un token ya usado, asume que fue robado y revoca toda la familia.
+   */
   async refreshTokens(dto: RefreshTokenDto, ipAddress?: string): Promise<AuthTokensResponse> {
     let decoded: { sub: string; sessionId?: string; tokenFamily: string };
     try {
@@ -716,6 +747,7 @@ export class AuthService {
     return this.issueSessionTokens(session.user, session.deviceInfo ?? undefined, ipAddress, session.tokenFamily);
   }
 
+  /** Revoca todas las sesiones activas del usuario. */
   async logout(userId: string, ipAddress?: string): Promise<{ message: string }> {
     await this.prisma.authSession.updateMany({
       where: { userId, isRevoked: false },
@@ -790,6 +822,7 @@ export class AuthService {
   // Recuperación y creación de contraseña
   // ---------------------------------------------------------------------------
 
+  /** Envía un código de recuperación, o de creación si la cuenta aún no tiene contraseña. */
   async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
     // La respuesta es idéntica exista o no la cuenta, para no revelar qué correos están registrados.
     const message = 'Si el correo está registrado, enviamos un código de verificación de 6 dígitos a tu casilla.';
@@ -816,6 +849,7 @@ export class AuthService {
     return { message };
   }
 
+  /** Busca al usuario y valida su código de recuperación. Un error suma un intento fallido. */
   private async findUserWithValidResetCode(email: string, code: string) {
     const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
     const invalid = () =>
@@ -834,6 +868,7 @@ export class AuthService {
     return { verified: true, message: 'Identidad comprobada. Ahora podés ingresar y guardar tu contraseña.' };
   }
 
+  /** Guarda la nueva contraseña, cierra todas las sesiones anteriores y abre una nueva. */
   async resetPassword(
     dto: ResetPasswordDto,
     ipAddress?: string,
@@ -871,6 +906,10 @@ export class AuthService {
     return { message: 'Contraseña guardada exitosamente.', session };
   }
 
+  /**
+   * Crea una sesión: firma el access token y el refresh token, y guarda el hash de este último.
+   * Cada refresh pertenece a una "familia", lo que permite detectar su reutilización.
+   */
   private async issueSessionTokens(
     user: {
       id: string;

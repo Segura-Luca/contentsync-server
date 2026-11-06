@@ -1,7 +1,9 @@
+/** Comprueba con Google, Facebook o GitHub que un token sea auténtico y obtiene la identidad del usuario. */
 import { Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { AppConfigService } from '../../config/app-config.service';
 import { SocialProvider } from '@prisma/client';
 
+/** Identidad confirmada por el proveedor. */
 export interface VerifiedSocialIdentity {
   providerUserId: string;
   email: string;
@@ -18,10 +20,12 @@ export interface VerifiedSocialIdentity {
 export class SocialTokenVerifierService {
   constructor(private readonly config: AppConfigService) {}
 
+  /** Versión configurada de la API de Facebook. */
   private graphVersion(): string {
     return this.config.metaGraphVersion;
   }
 
+  /** Elige la verificación según el proveedor. */
   async verify(provider: SocialProvider, token: string): Promise<VerifiedSocialIdentity> {
     switch (provider) {
       case SocialProvider.GOOGLE:
@@ -35,6 +39,7 @@ export class SocialTokenVerifierService {
     }
   }
 
+  /** Hace una petición GET al proveedor y traduce los fallos a errores comprensibles. */
   private async getJson(url: string, headers?: Record<string, string>): Promise<Record<string, any>> {
     let res: Response;
     try {
@@ -54,6 +59,7 @@ export class SocialTokenVerifierService {
     return body;
   }
 
+  /** Google: valida el ID token y comprueba que fue emitido para esta aplicación y que no venció. */
   private async verifyGoogle(idToken: string): Promise<VerifiedSocialIdentity> {
     const clientId = this.config.get('GOOGLE_AUTH_CLIENT_ID');
     if (!clientId) {
@@ -78,6 +84,10 @@ export class SocialTokenVerifierService {
     };
   }
 
+  /**
+   * Facebook: valida el token contra esta aplicación y pide nombre y correo.
+   * Si el usuario no comparte correo, se usa una dirección interna generada.
+   */
   async verifyFacebook(accessToken: string): Promise<VerifiedSocialIdentity> {
     const appId = this.config.get('FACEBOOK_AUTH_APP_ID');
     const appSecret = this.config.get('FACEBOOK_AUTH_APP_SECRET');
@@ -107,6 +117,7 @@ export class SocialTokenVerifierService {
     };
   }
 
+  /** GitHub: obtiene el usuario y su correo principal verificado. */
   async verifyGithub(accessToken: string): Promise<VerifiedSocialIdentity> {
     const ghHeaders = {
       Authorization: `Bearer ${accessToken}`,
@@ -154,6 +165,7 @@ export class SocialTokenVerifierService {
     };
   }
 
+  /** Canjea el código OAuth de Facebook por un token y lo verifica. */
   async exchangeFacebookCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
     const appId = this.config.get('FACEBOOK_AUTH_APP_ID');
     const appSecret = this.config.get('FACEBOOK_AUTH_APP_SECRET');
@@ -173,6 +185,7 @@ export class SocialTokenVerifierService {
     return this.verifyFacebook(String(tokenData.access_token));
   }
 
+  /** Canjea el código OAuth de GitHub por un token y lo verifica. */
   async exchangeGithubCode(code: string, redirectUri: string): Promise<VerifiedSocialIdentity> {
     const clientId = this.config.get('GITHUB_AUTH_CLIENT_ID');
     const clientSecret = this.config.get('GITHUB_AUTH_CLIENT_SECRET');

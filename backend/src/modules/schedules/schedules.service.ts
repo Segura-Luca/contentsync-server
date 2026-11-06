@@ -1,3 +1,7 @@
+/**
+ * Núcleo de la aplicación. La agencia arma la semana con bloques de contenido; el cliente
+ * los revisa, comenta y confirma la semana. Cada acción notifica a la otra parte y queda en la auditoría.
+ */
 import {
   BadRequestException,
   ConflictException,
@@ -30,12 +34,14 @@ import {
   UpdateScheduleBlockDto,
 } from './dto/schedule-approval.dto';
 
+// Estado que toma el bloque según la decisión del cliente.
 const REVIEW_STATUS: Record<ApprovalDecision, BlockReviewStatus> = {
   [ApprovalDecision.APPROVED]: BlockReviewStatus.APPROVED,
   [ApprovalDecision.CHANGES_REQUESTED]: BlockReviewStatus.CHANGES_REQUESTED,
   [ApprovalDecision.REJECTED]: BlockReviewStatus.REJECTED,
 };
 
+// Tipo y texto del aviso a la agencia según la decisión del cliente.
 const REVIEW_NOTIFICATION: Record<ApprovalDecision, { type: NotificationType; verb: string }> = {
   [ApprovalDecision.APPROVED]: { type: NotificationType.BLOCK_APPROVED, verb: 'aprobó' },
   [ApprovalDecision.CHANGES_REQUESTED]: { type: NotificationType.BLOCK_CHANGES_REQUESTED, verb: 'pidió cambios en' },
@@ -45,6 +51,7 @@ const REVIEW_NOTIFICATION: Record<ApprovalDecision, { type: NotificationType; ve
 /** Volver a pedir la confirmación del cliente: lo que confirmó ya no es lo que hay en el cronograma. */
 const REOPEN_SCHEDULE = { status: ScheduleStatus.IN_REVIEW, confirmedAt: null, confirmedByUserId: null };
 
+// Datos que acompañan a cada bloque: archivos, última revisión y comentarios.
 const blockInclude = {
   media: { orderBy: { position: 'asc' as const } },
   reviews: { orderBy: { createdAt: 'desc' as const }, take: 1 },
@@ -54,6 +61,7 @@ const blockInclude = {
   },
 };
 
+// Datos que acompañan a cada cronograma: cliente, origen si fue duplicado, y bloques ordenados.
 const scheduleInclude = {
   client: {
     select: {
@@ -89,12 +97,14 @@ export class SchedulesService {
     private readonly storageService: StorageService,
   ) {}
 
+  /** Toda semana debe empezar un lunes. */
   private assertMonday(date: Date): void {
     if (Number.isNaN(date.getTime()) || date.getUTCDay() !== 1) {
       throw new BadRequestException('La semana del plan debe comenzar un lunes.');
     }
   }
 
+  /** Solo la agencia y el administrador editan cronogramas. */
   private assertCanEdit(user: AuthenticatedUser): void {
     if (user.role === RoleCode.CLIENTE) {
       throw new ForbiddenException('Solo la agencia o el administrador pueden modificar el cronograma.');
@@ -118,6 +128,7 @@ export class SchedulesService {
     return block;
   }
 
+  /** Agrega los enlaces de los archivos a todos los bloques de un cronograma. */
   private async withMediaUrls<T extends { items?: Array<{ media?: Array<{ storageKey: string }> }> }>(schedule: T): Promise<T> {
     await Promise.all((schedule.items ?? []).map((item) => this.withBlockMediaUrls(item)));
     return schedule;
@@ -142,6 +153,7 @@ export class SchedulesService {
     });
   }
 
+  /** Busca un bloque con su cronograma, cliente y agencia, o responde 404. */
   private async findBlockOrThrow(blockId: string) {
     const block = await this.prisma.scheduleItem.findUnique({
       where: { id: blockId },
@@ -156,6 +168,7 @@ export class SchedulesService {
     return block;
   }
 
+  /** Crea una semana para un cliente confirmado y le avisa. Solo puede haber una por cliente y lunes. */
   async createSchedule(dto: CreateScheduleDto, user: AuthenticatedUser) {
     this.assertCanEdit(user);
 
@@ -207,6 +220,7 @@ export class SchedulesService {
     return this.withMediaUrls(schedule);
   }
 
+  /** Agrega un bloque al cronograma. Si la semana ya estaba confirmada, la reabre. */
   async createBlock(scheduleId: string, dto: CreateScheduleBlockDto, user: AuthenticatedUser) {
     this.assertCanEdit(user);
 
@@ -287,6 +301,7 @@ export class SchedulesService {
       caption: dto.caption !== undefined ? dto.caption.trim() || null : existing.caption,
       plannedTime: dto.plannedTime ?? existing.plannedTime,
     };
+    // Representa la lista de archivos como texto, para detectar cambios comparándola con la anterior.
     const signature = (rows: Array<{ storageKey: string; description: string | null }>) =>
       JSON.stringify(rows.map((row) => [row.storageKey, row.description]));
     const contentChanged =
@@ -343,6 +358,7 @@ export class SchedulesService {
     return this.withBlockMediaUrls(block);
   }
 
+  /** Elimina un bloque y borra sus archivos si ningún otro bloque los usa. */
   async deleteBlock(blockId: string, user: AuthenticatedUser) {
     this.assertCanEdit(user);
 
@@ -469,6 +485,7 @@ export class SchedulesService {
     return { schedule: await this.withMediaUrls(fullSchedule) };
   }
 
+  /** Lista los cronogramas visibles según el rol. Un cliente sin confirmar no ve ninguno. */
   async listSchedules(user: AuthenticatedUser, clientIdFilter?: string) {
     if (clientIdFilter) {
       await this.clientsService.assertClientAccess(clientIdFilter, user);
@@ -536,6 +553,10 @@ export class SchedulesService {
     return { id: blockId, reviewStatus: BlockReviewStatus.IN_REVIEW };
   }
 
+  /**
+   * Registra la decisión del cliente sobre un bloque y avisa a la agencia.
+   * El comentario también se guarda en la conversación del bloque.
+   */
   async reviewBlock(blockId: string, dto: ReviewBlockDto, user: AuthenticatedUser) {
     this.assertCanReview(user);
 

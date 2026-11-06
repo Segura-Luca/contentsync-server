@@ -1,4 +1,8 @@
-﻿import {
+﻿/**
+ * Pruebas unitarias de AuthService y RolesGuard, con base de datos simulada: registro, códigos OTP,
+ * login, acceso social, detección de reutilización de tokens y control de roles.
+ */
+import {
   BadRequestException,
   ConflictException,
   ExecutionContext,

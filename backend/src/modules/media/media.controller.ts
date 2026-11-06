@@ -1,3 +1,4 @@
+/** Rutas HTTP de archivos (/api/v1/media): subir fotos y videos de los bloques. */
 import {
   BadRequestException,
   Body,
@@ -23,6 +24,7 @@ import { ClientsService } from '../clients/clients.service';
 import { detectMediaFormat } from '../storage/media-format';
 import { StorageService } from '../storage/storage.service';
 
+/** Datos del archivo temporal que entrega Multer. */
 interface UploadedDiskFile {
   originalname: string;
   size: number;
@@ -39,6 +41,10 @@ export class MediaController {
     private readonly clientsService: ClientsService,
   ) {}
 
+  /**
+   * Valida el permiso sobre el cliente y el formato real del archivo, y lo guarda en S3 o en disco.
+   * El archivo temporal se elimina siempre al terminar (ver el bloque finally).
+   */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -64,6 +70,7 @@ export class MediaController {
       }
 
       let storageKey: string;
+      // Con S3 se copia al bucket; sin S3 el archivo se mueve a la carpeta de subidas.
       if (this.storage.usesS3) {
         storageKey = await this.storage.uploadObject({
           clientId,
@@ -92,6 +99,7 @@ export class MediaController {
     }
   }
 
+  /** Informa el tamaño máximo permitido, para avisar antes de enviar el archivo. */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Get('upload-config')
   @ApiOperation({ summary: 'Tamaño máximo de subida, para avisar antes de enviar el archivo' })

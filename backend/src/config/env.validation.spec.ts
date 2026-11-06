@@ -1,3 +1,4 @@
+/** Pruebas unitarias de la validación de entorno: qué se rechaza en producción y qué se genera solo en desarrollo. */
 import { validateEnv } from './env.validation';
 
 const productionEnv = {

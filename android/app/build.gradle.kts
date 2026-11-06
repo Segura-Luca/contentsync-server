@@ -1,3 +1,4 @@
+/** Configuración de compilación de la app Android: versiones, URL de la web, firma del APK y dependencias. */
 import java.util.Properties
 
 plugins {
@@ -9,6 +10,7 @@ android {
     namespace = "com.contentsync.app"
     compileSdk = 34
 
+    // Identificador de la app, versiones de Android admitidas (minSdk/targetSdk) y versión publicada.
     defaultConfig {
         applicationId = "com.contentsync.app"
         minSdk = 26
@@ -20,11 +22,13 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        // URL que abre la app. Se toma de -PWEB_APP_URL, de una variable de entorno o del valor por defecto.
         val webAppUrl = (project.findProperty("WEB_APP_URL") as? String)
             ?: System.getenv("WEB_APP_URL")
             ?: "https://contentsync-app.onrender.com/"
         buildConfigField("String", "API_BASE_URL", "\"${webAppUrl.trimEnd('/')}/api/v1/\"")
         buildConfigField("String", "WEB_APP_URL", "\"$webAppUrl\"")
+        // Cliente OAuth de Google para el acceso nativo. Este identificador es público; no es un secreto.
         val googleWebClientId = (project.findProperty("GOOGLE_WEB_CLIENT_ID") as? String)
             ?: System.getenv("GOOGLE_WEB_CLIENT_ID")
             ?: "1094596610720-789upd6feoki20vhiirbk8msov3uitps.apps.googleusercontent.com"
@@ -54,6 +58,7 @@ android {
         }
     }
 
+    // debug: para desarrollo, sin ofuscar. release: reducido y ofuscado, para distribuir.
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -83,6 +88,7 @@ android {
         jvmTarget = "17"
     }
 
+    // Activa Jetpack Compose (pantallas de carga y error) y la clase BuildConfig.
     buildFeatures {
         compose = true
         buildConfig = true
@@ -99,6 +105,7 @@ android {
     }
 }
 
+// Librerías de la app.
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

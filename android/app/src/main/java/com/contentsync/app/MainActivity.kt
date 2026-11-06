@@ -1,3 +1,8 @@
+/**
+ * Pantalla única de la app Android: un WebView que muestra la web de ContentSync.
+ * Aporta lo que la web no puede hacer sola: elegir archivos de la galería, acceso con Google
+ * nativo y conservar la sesión. No contiene lógica de negocio.
+ */
 package com.contentsync.app
 
 import android.annotation.SuppressLint
@@ -54,15 +59,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+/** Actividad principal. Compose dibuja encima del WebView las pantallas de carga y de error. */
 class MainActivity : ComponentActivity() {
 
+    // Función con la que se devuelven a la web los archivos elegidos.
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var webViewRef: WebView? = null
 
+    // Estados que controlan qué se ve: carga, error de red y si el botón Atrás navega dentro de la web.
     private var isInitialLoading by mutableStateOf(true)
     private var hasNetworkError by mutableStateOf(false)
     private var canNavigateBack by mutableStateOf(false)
 
+    // Recibe el resultado del selector de archivos y lo entrega a la web (uno o varios archivos, o ninguno si se canceló).
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -86,6 +95,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Configura las barras del sistema y crea la interfaz con el WebView. */
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,6 +110,7 @@ class MainActivity : ComponentActivity() {
         val targetUrl = BuildConfig.WEB_APP_URL
 
         setContent {
+            // El botón Atrás navega dentro de la web mientras haya páginas anteriores.
             BackHandler(enabled = canNavigateBack && !hasNetworkError) {
                 webViewRef?.goBack()
             }
@@ -116,6 +127,7 @@ class MainActivity : ComponentActivity() {
                             webViewRef = this
                             setBackgroundColor(AndroidColor.parseColor("#0B0C0E"))
 
+                            // Activa JavaScript y almacenamiento local, y bloquea contenido inseguro y el acceso a archivos del teléfono.
                             settings.apply {
                                 javaScriptEnabled = true
                                 domStorageEnabled = true
@@ -129,13 +141,16 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val wv = this
+                            // Acepta cookies: el refresh token de la sesión vive en una.
                             CookieManager.getInstance().apply {
                                 setAcceptCookie(true)
                                 setAcceptThirdPartyCookies(wv, true)
                             }
 
+                            // Expone a la web el objeto window.ContentSyncAndroid.
                             addJavascriptInterface(AndroidWebBridge(), "ContentSyncAndroid")
 
+                            // Decide qué enlaces se abren dentro de la app y detecta los errores de carga.
                             webViewClient = object : WebViewClient() {
                                 override fun shouldOverrideUrlLoading(
                                     view: WebView?,
@@ -143,6 +158,7 @@ class MainActivity : ComponentActivity() {
                                 ): Boolean {
                                     val uri = request?.url ?: return false
                                     val scheme = uri.scheme?.lowercase() ?: return false
+                                    // Enlaces que no son web (mailto:, tel:): los abre otra aplicación.
                                     if (scheme != "http" && scheme != "https") {
                                         return try {
                                             startActivity(Intent(Intent.ACTION_VIEW, uri))
@@ -183,6 +199,7 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
 
+                                // Solo un fallo de la página principal muestra la pantalla de error; no el de una imagen.
                                 override fun onReceivedError(
                                     view: WebView?,
                                     request: WebResourceRequest?,
@@ -196,12 +213,14 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+                            // Abre el selector de fotos y videos cuando la web lo pide con un input de archivo.
                             webChromeClient = object : WebChromeClient() {
                                 override fun onShowFileChooser(
                                     webView: WebView?,
                                     filePathCallbackParam: ValueCallback<Array<Uri>>?,
                                     fileChooserParams: FileChooserParams?
                                 ): Boolean {
+                                    // Si quedó un pedido anterior sin responder, se cierra antes de abrir otro.
                                     filePathCallback?.onReceiveValue(null)
                                     filePathCallback = filePathCallbackParam
 
@@ -228,6 +247,7 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                // Pantalla de carga mientras se abre la web.
                 if (isInitialLoading) {
                     Box(
                         modifier = Modifier
@@ -264,6 +284,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Pantalla de error con un botón para reintentar.
                 if (hasNetworkError) {
                     Box(
                         modifier = Modifier
@@ -321,6 +342,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Al volver a la app, avisa a la web para que actualice los datos. */
     override fun onResume() {
         super.onResume()
         webViewRef?.evaluateJavascript("window.__onAppResume && window.__onAppResume();", null)
@@ -332,7 +354,9 @@ class MainActivity : ComponentActivity() {
         CookieManager.getInstance().flush()
     }
 
+    /** Puente entre la web y Android: sus métodos se llaman desde JavaScript. */
     inner class AndroidWebBridge {
+        /** Abre el selector de cuentas y devuelve el token, o el error, a window.__onAndroidGoogleToken. */
         @JavascriptInterface
         fun signInWithGoogle() {
             lifecycleScope.launch(Dispatchers.Main) {

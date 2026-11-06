@@ -1,9 +1,12 @@
+/** DTO de propuestas de ideas: lo que envía el cliente y lo que decide la agencia al aceptar. */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 
+// Solo enlaces http(s), o vacío: evita enlaces peligrosos como "javascript:".
 const HTTP_URL = /^(https?:\/\/\S+)?$/i;
 const HTTP_URL_MESSAGE = 'El enlace de referencia debe comenzar con http:// o https://.';
 
+/** Propuesta del cliente: título, desarrollo y enlace opcional. */
 export class CreateIdeaProposalDto {
   @ApiProperty({ example: 'Mostrar cómo tostamos el café' })
   @IsString()

@@ -1,6 +1,8 @@
+/** Registro de auditoría: guarda en la tabla audit_logs quién hizo qué, sobre qué dato y desde dónde. */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+/** Datos de un evento de auditoría. `action` es el nombre del evento y `metadata` guarda detalles extra. */
 export interface CreateAuditLogInput {
   userId?: string | null;
   action: string;
@@ -15,6 +17,7 @@ export interface CreateAuditLogInput {
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Guarda un evento. `metadata` se almacena como texto JSON. */
   async log(input: CreateAuditLogInput): Promise<void> {
     await this.prisma.auditLog.create({
       data: {
@@ -29,6 +32,7 @@ export class AuditService {
     });
   }
 
+  /** Devuelve los eventos más recientes junto con los datos básicos del usuario que los generó. */
   async findAll(limit = 100) {
     return this.prisma.auditLog.findMany({
       take: limit,

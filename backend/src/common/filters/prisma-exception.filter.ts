@@ -1,7 +1,9 @@
+/** Filtro de excepciones: captura los errores conocidos de la base de datos y los convierte en respuestas HTTP. */
 import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Response } from 'express';
 
+/** Códigos de error de Prisma traducidos a un estado HTTP y un mensaje apto para el usuario. */
 const KNOWN_ERRORS: Record<string, { status: number; message: string }> = {
   P2000: { status: HttpStatus.BAD_REQUEST, message: 'Uno de los valores enviados es demasiado largo.' },
   P2002: { status: HttpStatus.CONFLICT, message: 'Ya existe un registro con esos datos.' },
@@ -17,6 +19,7 @@ const KNOWN_ERRORS: Record<string, { status: number; message: string }> = {
 export class PrismaExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(PrismaExceptionFilter.name);
 
+  /** Se ejecuta ante cada error de Prisma. Un código desconocido se registra en el log y responde 500 con un mensaje genérico. */
   catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost): void {
     const known = KNOWN_ERRORS[exception.code];
     if (!known) this.logger.error(`Error Prisma ${exception.code}: ${exception.message}`);

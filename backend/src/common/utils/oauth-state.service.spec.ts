@@ -1,3 +1,4 @@
+/** Pruebas unitarias del `state` OAuth: rechaza valores alterados, sin firma o emitidos para otro propósito. */
 import { UnauthorizedException } from '@nestjs/common';
 import { OAuthStateService } from './oauth-state.service';
 

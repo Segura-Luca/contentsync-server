@@ -1,7 +1,9 @@
+/** Servicio de correo: intenta enviar por n8n, por un relay HTTPS o por SMTP, en el orden configurado. */
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { AppConfigService } from '../../config/app-config.service';
 
+/** Correo a enviar, con versión en texto plano y en HTML. */
 export interface OutgoingMail {
   to: string;
   subject: string;
@@ -11,8 +13,10 @@ export interface OutgoingMail {
   meta?: Record<string, unknown>;
 }
 
+/** Vías de envío disponibles. */
 export type MailTransport = 'n8n' | 'https' | 'smtp';
 
+// Tiempo máximo de espera de cada llamada HTTP, en milisegundos.
 const REQUEST_TIMEOUT_MS = 10000;
 
 /**
@@ -26,6 +30,7 @@ export class MailService {
 
   constructor(private readonly config: AppConfigService) {}
 
+  /** Calcula el orden de los transportes para este tipo de correo (códigos o general). */
   private order(kind: 'otp' | 'general'): MailTransport[] {
     const key = kind === 'otp' ? 'MAIL_TRANSPORTS_OTP' : 'MAIL_TRANSPORTS_GENERAL';
     // SMTP va último: Render bloquea esos puertos en el plan gratuito.
@@ -35,6 +40,7 @@ export class MailService {
       .filter((transport): transport is MailTransport => ['n8n', 'https', 'smtp'].includes(transport));
   }
 
+  /** Crea una sola vez la conexión SMTP. Devuelve null si faltan credenciales. */
   private smtp(): nodemailer.Transporter | null {
     if (this.transporter) return this.transporter;
     const host = this.config.get('SMTP_HOST');
@@ -53,6 +59,7 @@ export class MailService {
     return this.transporter;
   }
 
+  /** Envía un JSON por POST y lanza un error si la respuesta no es exitosa. */
   private async postJson(url: string, body: unknown, headers: Record<string, string> = {}) {
     const res = await fetch(url, {
       method: 'POST',
@@ -64,7 +71,9 @@ export class MailService {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   }
 
+  /** Envía por un transporte concreto. Devuelve false si ese transporte no está configurado. */
   private async sendWith(transport: MailTransport, mail: OutgoingMail, fromName: string): Promise<boolean> {
+    // n8n: flujo de automatización que recibe el correo por webhook.
     if (transport === 'n8n') {
       const url = this.config.get('N8N_WEBHOOK_URL');
       if (!url) return false;
@@ -85,6 +94,7 @@ export class MailService {
       );
       return true;
     }
+    // Relay HTTPS: servicio propio que envía a través de Gmail.
     if (transport === 'https') {
       const url = this.config.get('GMAIL_HTTPS_WEBHOOK_URL');
       if (!url) return false;
@@ -98,6 +108,7 @@ export class MailService {
       });
       return true;
     }
+    // SMTP: envío directo con nodemailer.
     const smtp = this.smtp();
     if (!smtp) return false;
     const address = this.config.mailSenderAddress;

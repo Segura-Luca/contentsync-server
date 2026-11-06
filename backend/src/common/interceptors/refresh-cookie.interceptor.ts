@@ -1,8 +1,10 @@
+/** Manejo de la cookie del refresh token: la crea, la borra y evita que el token viaje en el cuerpo de la respuesta. */
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Response } from 'express';
 import { map, Observable } from 'rxjs';
 import { AppConfigService } from '../../config/app-config.service';
 
+/** Nombre de la cookie. Solo se envía a las rutas /auth de la API (ver cookiePath). */
 export const REFRESH_COOKIE = 'cs_refresh';
 const cookiePath = (config: AppConfigService) => `/${config.apiPrefix}/auth`;
 
@@ -14,6 +16,7 @@ function ttlToMs(value: string): number {
   return Number(match[1]) * unit * 1000;
 }
 
+/** Guarda el refresh token en una cookie httpOnly (JavaScript no puede leerla) y sameSite strict. */
 export function setRefreshCookie(res: Response, token: string, config: AppConfigService) {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
@@ -24,6 +27,7 @@ export function setRefreshCookie(res: Response, token: string, config: AppConfig
   });
 }
 
+/** Borra la cookie al cerrar sesión o cuando el token deja de ser válido. */
 export function clearRefreshCookie(res: Response, config: AppConfigService) {
   res.clearCookie(REFRESH_COOKIE, { path: cookiePath(config) });
 }
@@ -33,6 +37,7 @@ export function clearRefreshCookie(res: Response, config: AppConfigService) {
 export class RefreshCookieInterceptor implements NestInterceptor {
   constructor(private readonly config: AppConfigService) {}
 
+  /** Revisa cada respuesta: si trae un refreshToken, lo pasa a la cookie y lo quita del JSON. */
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const res = context.switchToHttp().getResponse<Response>();
     return next.handle().pipe(

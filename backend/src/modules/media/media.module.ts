@@ -1,3 +1,4 @@
+/** Módulo de subida de archivos. Multer guarda cada archivo primero en una carpeta temporal. */
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { join } from 'path';

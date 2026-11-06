@@ -1,3 +1,4 @@
+/** DTO de agencias: datos para crear y editar. */
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -10,6 +11,7 @@ import {
   MinLength,
 } from 'class-validator';
 
+/** Datos de la agencia y de su usuario propietario. */
 export class CreateAgencyDto {
   @ApiProperty({ example: 'Nova Digital Marketing' })
   @IsString()
@@ -54,6 +56,7 @@ export class CreateAgencyDto {
   website?: string;
 }
 
+/** Igual que crear, con todos los campos opcionales, más la suspensión. */
 export class UpdateAgencyDto extends PartialType(CreateAgencyDto) {
   @ApiPropertyOptional({ description: 'Suspender o reactivar agencia' })
   @IsOptional()

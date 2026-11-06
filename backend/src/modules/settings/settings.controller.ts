@@ -1,3 +1,4 @@
+/** Rutas HTTP de ajustes (/api/v1/settings), reservadas a ADMIN_GENERAL. */
 import { Body, Controller, Delete, Get, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';

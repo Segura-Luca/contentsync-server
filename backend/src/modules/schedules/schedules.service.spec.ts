@@ -1,3 +1,4 @@
+/** Pruebas unitarias de cronogramas: creación y edición de bloques, revisión, reenvío, confirmación y comentarios. */
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import {
   ApprovalDecision,

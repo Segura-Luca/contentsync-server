@@ -1,3 +1,4 @@
+/** Pruebas unitarias de las propuestas: quién puede verlas y responderlas, y aceptación sin duplicados. */
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { IdeaProposalStatus, NotificationType, RoleCode } from '@prisma/client';
 import { IdeaProposalsService } from './idea-proposals.service';

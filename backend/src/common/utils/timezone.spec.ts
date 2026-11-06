@@ -1,3 +1,4 @@
+/** Prueba unitaria de la validación de zonas horarias. */
 import { isValidTimeZone } from './timezone';
 
 describe('timezone', () => {

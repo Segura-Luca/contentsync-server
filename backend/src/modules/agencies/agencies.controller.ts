@@ -1,3 +1,4 @@
+/** Rutas HTTP de agencias (/api/v1/agencies). @Roles restringe todo el controlador a ADMIN_GENERAL. */
 import {
   Body,
   Controller,

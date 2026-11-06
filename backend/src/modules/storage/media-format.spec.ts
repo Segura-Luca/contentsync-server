@@ -1,3 +1,4 @@
+/** Pruebas unitarias de la detección de formatos, incluidos archivos disfrazados y fotos HEIC. */
 import { MediaKind } from '@prisma/client';
 import * as fs from 'fs';
 import * as os from 'os';

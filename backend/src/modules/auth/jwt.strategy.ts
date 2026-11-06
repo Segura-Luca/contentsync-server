@@ -1,3 +1,4 @@
+/** Estrategia de Passport que valida el access token JWT enviado en cada petición. */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -5,6 +6,7 @@ import { AuthenticatedUser } from '../../common/decorators/auth.decorators';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppConfigService } from '../../config/app-config.service';
 
+/** Lee el token de la cabecera "Authorization: Bearer ..." y comprueba su firma y vencimiento. */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -18,6 +20,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /**
+   * Se ejecuta con el token ya verificado. Vuelve a consultar MySQL para que suspender o eliminar
+   * una cuenta tenga efecto de inmediato. Lo que devuelve queda disponible como request.user.
+   */
   async validate(payload: AuthenticatedUser): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },

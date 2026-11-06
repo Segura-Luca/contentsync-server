@@ -1,3 +1,4 @@
+/** Lógica de agencias: listar, consultar, crear, editar o suspender, y eliminar lógicamente. */
 import {
   ConflictException,
   Injectable,
@@ -16,6 +17,7 @@ export class AgenciesService {
     private readonly auditService: AuditService,
   ) {}
 
+  /** Lista las agencias no eliminadas, con su propietario y su cantidad de clientes. */
   async findAll() {
     return this.prisma.agency.findMany({
       where: { deletedAt: null },
@@ -31,6 +33,7 @@ export class AgenciesService {
     });
   }
 
+  /** Devuelve una agencia con sus clientes, sin exponer los tokens de confirmación. */
   async findOne(id: string) {
     const agency = await this.prisma.agency.findFirst({
       where: { id, deletedAt: null },
@@ -52,6 +55,7 @@ export class AgenciesService {
     };
   }
 
+  /** Crea la agencia y su usuario propietario en una transacción, tras comprobar que no existan. */
   async create(dto: CreateAgencyDto, adminUserId: string) {
     const existingTax = await this.prisma.agency.findUnique({
       where: { taxId: dto.taxId.trim() },
@@ -114,6 +118,7 @@ export class AgenciesService {
     return agency;
   }
 
+  /** Edita los datos de la agencia o la suspende. Una suspensión bloquea el acceso de todas sus cuentas. */
   async update(id: string, dto: UpdateAgencyDto, adminUserId: string) {
     await this.findOne(id);
     const updated = await this.prisma.agency.update({
@@ -137,6 +142,7 @@ export class AgenciesService {
     return updated;
   }
 
+  /** Eliminación lógica: marca la agencia y su propietario como eliminados, sin borrar las filas. */
   async softDelete(id: string, adminUserId: string) {
     const agency = await this.findOne(id);
     const now = new Date();

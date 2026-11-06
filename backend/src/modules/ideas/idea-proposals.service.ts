@@ -1,3 +1,4 @@
+/** Lógica de las ideas que un cliente le propone a su agencia. Al aceptarlas, se copian al banco de ideas. */
 import {
   BadRequestException,
   ConflictException,
@@ -12,6 +13,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AcceptIdeaProposalDto, CreateIdeaProposalDto } from './dto/idea-proposal.dto';
 
+// Datos del cliente que acompañan a cada propuesta.
 const proposalInclude = { client: { select: { id: true, companyName: true, userId: true } } };
 
 @Injectable()
@@ -22,12 +24,14 @@ export class IdeaProposalsService {
     private readonly auditService: AuditService,
   ) {}
 
+  /** Rechaza textos vacíos o formados solo por espacios. */
   private requireText(value: string | undefined, message: string): string {
     const clean = value?.trim();
     if (!clean) throw new BadRequestException(message);
     return clean;
   }
 
+  /** Lista según el rol: el cliente ve las suyas, la agencia las recibidas y el administrador todas. */
   async list(user: AuthenticatedUser) {
     const scope =
       user.role === RoleCode.CLIENTE
@@ -43,6 +47,7 @@ export class IdeaProposalsService {
     });
   }
 
+  /** Crea la propuesta del cliente y avisa a su agencia. */
   async create(dto: CreateIdeaProposalDto, user: AuthenticatedUser) {
     const client = await this.prisma.client.findFirst({
       where: { id: user.clientId ?? '', deletedAt: null },
@@ -74,6 +79,7 @@ export class IdeaProposalsService {
     return proposal;
   }
 
+  /** Busca una propuesta y valida que sea de esta agencia y siga sin responder. */
   private async findPendingForAgency(id: string, user: AuthenticatedUser) {
     const proposal = await this.prisma.clientIdeaProposal.findUnique({
       where: { id },
@@ -91,6 +97,7 @@ export class IdeaProposalsService {
     return proposal;
   }
 
+  /** Acepta la propuesta, con los ajustes que haga la agencia, y crea la idea. */
   async accept(id: string, dto: AcceptIdeaProposalDto, user: AuthenticatedUser) {
     const proposal = await this.findPendingForAgency(id, user);
 
@@ -143,6 +150,7 @@ export class IdeaProposalsService {
     return idea;
   }
 
+  /** Rechaza la propuesta y avisa al cliente. */
   async reject(id: string, user: AuthenticatedUser) {
     const proposal = await this.findPendingForAgency(id, user);
 

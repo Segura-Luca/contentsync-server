@@ -1,3 +1,4 @@
+/** Valores de fábrica de los ajustes. Se usan mientras no haya un valor guardado en MySQL. */
 /** Ajustes no secretos editables desde la app por ADMIN_GENERAL. */
 export interface RuntimeSettings {
   appName: string;
@@ -9,6 +10,7 @@ export interface RuntimeSettings {
   clientInviteTtlHours: number;
 }
 
+/** Valores por defecto. Tiempos: otpTtlMinutes en minutos, cooldown en segundos e invitaciones en horas (168 = 7 días). */
 export const DEFAULT_SETTINGS: RuntimeSettings = {
   appName: 'ContentSync',
   registrationEnabled: true,
@@ -19,6 +21,7 @@ export const DEFAULT_SETTINGS: RuntimeSettings = {
   clientInviteTtlHours: 168,
 };
 
+/** Devuelve una copia, para que nadie modifique los valores de fábrica originales. */
 export function cloneDefaultSettings(): RuntimeSettings {
   return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 }

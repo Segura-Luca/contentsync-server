@@ -101,6 +101,7 @@ Los APKs generados se ubican en:
 
 ## 6. Documentación Adicional en `/docs`
 
+- [Guía de archivos: qué hace cada archivo del proyecto (`docs/guia-de-archivos.md`)](docs/guia-de-archivos.md)
 - [Arquitectura y Seguridad (`docs/architecture.md`)](docs/architecture.md)
 - [Diagrama Entidad-Relación en Mermaid y Justificación 1FN, 2FN y 3FN (`docs/er-diagram.md`)](docs/er-diagram.md)
 - [Guía de Despliegue (`docs/deployment-guide.md`)](docs/deployment-guide.md)

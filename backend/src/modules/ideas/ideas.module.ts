@@ -1,3 +1,4 @@
+/** Módulo de ideas: banco privado de ideas de la agencia y propuestas enviadas por los clientes. */
 import { Module } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsModule } from '../notifications/notifications.module';

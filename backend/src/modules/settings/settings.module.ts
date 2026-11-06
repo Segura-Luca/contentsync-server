@@ -1,3 +1,4 @@
+/** Módulo global de ajustes: reglas de negocio editables desde la aplicación, sin reiniciar el servidor. */
 import { Global, Module } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { SettingsController } from './settings.controller';

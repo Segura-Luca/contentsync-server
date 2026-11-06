@@ -1,3 +1,4 @@
+/** Eliminación de la cuenta propia. Una agencia arrastra a sus clientes; un cliente solo se elimina a sí mismo. */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma, RoleCode } from '@prisma/client';
 import * as argon2 from 'argon2';
@@ -18,6 +19,7 @@ export class AccountDeletionService {
     private readonly storage: StorageService,
   ) {}
 
+  /** Comprueba la contraseña, anonimiza los datos en una transacción y borra los archivos al final. */
   async deleteOwnAccount(current: AuthenticatedUser, password: string | undefined, ipAddress?: string) {
     if (current.role === RoleCode.ADMIN_GENERAL) {
       throw new ForbiddenException('La cuenta de administrador no se puede eliminar.');
@@ -45,6 +47,7 @@ export class AccountDeletionService {
       select: { storageKey: true },
     });
 
+    // Todo se aplica junto: borra archivos asociados, sesiones y notificaciones, y anonimiza clientes y usuarios.
     const operations: Prisma.PrismaPromise<unknown>[] = [
       this.prisma.scheduleItemMedia.deleteMany({
         where: { scheduleItem: { schedule: { clientId: { in: clientIds } } } },

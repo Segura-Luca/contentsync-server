@@ -1,3 +1,4 @@
+/** DTO de ideas y secciones: datos para crear y editar. */
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -9,6 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 
+/** Sección: nombre y color (hexadecimal o nombre de paleta). */
 export class CreateIdeaSectionDto {
   @ApiProperty({ example: 'Entretenimiento' })
   @IsString()
@@ -29,8 +31,10 @@ export class CreateIdeaSectionDto {
   agencyId?: string;
 }
 
+/** Igual que crear, con todos los campos opcionales. */
 export class UpdateIdeaSectionDto extends PartialType(CreateIdeaSectionDto) {}
 
+/** Idea: sección, cliente opcional, título, desarrollo y enlace de referencia. */
 export class CreateContentIdeaDto {
   @ApiProperty()
   @IsUUID()
@@ -75,4 +79,5 @@ export class CreateContentIdeaDto {
   agencyId?: string;
 }
 
+/** Igual que crear, con todos los campos opcionales. */
 export class UpdateContentIdeaDto extends PartialType(CreateContentIdeaDto) {}

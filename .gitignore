@@ -1,3 +1,4 @@
+# Archivos que Git no debe guardar: dependencias, secretos, compilados y archivos subidos.
 # Dependencies
 node_modules/
 **/node_modules/

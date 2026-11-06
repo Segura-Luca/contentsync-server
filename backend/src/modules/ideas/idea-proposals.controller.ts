@@ -1,3 +1,4 @@
+/** Rutas HTTP de propuestas de ideas (/api/v1/idea-proposals): el cliente propone y la agencia responde. */
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';

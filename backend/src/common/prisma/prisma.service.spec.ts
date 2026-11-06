@@ -1,3 +1,4 @@
+/** Prueba unitaria: el cliente de Prisma expone todos los modelos principales del esquema. */
 import { PrismaService } from './prisma.service';
 
 describe('PrismaService (Phase 1 Schema & DB Base)', () => {

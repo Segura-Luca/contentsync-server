@@ -1,3 +1,4 @@
+/** DTO de ajustes: valida los valores permitidos para cada ajuste editable. */
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -10,6 +11,7 @@ import {
   Min,
 } from 'class-validator';
 
+/** Todos los campos son opcionales: solo se actualizan los que se envían. */
 export class UpdateSettingsDto {
   @ApiPropertyOptional({ example: 'ContentSync' })
   @IsOptional()

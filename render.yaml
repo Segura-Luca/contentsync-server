@@ -1,3 +1,6 @@
+# Despliegue en Render: define el servicio web, cómo se compila y cómo arranca.
+# Al iniciar aplica primero las migraciones (prisma/deploy.js) y luego levanta el servidor.
+# "sync: false" significa que el valor se carga en el panel de Render y no aquí.
 services:
   - type: web
     name: contentsync-app
@@ -6,6 +9,7 @@ services:
     rootDir: backend
     buildCommand: npm install --include=dev && npm run build:cloud
     startCommand: node prisma/deploy.js && node dist/main.js
+    # Render consulta esta ruta para saber si el servicio está funcionando.
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -34,6 +38,7 @@ services:
       # Supabase Free admite hasta 50 MB por archivo.
       - key: UPLOAD_MAX_MB
         value: "50"
+      # Correo: remitente visible y transportes de envío.
       - key: MAIL_SENDER_ADDRESS
         sync: false
       - key: N8N_WEBHOOK_URL
@@ -44,6 +49,7 @@ services:
         sync: false
       - key: GMAIL_WEBHOOK_SECRET
         sync: false
+      # Inicio de sesión con Google, Facebook y GitHub.
       - key: GOOGLE_AUTH_CLIENT_ID
         sync: false
       - key: FACEBOOK_AUTH_APP_ID

@@ -1,3 +1,4 @@
+/** Rutas HTTP de cronogramas (/api/v1/schedules). Los permisos por rol se validan en SchedulesService. */
 import {
   Body,
   Controller,

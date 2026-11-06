@@ -1,3 +1,4 @@
+/** Rutas HTTP de clientes (/api/v1/clients). El acceso a cada cliente se valida en ClientsService. */
 import {
   Body,
   Controller,
@@ -53,6 +54,7 @@ export class ClientsController {
     return res.redirect(`/?${params.toString()}`);
   }
 
+  /** Registra la decisión tomada en la pantalla a la que lleva el enlace del correo. */
   @Public()
   @AuthThrottle()
   @Post('confirm-invitation')
@@ -61,6 +63,7 @@ export class ClientsController {
     return this.clientsService.confirmIdentityByToken(dto.token, dto.decision);
   }
 
+  /** Indica si el usuario tiene una vinculación pendiente de confirmar. */
   @Get('pending-confirmation')
   @ApiOperation({
     summary:
@@ -70,6 +73,7 @@ export class ClientsController {
     return this.clientsService.getMyPendingConfirmation(user);
   }
 
+  /** Lista los clientes visibles para el usuario según su rol. */
   @Get()
   @ApiOperation({
     summary:
@@ -79,6 +83,7 @@ export class ClientsController {
     return this.clientsService.findAllForUser(user);
   }
 
+  /** Detalle de un cliente, si el usuario tiene permiso. */
   @Get(':id')
   @ApiOperation({ summary: 'Obtener detalle de un cliente validando propiedad del recurso' })
   findOne(
@@ -88,6 +93,7 @@ export class ClientsController {
     return this.clientsService.assertClientAccess(id, user);
   }
 
+  /** Invita a un cliente nuevo. Queda pendiente hasta que confirme. */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post()
   @ApiOperation({
@@ -98,6 +104,7 @@ export class ClientsController {
     return this.clientsService.create(dto, user);
   }
 
+  /** Confirma o rechaza la vinculación desde dentro de la aplicación. */
   @Post(':id/confirm-identity')
   @ApiOperation({
     summary:
@@ -111,6 +118,7 @@ export class ClientsController {
     return this.clientsService.confirmIdentityInApp(id, dto, user);
   }
 
+  /** Vuelve a enviar la invitación a un cliente que aún no confirmó. */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post(':id/resend-confirmation')
   @ApiOperation({
@@ -123,6 +131,7 @@ export class ClientsController {
     return this.clientsService.resendConfirmation(id, user);
   }
 
+  /** Edita un cliente de la agencia. */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Patch(':id')
   @ApiOperation({ summary: 'Editar un cliente propio' })
@@ -134,6 +143,7 @@ export class ClientsController {
     return this.clientsService.update(id, dto, user);
   }
 
+  /** Elimina lógicamente un cliente de la agencia. */
   @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Delete(':id')
   @ApiOperation({ summary: 'Eliminar lógicamente un cliente propio' })

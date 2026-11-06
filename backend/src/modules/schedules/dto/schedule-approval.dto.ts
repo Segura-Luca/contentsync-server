@@ -1,3 +1,4 @@
+/** DTO de cronogramas: datos para crear semanas y bloques, duplicar, revisar y comentar. */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -19,8 +20,10 @@ import {
 } from 'class-validator';
 import { ApprovalDecision, ContentType, ProductionStatus } from '@prisma/client';
 
+/** Máximo de fotos y videos por bloque. */
 export const MAX_MEDIA_PER_BLOCK = 20;
 
+/** Semana nueva: cliente, fechas de inicio y fin, título y notas. */
 export class CreateScheduleDto {
   @ApiProperty()
   @IsUUID()
@@ -46,6 +49,7 @@ export class CreateScheduleDto {
   summaryNotes?: string;
 }
 
+/** Archivo ya subido que se asocia a un bloque. */
 export class BlockMediaInputDto {
   @ApiProperty({ description: 'Clave devuelta por POST /media/upload' })
   @IsString()
@@ -72,6 +76,7 @@ export class BlockMediaInputDto {
   originalName?: string;
 }
 
+/** Bloque nuevo: día, tipo de contenido, textos, hora y archivos. */
 export class CreateScheduleBlockDto {
   @ApiProperty({ example: 1, description: 'Día de la semana: 1 (lunes) a 7 (domingo)' })
   @IsInt()
@@ -125,6 +130,7 @@ export class CreateScheduleBlockDto {
   media?: BlockMediaInputDto[];
 }
 
+/** Edición de un bloque: los mismos campos, todos opcionales. */
 export class UpdateScheduleBlockDto {
   @ApiPropertyOptional({ example: 2 })
   @IsOptional()
@@ -181,6 +187,7 @@ export class UpdateScheduleBlockDto {
   media?: BlockMediaInputDto[];
 }
 
+/** Duplicar una semana: lunes de destino, título y si se copian los archivos. */
 export class DuplicateScheduleDto {
   @ApiProperty({ example: '2026-11-09', description: 'Lunes de la semana destino' })
   @IsDateString()
@@ -199,6 +206,7 @@ export class DuplicateScheduleDto {
 
 }
 
+/** Decisión del cliente sobre un bloque y su comentario. */
 export class ReviewBlockDto {
   @ApiProperty({ enum: ApprovalDecision })
   @IsEnum(ApprovalDecision)
@@ -211,6 +219,7 @@ export class ReviewBlockDto {
   feedbackNotes?: string;
 }
 
+/** Comentario en la conversación de un bloque. */
 export class AddBlockCommentDto {
   @ApiProperty({ example: '¿Podemos usar la otra foto?' })
   @IsString()

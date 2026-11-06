@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!--
+  Web de ContentSync: aplicación de una sola página (SPA), sin frameworks, en un único archivo.
+  Estructura: 1) estilos CSS del diseño; 2) contenedor con id "app", donde se dibuja todo; 3) script con la lógica.
+  Funciona así: los datos viven en el objeto `state`; una acción cambia `state` y llama a render(),
+  que vuelve a generar el HTML. La app Android muestra esta misma página dentro de un WebView.
+-->
 <html lang="es" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
@@ -6,8 +12,10 @@
   <title>ContentSync — Cronogramas y aprobaciones entre agencias y clientes</title>
   <meta name="description" content="Agencias y clientes en un solo lugar: compartí el cronograma, mostrá cada pieza de contenido y recibí comentarios y aprobaciones." />
   <style>
+    /* Reinicio básico de márgenes del navegador. */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Tema oscuro: variables de color que usa todo el diseño. */
     html[data-theme="dark"] {
       --canvas: #0B0C0E;
       --stage: #111318;
@@ -38,6 +46,7 @@
       --note-lime-fg: #D4F238; --note-lime-bg: rgba(212, 242, 56, 0.10);
     }
 
+    /* Tema claro: los mismos nombres de variables con otros valores. */
     html[data-theme="light"] {
       --canvas: #F1F4FA;
       --stage: #FFFFFF;
@@ -70,6 +79,7 @@
 
     html, body { max-width: 100%; overflow-x: hidden; }
 
+    /* Tipografía y colores generales. */
     body {
       background: var(--canvas);
       color: var(--text-primary);
@@ -110,6 +120,7 @@
       border: none;
     }
 
+    /* Campos de formulario. */
     .field {
       display: flex;
       flex-direction: column;
@@ -140,6 +151,7 @@
       border-color: var(--signal-subtle-fg);
     }
 
+    /* Botones. */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -198,6 +210,7 @@
     }
     .tally-dot.static { animation: none; }
 
+    /* Etiquetas de estado. */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -219,6 +232,7 @@
     .badge-fault { background: var(--tally-fault-bg); color: var(--tally-fault); border-color: var(--tally-fault); }
 
 
+    /* Barra superior y mensajes de aviso. */
     .topbar {
       position: sticky;
       top: 0;
@@ -255,6 +269,7 @@
       flex-wrap: wrap;
     }
 
+    /* Estructura general: menú lateral y área de trabajo. */
     .studio-shell {
       display: flex;
       min-height: calc(100vh - 57px);
@@ -515,6 +530,7 @@
       background: var(--inspector);
     }
 
+    /* Pantalla de inicio de sesión y registro. */
     .auth-split {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -566,6 +582,7 @@
       transform: translateY(-1px);
     }
 
+    /* Barra de progreso de subida de archivos. */
     .s3-progress-fill {
       height: 100%;
       background-color: var(--signal-subtle-fg);
@@ -581,6 +598,7 @@
       transition: width 90ms linear;
     }
 
+    /* Franja de métricas y filtros. */
     .stats-strip {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -636,6 +654,7 @@
     @keyframes bannerSlide { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes s3Scan { from { background-position: 0 0; } to { background-position: 17px 0; } }
 
+    /* Adaptación a teléfonos y pantallas angostas. */
     @media (max-width: 959px) {
       .side-rail { display: none; }
       .studio-shell { display: block; width: 100%; padding-bottom: 70px; }
@@ -680,6 +699,7 @@
       }
     }
 
+    /* Quita animaciones a quien lo configuró así en su sistema. */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -688,14 +708,17 @@
       }
     }
   </style>
+  <!-- Configuración pública generada por el servidor (ver main.ts). -->
   <script src="/app-config.js"></script>
 </head>
 <body>
+  <!-- Contenedor único: render() dibuja aquí toda la interfaz. -->
   <div id="app"></div>
 
   <script>
     // Configuración pública generada por el servidor (/app-config.js); se vuelve a leer al guardar Ajustes.
     let APP_CONFIG = window.__CS_CONFIG__ || {};
+    // Tipos de contenido de un bloque y su nombre visible.
     const CONTENT_TYPES = [
       { code: 'REEL', label: 'Reel' },
       { code: 'CAROUSEL', label: 'Carrusel' },
@@ -705,6 +728,7 @@
       { code: 'OTHER', label: 'Otro' }
     ];
     const MAX_MEDIA_PER_BLOCK = 20;
+    // Etapas de producción de un bloque y su nombre visible.
     const PRODUCTION_STATUSES = [
       { code: 'PENDING', label: 'Pendiente' },
       { code: 'RECORDED', label: 'Grabado' },
@@ -712,22 +736,27 @@
       { code: 'UPLOADED', label: 'Subido' }
     ];
 
+    /** Nombre visible de un estado de producción. */
     function productionLabel(code) {
       return PRODUCTION_STATUSES.find(p => p.code === code)?.label || 'Pendiente';
     }
 
+    /** Nombre visible de un tipo de contenido. */
     function contentTypeLabel(code) {
       return CONTENT_TYPES.find(t => t.code === code)?.label || 'Contenido';
     }
 
+    /** Nombre de la aplicación, según los ajustes. */
     function appName() {
       return APP_CONFIG.appName || 'ContentSync';
     }
 
+    /** Texto opcional " desde <correo>" para los mensajes. */
     function senderHint() {
       return APP_CONFIG.senderEmail ? ` desde ${APP_CONFIG.senderEmail}` : '';
     }
 
+    // Días de la semana: las columnas del cronograma.
     const WEEKDAYS = [
       { num: 1, code: 'LUN', full: 'Lunes' },
       { num: 2, code: 'MAR', full: 'Martes' },
@@ -738,8 +767,13 @@
       { num: 7, code: 'DOM', full: 'Domingo' }
     ];
 
+    // Prefijo de todas las llamadas a la API.
     const API_BASE = APP_CONFIG.apiBase || '/api/v1';
 
+    /**
+     * Estado global de la aplicación: toda la información que necesita la interfaz.
+     * El access token vive solo aquí, en memoria, y nunca se guarda en el navegador.
+     */
     const state = {
       theme: 'dark',
       apiOnline: false,
@@ -862,6 +896,7 @@
       confirmDeleteClientId: null
     };
 
+    /** Datos para decidir cuándo animar y para conservar el scroll al redibujar. */
     const motionState = {
       modalKey: '',
       lastTab: null,
@@ -873,6 +908,7 @@
     // =========================================================================
     // UTILIDADES Y FORMATEADORES
     // =========================================================================
+    /** Escapa texto antes de insertarlo en HTML, para evitar inyección de código (XSS). */
     function esc(str) {
       return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -881,6 +917,7 @@
         .replace(/"/g, '&quot;');
     }
 
+    /** Devuelve el lunes de la semana de una fecha, en formato AAAA-MM-DD. */
     function getMondayOf(dateObj) {
       const d = new Date(dateObj);
       const day = d.getDay();
@@ -889,12 +926,14 @@
       return d.toISOString().slice(0, 10);
     }
 
+    /** Suma días a una fecha AAAA-MM-DD. */
     function addDaysIso(isoDateStr, days) {
       const base = new Date(isoDateStr.slice(0, 10) + 'T12:00:00Z');
       base.setUTCDate(base.getUTCDate() + days);
       return base.toISOString().slice(0, 10);
     }
 
+    /** Formatea una fecha corta, como "05 Oct". */
     function fmtShortDate(isoStr, plusDays = 0) {
       if (!isoStr) return '';
       const d = new Date(String(isoStr).slice(0, 10) + 'T12:00:00Z');
@@ -903,6 +942,7 @@
       return `${String(d.getUTCDate()).padStart(2, '0')} ${months[d.getUTCMonth()]}`;
     }
 
+    /** Formatea fecha y hora para mostrarlas al usuario. */
     function fmtDateTimeHuman(isoStr) {
       if (!isoStr) return '';
       const d = new Date(isoStr);
@@ -912,6 +952,7 @@
       });
     }
 
+    /** Texto y estilo de la etiqueta según el estado de revisión. */
     function workflowMeta(status) {
       switch (status) {
         case 'APPROVED':          return { label: 'APROBADO',        cls: 'badge-live' };
@@ -921,11 +962,13 @@
       }
     }
 
+    /** Muestra un mensaje en la barra de avisos. */
     function setBanner(msg, isErr = false) {
       state.banner = { msg, isErr };
       render();
     }
 
+    /** Cambia entre tema claro y oscuro. */
     function setTheme(next) {
       state.theme = next;
       document.documentElement.setAttribute('data-theme', next);
@@ -935,6 +978,7 @@
     // =========================================================================
     // CLIENTE HTTP AUTENTICADO + HIDRATACIÓN DESDE MYSQL
     // =========================================================================
+    // Renovación de sesión en curso, para que las peticiones simultáneas compartan una sola.
     let refreshInFlight = null;
 
     /** Rota el refresh token. Varias peticiones vencidas comparten una sola renovación: repetirla se detecta como robo. */
@@ -970,10 +1014,12 @@
       } catch (_) {}
     }
 
+    /** Indica si vale la pena intentar recuperar la sesión al abrir la página. */
     function hasSessionHint() {
       try { return localStorage.getItem('cs_has_session') === '1'; } catch (_) { return false; }
     }
 
+    /** Convierte el usuario que envía la API en el objeto de sesión de la interfaz. */
     function sessionFromUser(user) {
       const u = user || {};
       return {
@@ -988,6 +1034,10 @@
       };
     }
 
+    /**
+     * Hace una petición a la API con el token. Ante un 401 renueva la sesión y reintenta una vez.
+     * Nunca lanza errores: siempre devuelve { ok, status, data }.
+     */
     async function apiFetch(path, options = {}, canRefresh = true) {
       const headers = { ...(options.headers || {}) };
       if (!(options.body instanceof FormData) && !headers['Content-Type']) {
@@ -1012,6 +1062,7 @@
       }
     }
 
+    /** Obtiene un mensaje apto para el usuario a partir de una respuesta de error. */
     function friendlyError(body, status) {
       const m = body && body.message;
       if (Array.isArray(m)) return m[0];
@@ -1021,6 +1072,7 @@
       return 'No pudimos completar la acción. Intentá nuevamente.';
     }
 
+    /** Descarga del servidor todos los datos que corresponden al rol del usuario y redibuja. */
     async function hydrateFromApi() {
       if (!state.jwtToken || !state.session) return;
       state.loadingData = true;
@@ -1100,6 +1152,7 @@
     const mediaUrlCache = new Map();
     const MEDIA_URL_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 
+    /** Conserva los enlaces de archivos que todavía están vigentes. */
     function reuseFreshMediaUrls(schedules) {
       const now = Date.now();
       schedules.forEach(sched => (sched.items || []).forEach(item => (item.media || []).forEach(m => {
@@ -1112,6 +1165,7 @@
       })));
     }
 
+    /** Adapta un cliente de la API al formato que usa la interfaz. */
     function normalizeClientFromApi(c) {
       return {
         id: c.id,
@@ -1126,6 +1180,7 @@
       };
     }
 
+    /** Si la semana elegida no es del cliente activo, selecciona la primera de ese cliente. */
     function syncSelectedScheduleForClient() {
       const clientSchedules = state.schedules.filter(s => s.clientId === state.selectedClientId);
       if (!clientSchedules.some(s => s.id === state.selectedScheduleId)) {
@@ -1136,6 +1191,7 @@
     // =========================================================================
     // AUTENTICACIÓN, REGISTRO, GOOGLE/FACEBOOK Y RECUPERACIÓN POR EMAIL
     // =========================================================================
+    // Estado de la pantalla de acceso: error visible, carga y proveedores sociales listos.
     const authUi = { error: '', busy: false, cfg: null, googleReady: false, facebookReady: false };
 
     /** Lo que se escribió para entrar no debe quedar a la vista de quien use el equipo después. */
@@ -1157,6 +1213,7 @@
       authUi.error = '';
     }
 
+    /** Abre la sesión con la respuesta del servidor y descarga los datos. */
     async function applyServerSession(data, welcome) {
       clearAuthForm();
       state.jwtToken = data.accessToken;
@@ -1171,6 +1228,7 @@
       await hydrateFromApi();
     }
 
+    /** Cierra la sesión en el servidor y limpia los datos de la interfaz. */
     function logoutSession() {
       fetch(API_BASE + '/auth/logout', { method: 'POST' }).catch(() => {});
       state.session = null;
@@ -1181,12 +1239,14 @@
       setBanner('Cerraste sesión correctamente.');
     }
 
+    /** Muestra un error en la pantalla de acceso. */
     function setAuthError(msg) {
       authUi.error = msg;
       authUi.busy = false;
       render();
     }
 
+    /** Inicia sesión. Según la respuesta, entra o lleva a crear la contraseña o a verificar el correo. */
     async function performLogin(email, password) {
       if (authUi.busy) return;
       email = String(email || '').trim();
@@ -1226,6 +1286,7 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
+    /** Registra una agencia nueva y pasa a la pantalla del código. */
     async function performRegister() {
       if (authUi.busy) return;
       const firstName = String(state.authFirstName || '').trim();
@@ -1272,6 +1333,7 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
+    /** Envía el código de 6 dígitos del registro. */
     async function submitVerifyRegistration() {
       if (authUi.busy) return;
       const email = String(state.authEmail || '').trim();
@@ -1295,16 +1357,19 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
+    /** Indica si debe verse el formulario de registro (y si el registro está habilitado). */
     function isRegisterTab() {
       return Boolean(state.authRegister) && APP_CONFIG.registrationEnabled !== false;
     }
 
+    /** Cambia entre las pestañas de ingreso y registro. */
     function setAuthTab(register) {
       state.authRegister = register;
       authUi.error = '';
       render();
     }
 
+    /** Envía al servidor el token de un proveedor social. */
     async function submitSocialToken(provider, token) {
       authUi.busy = true; authUi.error = ''; render();
       const r = await apiFetch('/auth/social', {
@@ -1319,11 +1384,13 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
+    /** Inicia el acceso con Facebook o GitHub redirigiendo a la API. */
     function startOAuthRedirect(provider) {
       if (authUi.busy) return;
       window.location.href = `${API_BASE}/auth/oauth/${provider}`;
     }
 
+    /** Carga un script externo una sola vez (por ejemplo, el de Google). */
     function loadExternalScript(src) {
       return new Promise((resolve, reject) => {
         if (document.querySelector('script[src="' + src + '"]')) { resolve(); return; }
@@ -1335,6 +1402,7 @@
       });
     }
 
+    /** Pide la configuración social al servidor y prepara los proveedores disponibles. */
     async function initSocialProviders() {
       if (window.location.protocol === 'file:') return;
       if (!authUi.cfg) {
@@ -1372,6 +1440,7 @@
       }
     };
 
+    /** Coloca los botones de acceso. En la app Android usa el acceso nativo de Google. */
     function mountSocialButtons() {
       const slot = document.getElementById('google-btn-slot');
       if (slot && window.ContentSyncAndroid && typeof window.ContentSyncAndroid.signInWithGoogle === 'function') {
@@ -1393,6 +1462,7 @@
       }
     }
 
+    /** Recuperación, paso 1: pide el código por correo. */
     async function requestRecoveryCode() {
       if (authUi.busy) return;
       const email = String(state.authEmail || '').trim();
@@ -1417,6 +1487,7 @@
       }
     }
 
+    /** Recuperación, paso 2: comprueba el código. */
     async function verifyRecoveryOtpStep() {
       if (authUi.busy) return;
       const email = String(state.authEmail || '').trim();
@@ -1440,6 +1511,7 @@
       }
     }
 
+    /** Recuperación, paso 3: guarda la nueva contraseña y entra. */
     async function submitPasswordReset() {
       if (authUi.busy) return;
       const email = String(state.authEmail || '').trim();
@@ -1479,6 +1551,7 @@
     // =========================================================================
     // ACCIONES DE DOMINIO: CRONOGRAMA, BLOQUES, ARCHIVOS, REVISIÓN Y DUPLICACIÓN
     // =========================================================================
+    /** Secciones del menú según el rol del usuario. */
     function allowedDestinations() {
       if (!state.session) return [];
       const role = state.session.role;
@@ -1499,10 +1572,12 @@
       ];
     }
 
+    /** Devuelve el cronograma seleccionado. */
     function getActiveSchedule() {
       return state.schedules.find(s => s.id === state.selectedScheduleId) || null;
     }
 
+    /** Abre la ventana para crear una semana. */
     function openNewWeekModal() {
       const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       if (confirmed.length === 0) {
@@ -1525,6 +1600,7 @@
       render();
     }
 
+    /** Crea la semana en el servidor. */
     async function submitNewWeek() {
       if (!state.selectedClientId || !state.newWeekStart) return;
       const mondayIso = getMondayOf(new Date(state.newWeekStart + 'T12:00:00Z'));
@@ -1553,6 +1629,7 @@
       setBanner('Semana creada. Ya la puede ver el cliente.');
     }
 
+    /** Abre la ventana para duplicar la semana actual. */
     function openDuplicateWeekModal() {
       const sched = getActiveSchedule();
       if (!sched) return;
@@ -1580,12 +1657,14 @@
       return baseTitle + ' · ' + fmtShortDate(monday);
     }
 
+    /** Guarda una opción de la ventana y actualiza el título sugerido, si el usuario no lo editó. */
     function setDuplicateChoice(field, value) {
       state[field] = value;
       if (!state.dupTitleEdited) state.dupTitle = duplicateTitleSuggestion();
       render();
     }
 
+    /** Duplica la semana en el servidor. */
     async function submitDuplicateWeek() {
       const sched = state.schedules.find(s => s.id === state.dupSourceId);
       if (!sched || !state.dupTargetStart) return;
@@ -1612,6 +1691,7 @@
       setBanner('Semana duplicada.');
     }
 
+    /** Abre el editor de bloques, vacío o con los datos de un bloque existente. */
     function openBlockModal(dayNum = 1, block = null) {
       const sched = getActiveSchedule();
       if (!sched) {
@@ -1659,6 +1739,7 @@
       render();
     }
 
+    /** Abre el editor de bloques buscando el bloque por su id. */
     function openBlockModalById(blockId) {
       const block = (getActiveSchedule()?.items || []).find(x => x.id === blockId);
       if (block) openBlockModal(block.dayOfWeek, block);
@@ -1671,6 +1752,7 @@
       });
     }
 
+    /** Cierra el editor de bloques. */
     function closeBlockModal() {
       if (state.blkSaving) return;
       releaseBlockPreviews();
@@ -1679,6 +1761,7 @@
       render();
     }
 
+    /** Agrega los archivos elegidos al bloque, respetando el tamaño y la cantidad máxima. */
     function handleBlockFilesSelected(inputEl) {
       const files = Array.from(inputEl.files || []);
       inputEl.value = '';
@@ -1705,6 +1788,7 @@
       render();
     }
 
+    /** Cambia de posición un archivo dentro del bloque. */
     function moveBlockMedia(index, delta) {
       const target = index + delta;
       if (target < 0 || target >= state.blkMedia.length) return;
@@ -1713,12 +1797,14 @@
       render();
     }
 
+    /** Quita un archivo del bloque. */
     function removeBlockMedia(index) {
       const [item] = state.blkMedia.splice(index, 1);
       if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
       render();
     }
 
+    /** Sube un archivo informando su avance (usa XMLHttpRequest, porque fetch no informa el progreso). */
     async function uploadFileWithProgress(file, clientId, onProgress) {
       // Una subida larga no puede reintentarse sola: el token y el tamaño se comprueban antes de empezar.
       const uploadConfig = await apiFetch('/media/upload-config');
@@ -1756,6 +1842,7 @@
       });
     }
 
+    /** Guarda el bloque: primero sube los archivos nuevos y luego lo crea o actualiza. */
     async function submitBlockModal() {
       if (state.blkSaving) return;
       const sched = getActiveSchedule();
@@ -1836,6 +1923,7 @@
       setBanner(wasEditing ? 'Bloque actualizado.' : 'Bloque agregado al cronograma. Le avisamos al cliente.');
     }
 
+    /** Elimina un bloque, ya confirmado por el usuario. */
     async function deleteBlockConfirmed(blockId) {
       const r = await apiFetch(`/schedules/blocks/${blockId}`, { method: 'DELETE' });
       state.confirmDeleteBlockId = null;
@@ -1848,15 +1936,21 @@
       setBanner('Bloque eliminado del cronograma.');
     }
 
+    /** Guarda lo que el cliente está escribiendo sobre un bloque. */
     function setInspectNote(blockId, text) {
       state.inspectNoteFor = blockId;
       state.inspectNote = text;
     }
 
+    /** Devuelve lo escrito sobre ese bloque, si corresponde a él. */
     function inspectNoteOf(blockId) {
       return state.inspectNoteFor === blockId ? state.inspectNote : '';
     }
 
+    /**
+     * Envía la decisión del cliente. Pide confirmar si con ella se descartaría
+     * un pedido de cambios anterior o un texto ya escrito.
+     */
     async function submitBlockReview(blockId, decision, confirmed = false) {
       const block = (getActiveSchedule()?.items || []).find(x => x.id === blockId);
       const feedbackNotes = inspectNoteOf(blockId).trim();
@@ -1891,6 +1985,7 @@
       setBanner('Listo: le avisamos a tu agencia.');
     }
 
+    /** Dibuja el aviso de confirmación de la revisión. */
     function renderReviewConfirm() {
       const { blockId, decision, hadChanges, hasText } = state.reviewConfirm;
       const rejecting = decision === 'REJECTED';
@@ -1912,6 +2007,7 @@
       `;
     }
 
+    /** Publica un comentario en un bloque. */
     async function submitBlockComment(blockId) {
       const noteEl = document.getElementById('inspect-review-note');
       const message = noteEl ? noteEl.value.trim() : '';
@@ -1929,6 +2025,7 @@
       await hydrateFromApi();
     }
 
+    /** La agencia devuelve a revisión un bloque con cambios pedidos. */
     async function resubmitBlock(blockId) {
       const r = await apiFetch(`/schedules/blocks/${blockId}/resubmit`, { method: 'POST' });
       if (!r.ok) {
@@ -1939,6 +2036,7 @@
       setBanner('Listo: le avisamos al cliente que ya puede revisarlo.');
     }
 
+    /** Cambia la etapa de producción de un bloque. */
     async function setBlockProductionStatus(blockId, productionStatus) {
       const block = (getActiveSchedule()?.items || []).find(x => x.id === blockId);
       if (!block || block.productionStatus === productionStatus) return;
@@ -1955,6 +2053,7 @@
       }
     }
 
+    /** El cliente confirma la semana completa. */
     async function confirmActiveSchedule() {
       const sched = getActiveSchedule();
       state.confirmScheduleAsk = false;
@@ -1984,6 +2083,7 @@
         .find(color => !used.includes(color.toLowerCase())) || '#6366F1';
     }
 
+    /** Selecciona la sección en el formulario de ideas, o abre la opción de crear una nueva. */
     function chooseIdeaFormSection(value) {
       state.ideaNewSectionError = '';
       state.ideaNewSectionOpen = value === '__new__';
@@ -1996,6 +2096,7 @@
       render();
     }
 
+    /** Crea una sección desde el formulario de ideas. */
     async function createSectionFromIdeaModal() {
       const name = state.ideaNewSectionName.trim();
       if (!name) {
@@ -2018,6 +2119,7 @@
       await hydrateFromApi();
     }
 
+    /** Crea una sección desde la pantalla de ideas. */
     async function submitNewIdeaSection() {
       const name = state.newSectionName.trim();
       if (!name) {
@@ -2039,6 +2141,7 @@
       setBanner(`Color "${name}" creado.`);
     }
 
+    /** Elimina una sección, ya confirmado por el usuario. */
     async function deleteIdeaSectionConfirmed(sectionId) {
       const r = await apiFetch(`/ideas/sections/${sectionId}`, { method: 'DELETE' });
       state.confirmDeleteSectionId = null;
@@ -2051,6 +2154,7 @@
       setBanner('Sección eliminada.');
     }
 
+    /** Abre el formulario de ideas, vacío o con una idea existente. */
     function openIdeaModal(idea = null) {
       state.acceptingProposalId = null;
       state.ideaNewSectionOpen = state.ideaSections.length === 0;
@@ -2083,6 +2187,7 @@
       render();
     }
 
+    /** Guarda la idea. Si viene de una propuesta, además acepta la propuesta. */
     async function submitIdeaModal() {
       const title = state.ideaFormTitle.trim();
       const content = state.ideaFormContent.trim();
@@ -2140,6 +2245,7 @@
       setBanner(state.editingIdeaId ? 'Idea actualizada.' : 'Idea guardada en tu espacio privado.');
     }
 
+    /** Fija una idea o la quita de las fijadas. */
     async function togglePinIdea(ideaId, currentPinned) {
       const r = await apiFetch(`/ideas/${ideaId}`, {
         method: 'PATCH',
@@ -2148,6 +2254,7 @@
       if (r.ok) await hydrateFromApi();
     }
 
+    /** Elimina una idea, ya confirmado por el usuario. */
     async function deleteIdeaConfirmed(ideaId) {
       const r = await apiFetch(`/ideas/${ideaId}`, { method: 'DELETE' });
       state.confirmDeleteIdeaId = null;
@@ -2159,6 +2266,7 @@
       setBanner('Idea eliminada.');
     }
 
+    /** Lleva una idea al cronograma: abre un bloque nuevo con su título, contenido y color. */
     function sendIdeaToPlan(ideaId) {
       const idea = state.ideas.find(x => x.id === ideaId);
       if (!idea) return;
@@ -2182,6 +2290,7 @@
     // =========================================================================
     // ACCIONES DE DOMINIO: CLIENTES Y CONFIRMACIÓN DE IDENTIDAD ("SÍ, SOY YO")
     // =========================================================================
+    /** Invita a un cliente nuevo. */
     async function createClientFromForm() {
       const companyName = (document.getElementById('cl-name')?.value || '').trim();
       const industry = (document.getElementById('cl-ind')?.value || '').trim();
@@ -2212,6 +2321,7 @@
       );
     }
 
+    /** Reenvía la invitación a un cliente pendiente. */
     async function resendClientConfirmation(clientId) {
       const r = await apiFetch(`/clients/${clientId}/resend-confirmation`, { method: 'POST' });
       if (!r.ok) {
@@ -2225,6 +2335,7 @@
       setBanner('Reenviamos la notificación y el correo de confirmación "Sí, soy yo" al cliente.');
     }
 
+    /** Elimina un cliente, ya confirmado por el usuario. */
     async function deleteClientConfirmed(clientId) {
       const r = await apiFetch(`/clients/${clientId}`, { method: 'DELETE' });
       state.confirmDeleteClientId = null;
@@ -2236,6 +2347,7 @@
       setBanner('Cliente eliminado correctamente.');
     }
 
+    /** El cliente responde "Sí, soy yo" o "No soy yo" desde dentro de la app. */
     async function respondClientIdentity(clientId, decision) {
       const r = await apiFetch(`/clients/${clientId}/confirm-identity`, {
         method: 'POST',
@@ -2259,6 +2371,7 @@
 
     /** Abrir Avisos cuenta como haberlos visto. Se ven resaltados esta vez y el contador baja en el próximo dibujado. */
     let markingNotifications = false;
+    /** Marca todas las notificaciones como leídas. */
     async function markAllNotificationsRead() {
       if (markingNotifications || !state.notifications.some(n => !n.isRead)) return;
       markingNotifications = true;
@@ -2271,6 +2384,7 @@
     // COMPONENTES VISUALES Y PANTALLAS DEL ESTUDIO
     // =========================================================================
 
+    /** Dibuja la barra superior: marca, tema, usuario y avisos. */
     function renderTopBar() {
       const unread = state.notifications.filter(n => !n.isRead).length;
       const roleLabel = state.session ? state.session.role.replace('_', ' ') : 'ACCESO';
@@ -2337,6 +2451,7 @@
       `;
     }
 
+    /** Dibuja los tres pasos que explican cómo funciona la plataforma. */
     function renderHowItWorks() {
       const steps = [
         ['1', 'La agencia arma el cronograma', 'Cada bloque dice qué es, de qué trata y lleva sus fotos o videos.'],
@@ -2358,6 +2473,7 @@
       `;
     }
 
+    /** Dibuja el formulario del código de registro. */
     function renderVerifyRegistrationConsole() {
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -2384,6 +2500,7 @@
       `;
     }
 
+    /** Dibuja el formulario de recuperación o creación de contraseña. */
     function renderRecoveryConsole() {
       const isGoogleCreate = state.authRecoverMode === 'CREATE_GOOGLE_PASS';
       const titleText = isGoogleCreate ? 'Crear contraseña para cuenta Google' : 'Recuperar o crear contraseña';
@@ -2461,6 +2578,7 @@
       `;
     }
 
+    /** Dibuja el formulario de ingreso y registro con los botones sociales. */
     function renderLoginRegisterConsole() {
       const registering = isRegisterTab();
       const submit = registering ? 'performRegister()' : 'performLogin(state.authEmail, state.authPass)';
@@ -2537,6 +2655,7 @@
       `;
     }
 
+    /** Dibuja la pantalla completa de acceso. */
     function renderAuthGate() {
       return `
         <div class="auth-split stage-enter">
@@ -2565,6 +2684,7 @@
     // =========================================================================
     // PANTALLA 1: CRONOGRAMA SEMANAL (LUNES A DOMINGO, BLOQUES, REVISIÓN Y CONFIRMACIÓN)
     // =========================================================================
+    /** Dibuja la pantalla de cronograma: cliente, semana y columnas de lunes a domingo. */
     function renderSchedulesScreen() {
       const role = state.session.role;
       const isClient = role === 'CLIENTE';
@@ -2811,6 +2931,7 @@
       `;
     }
 
+    /** Dibuja la franja que muestra si la semana está confirmada, o el botón para confirmarla. */
     function renderScheduleConfirmBar(sched, isClient, blockedCount) {
       const hasItems = (sched.items || []).length > 0;
       if (sched.status === 'APPROVED') {
@@ -2850,6 +2971,7 @@
       `;
     }
 
+    /** Dibuja la ventana para crear una semana. */
     function renderNewWeekModal() {
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){state.showNewWeekModal=false;render();}">
@@ -2889,6 +3011,7 @@
       `;
     }
 
+    /** Dibuja la ventana para duplicar una semana. */
     function renderDuplicateWeekModal() {
       const sched = state.schedules.find(s => s.id === state.dupSourceId);
       if (!sched) return '';
@@ -2967,6 +3090,7 @@
       `;
     }
 
+    /** Dibuja el editor de bloques: tipo, textos, día, hora y archivos. */
     function renderBlockEditorModal() {
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){closeBlockModal();}">
@@ -3113,6 +3237,7 @@
       return `<img src="${esc(url)}" alt="${esc(m.description || 'Imagen del bloque')}" style="${style}" />`;
     }
 
+    /** Dibuja el detalle de un bloque, con revisión y comentarios. */
     function renderBlockInspectorModal() {
       const sched = getActiveSchedule();
       const blk = (sched?.items || []).find(x => x.id === state.inspectBlockId);
@@ -3248,6 +3373,7 @@
       return /^#[0-9a-f]{6}$/i.test(color || '');
     }
 
+    /** Clase CSS para los colores de paleta con nombre. */
     function sectionColorClass(color) {
       return isHexColor(color) ? '' : 'color-' + esc(color || 'LIME');
     }
@@ -3275,16 +3401,19 @@
       return '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
     }
 
+    /** Variables CSS para los colores hexadecimales elegidos por el usuario. */
     function sectionColorStyle(color) {
       return isHexColor(color) ? `--note-dot:${color};--note-fg:${readableNoteColor(color)};--note-bg:${color}26;` : '';
     }
 
+    /** Contador de propuestas pendientes en la pestaña de Ideas. */
     function tabCount(tabId) {
       if (tabId !== 'ideas') return '';
       const count = pendingProposals().length;
       return count ? ` <span class="badge badge-warn" data-tab-count style="font-size:10px;padding:0 5px;">${count}</span>` : '';
     }
 
+    /** Cambia de pantalla. */
     function openTab(tabId) {
       state.activeTab = tabId;
       render();
@@ -3301,12 +3430,15 @@
       if (changed && !isEditingField()) await hydrateFromApi();
     }
 
+    // Busca novedades cada 30 segundos.
     setInterval(refreshInbox, 30000);
 
+    /** Propuestas sin responder. */
     function pendingProposals() {
       return state.ideaProposals.filter(p => p.status === 'PENDING');
     }
 
+    /** Acepta una propuesta tal cual, en la sección elegida. */
     async function acceptProposal(proposalId) {
       const sectionId = state.proposalSectionChoice[proposalId] || state.ideaSections[0]?.id;
       if (!sectionId) {
@@ -3325,6 +3457,7 @@
       setBanner('Propuesta aceptada: ya está en tus ideas. Le avisamos al cliente.');
     }
 
+    /** Abre el formulario de ideas con la propuesta, para editarla antes de aceptar. */
     function openProposalEditor(proposalId) {
       const proposal = state.ideaProposals.find(p => p.id === proposalId);
       if (!proposal) return;
@@ -3338,6 +3471,7 @@
       render();
     }
 
+    /** Rechaza una propuesta. */
     async function rejectProposal(proposalId) {
       state.confirmRejectProposalId = null;
       const r = await apiFetch(`/idea-proposals/${proposalId}/reject`, { method: 'POST' });
@@ -3349,12 +3483,14 @@
       setBanner('Propuesta rechazada. Le avisamos al cliente.');
     }
 
+    /** Dibuja el enlace de referencia de una propuesta, si tiene. */
     function renderProposalLink(url) {
       return url
         ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12.5px;color:var(--signal-subtle-fg);overflow-wrap:anywhere;">Ver referencia ↗</a>`
         : '';
     }
 
+    /** Dibuja las propuestas recibidas por la agencia. */
     function renderAgencyProposals() {
       const proposals = pendingProposals();
       if (!proposals.length) {
@@ -3402,6 +3538,7 @@
       `;
     }
 
+    /** Envía la idea que propone el cliente. */
     async function submitClientProposal() {
       const title = state.proposalTitle.trim();
       const content = state.proposalContent.trim();
@@ -3424,6 +3561,7 @@
       setBanner('Listo: le mandamos tu idea a la agencia.');
     }
 
+    /** Dibuja la pantalla de propuestas del cliente. */
     function renderClientProposalsScreen() {
       const statusBadge = {
         PENDING: { cls: 'badge-review', label: 'ESPERANDO RESPUESTA' },
@@ -3472,6 +3610,7 @@
       `;
     }
 
+    /** Dibuja el banco de ideas: secciones, filtros y tarjetas. */
     function renderIdeasScreen() {
       const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       const q = state.ideaSearch.trim().toLowerCase();
@@ -3677,6 +3816,7 @@
       `;
     }
 
+    /** Dibuja el formulario de ideas. */
     function renderIdeaModal() {
       const confirmedClients = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       return `
@@ -3767,6 +3907,7 @@
     // =========================================================================
     // PANTALLA 3: CLIENTES (CON CONFIRMACIÓN DE SEGURIDAD "SÍ, SOY YO")
     // =========================================================================
+    /** Dibuja la tarjeta de un cliente, con su estado de confirmación. */
     function renderClientCard(cl) {
       const isConfirmed = cl.confirmationStatus === 'CONFIRMED';
       return `
@@ -3796,6 +3937,7 @@
       `;
     }
 
+    /** Dibuja la pantalla de clientes y el formulario de invitación. */
     function renderAccountsScreen() {
       const active = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       const pending = state.clients.filter(c => c.confirmationStatus !== 'CONFIRMED');
@@ -3886,6 +4028,7 @@
     // =========================================================================
     // PANTALLA 4: HISTORIAL Y NOTIFICACIONES INTERACTIVAS
     // =========================================================================
+    /** Dibuja el historial de notificaciones. */
     function renderHistoryScreen() {
       return `
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
@@ -3940,6 +4083,7 @@
       return null;
     }
 
+    /** Abre el elemento al que se refiere una notificación. */
     async function openNotificationTarget(id) {
       const n = state.notifications.find(x => x.id === id);
       const target = n && findNotificationTarget(n);
@@ -3960,6 +4104,7 @@
       render();
     }
 
+    /** Guarda los cambios del perfil propio. */
     async function saveProfile() {
       const fullName = (document.getElementById('pf-name')?.value || '').trim();
       const agencyField = document.getElementById('pf-agency');
@@ -3973,6 +4118,7 @@
       setBanner('Perfil actualizado.');
     }
 
+    /** Administrador: carga los ajustes y el estado de las integraciones. */
     async function loadPlatformSettings() {
       const r = await apiFetch('/settings');
       if (!r.ok) return;
@@ -3981,6 +4127,7 @@
       render();
     }
 
+    /** Aplica en la interfaz los ajustes recibidos del servidor. */
     function applyServerSettings(data) {
       state.platformSettings = data.settings;
       state.platformIntegrations = data.integrations;
@@ -3991,10 +4138,12 @@
       };
     }
 
+    /** Lee un campo numérico del formulario de ajustes. */
     function settingNumber(id) {
       return Number(document.getElementById(id)?.value);
     }
 
+    /** Guarda los ajustes de la plataforma. */
     async function savePlatformSettings() {
       const r = await apiFetch('/settings', {
         method: 'PATCH',
@@ -4012,11 +4161,13 @@
       setBanner('Ajustes guardados: ya están activos, sin reiniciar el servidor.');
     }
 
+    /** Muestra u oculta la confirmación para restablecer los ajustes. */
     function askResetPlatformSettings(ask) {
       state.confirmResetSettings = ask;
       render();
     }
 
+    /** Restablece los ajustes de fábrica. */
     async function resetPlatformSettings() {
       state.confirmResetSettings = false;
       const r = await apiFetch('/settings', { method: 'DELETE' });
@@ -4025,6 +4176,7 @@
       setBanner('Ajustes restablecidos a los valores de fábrica.');
     }
 
+    /** Dibuja el panel de ajustes del administrador. */
     function renderPlatformSettingsPanel() {
       const c = state.platformSettings;
       const i = state.platformIntegrations;
@@ -4082,6 +4234,7 @@
       `;
     }
 
+    /** Dibuja la pantalla a la que lleva el enlace del correo "Sí, soy yo". */
     function renderInvitationGate() {
       const rejecting = state.inviteDecision === 'reject';
       return `
@@ -4101,6 +4254,7 @@
       `;
     }
 
+    /** Envía la decisión tomada en esa pantalla. */
     async function answerInvitation(decision) {
       if (state.inviteBusy) return;
       state.inviteBusy = true;
@@ -4123,6 +4277,7 @@
       );
     }
 
+    /** Dibuja la pantalla de Ajustes. */
     function renderSettingsScreen() {
       const s = state.session;
       return `
@@ -4182,6 +4337,7 @@
       `;
     }
 
+    /** Abre la ventana para eliminar la cuenta. */
     async function openDeleteAccount() {
       const me = await apiFetch('/auth/me');
       if (!me.ok) { setBanner(friendlyError(me.data, me.status), true); return; }
@@ -4189,12 +4345,14 @@
       render();
     }
 
+    /** Cierra la ventana para eliminar la cuenta. */
     function closeDeleteAccount() {
       if (state.deleteAccount && state.deleteAccount.busy) return;
       state.deleteAccount = null;
       render();
     }
 
+    /** Dibuja la ventana para eliminar la cuenta. */
     function renderDeleteAccountModal() {
       const d = state.deleteAccount;
       const isAgency = state.session.role === 'AGENCIA';
@@ -4232,6 +4390,7 @@
       `;
     }
 
+    /** Elimina la cuenta en el servidor y vuelve a la pantalla de acceso. */
     async function submitDeleteAccount() {
       const d = state.deleteAccount;
       if (!d || d.busy) return;
@@ -4256,6 +4415,10 @@
       setBanner('Tu cuenta se eliminó correctamente.');
     }
 
+    /**
+     * Función central de la interfaz: regenera todo el HTML según `state`.
+     * Muestra la invitación, la pantalla de acceso o la aplicación, según corresponda.
+     */
     function render() {
       const root = document.getElementById('app');
       const bannerKey = state.banner ? state.banner.msg : null;
@@ -4344,6 +4507,7 @@
       return state.setupDraft;
     }
 
+    /** Guarda los datos obligatorios de una cuenta nueva creada con un proveedor social. */
     async function submitProfileSetup() {
       const draft = profileSetupDraft();
       if (draft.busy) return;
@@ -4375,6 +4539,7 @@
       setBanner('¡Listo! Tus datos quedaron guardados.');
     }
 
+    /** Dibuja la ventana obligatoria para completar esos datos. */
     function renderProfileSetupModal() {
       const draft = profileSetupDraft();
       const field = (id, label, key, max) => `
@@ -4420,6 +4585,7 @@
       return '';
     }
 
+    /** Guarda las posiciones de scroll y las alturas antes de redibujar. */
     function captureScroll() {
       return {
         modalKey: motionState.modalKey,
@@ -4429,6 +4595,7 @@
       };
     }
 
+    /** Restaura esas posiciones después de redibujar. */
     function restoreScroll(saved) {
       const key = currentModalKey();
       motionState.modalKey = key;
@@ -4461,10 +4628,12 @@
         if (state.session && !isEditingField()) hydrateFromApi();
       };
 
+      // Vuelta del acceso social: la sesión llega en el fragmento (#) de la URL y los errores, en la consulta.
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       const socialSession = hashParams.get('social_session');
       const socialError = q.get('social_error');
 
+      // Llegada desde el enlace "Sí, soy yo" del correo.
       const inviteToken = q.get('invitation_token');
       if (inviteToken) {
         state.inviteToken = inviteToken;
@@ -4493,6 +4662,7 @@
         authUi.error = socialError;
       }
 
+      // Si había una sesión abierta, intenta recuperarla con la cookie; si no, muestra la pantalla de acceso.
       if (hasSessionHint() && !state.inviteToken && (await refreshSession())) {
         render();
         await hydrateFromApi();

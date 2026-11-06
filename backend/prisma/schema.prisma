@@ -1,11 +1,16 @@
+// Esquema de la base de datos. Prisma genera a partir de aquí el cliente que usa el código.
+// Cada `model` es una tabla y @map indica el nombre real de la columna en MySQL.
+// Al cambiar este archivo hay que crear una migración en prisma/migrations.
 // ============================================================================
 // ContentSync — Modelo Relacional MySQL Normalizado en 3FN
 // ============================================================================
 
+// Genera el cliente TypeScript con `npx prisma generate`.
 generator client {
   provider = "prisma-client-js"
 }
 
+// Conexión a MySQL, tomada de la variable DATABASE_URL.
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
@@ -15,24 +20,28 @@ datasource db {
 // ENUMS DEL DOMINIO
 // ----------------------------------------------------------------------------
 
+// Roles: administrador de la plataforma, agencia de marketing y cliente.
 enum RoleCode {
   ADMIN_GENERAL
   AGENCIA
   CLIENTE
 }
 
+// Proveedores de acceso social.
 enum SocialProvider {
   GOOGLE
   FACEBOOK
   GITHUB
 }
 
+// Estado de la confirmación "Sí, soy yo": pendiente, confirmada o rechazada.
 enum ClientConfirmationStatus {
   PENDING
   CONFIRMED
   REJECTED
 }
 
+// Estado del cronograma. APPROVED significa que el cliente confirmó la semana.
 enum ScheduleStatus {
   DRAFT
   IN_REVIEW
@@ -40,6 +49,7 @@ enum ScheduleStatus {
   COMPLETED
 }
 
+// Tipo de pieza de contenido.
 enum ContentType {
   REEL
   CAROUSEL
@@ -49,11 +59,13 @@ enum ContentType {
   OTHER
 }
 
+// Tipo de archivo adjunto.
 enum MediaKind {
   IMAGE
   VIDEO
 }
 
+// Estado de revisión de un bloque por parte del cliente.
 enum BlockReviewStatus {
   IN_REVIEW
   CHANGES_REQUESTED
@@ -61,6 +73,7 @@ enum BlockReviewStatus {
   APPROVED
 }
 
+// Etapa de producción: pendiente, grabado, editado o subido. Es el avance del trabajo de la agencia.
 enum ProductionStatus {
   PENDING
   RECORDED
@@ -68,12 +81,14 @@ enum ProductionStatus {
   UPLOADED
 }
 
+// Decisiones posibles del cliente al revisar un bloque.
 enum ApprovalDecision {
   APPROVED
   CHANGES_REQUESTED
   REJECTED
 }
 
+// Motivos por los que se avisa a un usuario.
 enum NotificationType {
   NEW_SCHEDULE
   SCHEDULE_DUPLICATED
@@ -90,6 +105,7 @@ enum NotificationType {
   IDEA_REJECTED
 }
 
+// Estado de una idea propuesta por un cliente.
 enum IdeaProposalStatus {
   PENDING
   ACCEPTED
@@ -100,6 +116,7 @@ enum IdeaProposalStatus {
 // 1. ROLES Y USUARIOS (3FN: Rol separado en su catálogo, sin atributos redundantes)
 // ----------------------------------------------------------------------------
 
+// Catálogo de roles.
 model Role {
   id          String   @id @default(uuid()) @db.VarChar(36)
   code        RoleCode @unique
@@ -112,20 +129,27 @@ model Role {
   @@map("roles")
 }
 
+// Cuenta de acceso de cualquier persona. deletedAt marca el borrado lógico (la fila se conserva).
 model User {
   id                   String    @id @default(uuid()) @db.VarChar(36)
   roleId               String    @map("role_id") @db.VarChar(36)
   email                String    @unique @db.VarChar(180)
+  // Null si la cuenta aún no tiene contraseña (acceso social o cliente recién invitado).
   passwordHash         String?   @map("password_hash") @db.VarChar(255)
   fullName             String    @map("full_name") @db.VarChar(150)
   timezone             String    @default("America/Argentina/Buenos_Aires") @db.VarChar(80)
   emailVerified        Boolean   @default(false) @map("email_verified")
+  // True si debe completar sus datos al entrar (cuentas creadas con un proveedor social).
   needsProfileSetup    Boolean   @default(false) @map("needs_profile_setup")
+  // Hash y vencimiento del código para verificar el correo.
   verificationToken    String?   @map("verification_token") @db.VarChar(128)
   verificationExpires  DateTime? @map("verification_expires")
+  // Hash y vencimiento del código para recuperar o crear la contraseña.
   passwordResetToken   String?   @map("password_reset_token") @db.VarChar(128)
   passwordResetExpires DateTime? @map("password_reset_expires")
+  // Intentos fallidos con el código actual; al llegar al máximo, el código se invalida.
   otpFailedAttempts    Int       @default(0) @map("otp_failed_attempts")
+  // Token del dispositivo para notificaciones push.
   fcmToken             String?   @map("fcm_token") @db.VarChar(512)
   isActive             Boolean   @default(true) @map("is_active")
   createdAt            DateTime  @default(now()) @map("created_at")
@@ -152,6 +176,7 @@ model User {
   @@map("users")
 }
 
+// Una sesión abierta. Cada renovación crea una fila nueva de la misma familia (tokenFamily).
 model AuthSession {
   id               String    @id @default(uuid()) @db.VarChar(36)
   userId           String    @map("user_id") @db.VarChar(36)
@@ -162,6 +187,7 @@ model AuthSession {
   isRevoked        Boolean   @default(false) @map("is_revoked")
   expiresAt        DateTime  @map("expires_at")
   createdAt        DateTime  @default(now()) @map("created_at")
+  // Fecha en que este token se cambió por otro. Si vuelve a usarse, se considera robado.
   rotatedAt        DateTime? @map("rotated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -171,6 +197,7 @@ model AuthSession {
   @@map("auth_sessions")
 }
 
+// Vínculo de un usuario con su cuenta en un proveedor social.
 model SocialAuthAccount {
   id             String         @id @default(uuid()) @db.VarChar(36)
   userId         String         @map("user_id") @db.VarChar(36)
@@ -191,6 +218,7 @@ model SocialAuthAccount {
 // 2. AGENCIAS Y CLIENTES (Jerarquía multi-tenant + Confirmación "Sí, soy yo")
 // ----------------------------------------------------------------------------
 
+// Agencia de marketing, con un único usuario propietario. isSuspended bloquea sus cuentas.
 model Agency {
   id           String    @id @default(uuid()) @db.VarChar(36)
   ownerUserId  String    @unique @map("owner_user_id") @db.VarChar(36)
@@ -214,6 +242,7 @@ model Agency {
   @@map("agencies")
 }
 
+// Marca cliente de una agencia, con un usuario propio para entrar a revisar.
 model Client {
   id                    String                   @id @default(uuid()) @db.VarChar(36)
   agencyId              String                   @map("agency_id") @db.VarChar(36)
@@ -221,6 +250,7 @@ model Client {
   companyName           String                   @map("company_name") @db.VarChar(150)
   industry              String?                  @db.VarChar(100)
   confirmationStatus    ClientConfirmationStatus @default(CONFIRMED) @map("confirmation_status")
+  // Token del enlace del correo "Sí, soy yo", con su vencimiento.
   confirmationToken     String?                  @unique @map("confirmation_token") @db.VarChar(128)
   confirmationExpiresAt DateTime?                @map("confirmation_expires_at")
   confirmedAt           DateTime?                @map("confirmed_at")
@@ -247,16 +277,19 @@ model Client {
 // 3. CRONOGRAMAS SEMANALES (LUNES A VIERNES), BLOQUES, FOTOS, VIDEOS Y REVISIÓN
 // ----------------------------------------------------------------------------
 
+// Cronograma de una semana para un cliente. @@unique impide dos cronogramas el mismo lunes.
 model Schedule {
   id               String         @id @default(uuid()) @db.VarChar(36)
   clientId         String         @map("client_id") @db.VarChar(36)
   createdByUserId  String         @map("created_by_user_id") @db.VarChar(36)
+  // Semana de origen, si esta se creó duplicando otra.
   duplicatedFromId String?        @map("duplicated_from_id") @db.VarChar(36)
   weekStartDate    DateTime       @map("week_start_date") @db.Date
   weekEndDate      DateTime       @map("week_end_date") @db.Date
   title            String         @db.VarChar(150)
   summaryNotes     String?        @map("summary_notes") @db.Text
   status           ScheduleStatus @default(IN_REVIEW)
+  // Cuándo y quién confirmó la semana.
   confirmedAt      DateTime?      @map("confirmed_at")
   confirmedByUserId String?       @map("confirmed_by_user_id") @db.VarChar(36)
   createdAt        DateTime       @default(now()) @map("created_at")
@@ -276,6 +309,7 @@ model Schedule {
   @@map("schedules")
 }
 
+// Bloque de contenido de un día: qué es, de qué trata, su estado de revisión y de producción.
 model ScheduleItem {
   id           String            @id @default(uuid()) @db.VarChar(36)
   scheduleId   String            @map("schedule_id") @db.VarChar(36)
@@ -283,6 +317,7 @@ model ScheduleItem {
   contentType  ContentType       @default(OTHER) @map("content_type")
   blockTitle   String            @default("Bloque de contenido") @map("block_title") @db.VarChar(160)
   noteColor    String            @default("AMBER") @map("note_color") @db.VarChar(30)
+  // notes: de qué trata el contenido. caption: texto que acompañará a la publicación.
   notes        String?           @db.Text
   caption      String?           @db.Text
   plannedTime  String            @default("18:00") @map("planned_time") @db.VarChar(10)
@@ -301,10 +336,12 @@ model ScheduleItem {
   @@map("schedule_items")
 }
 
+// Foto o video de un bloque.
 model ScheduleItemMedia {
   id             String    @id @default(uuid()) @db.VarChar(36)
   scheduleItemId String    @map("schedule_item_id") @db.VarChar(36)
   kind           MediaKind
+  // Ubicación del archivo: clients/... en S3 o /uploads/videos/... en disco.
   storageKey     String    @map("storage_key") @db.VarChar(500)
   mimeType       String    @map("mime_type") @db.VarChar(60)
   sizeBytes      BigInt    @default(0) @map("size_bytes")
@@ -319,6 +356,7 @@ model ScheduleItemMedia {
   @@map("schedule_item_media")
 }
 
+// Cada decisión del cliente sobre un bloque. Se conserva el historial completo.
 model BlockReview {
   id             String           @id @default(uuid()) @db.VarChar(36)
   scheduleItemId String           @map("schedule_item_id") @db.VarChar(36)
@@ -335,6 +373,7 @@ model BlockReview {
   @@map("block_reviews")
 }
 
+// Mensaje en la conversación de un bloque.
 model BlockComment {
   id             String   @id @default(uuid()) @db.VarChar(36)
   scheduleItemId String   @map("schedule_item_id") @db.VarChar(36)
@@ -354,6 +393,7 @@ model BlockComment {
 // 4. IDEAS DE CONTENIDO PRIVADAS DE LA AGENCIA (Secciones + Ideas en 3FN)
 // ----------------------------------------------------------------------------
 
+// Sección del banco de ideas. Su nombre no se repite dentro de la agencia.
 model ContentIdeaSection {
   id        String   @id @default(uuid()) @db.VarChar(36)
   agencyId  String   @map("agency_id") @db.VarChar(36)
@@ -371,6 +411,7 @@ model ContentIdeaSection {
   @@map("content_idea_sections")
 }
 
+// Idea de contenido privada de la agencia, opcionalmente asociada a un cliente.
 model ContentIdea {
   id              String   @id @default(uuid()) @db.VarChar(36)
   agencyId        String   @map("agency_id") @db.VarChar(36)
@@ -421,6 +462,7 @@ model ClientIdeaProposal {
 // 5. NOTIFICACIONES Y LOGS DE AUDITORÍA
 // ----------------------------------------------------------------------------
 
+// Aviso interno para un usuario. referenceId apunta al recurso relacionado.
 model Notification {
   id          String           @id @default(uuid()) @db.VarChar(36)
   userId      String           @map("user_id") @db.VarChar(36)
@@ -437,6 +479,7 @@ model Notification {
   @@map("notifications")
 }
 
+// Evento de auditoría. Se conserva aunque se borre el usuario (userId pasa a null).
 model AuditLog {
   id         String   @id @default(uuid()) @db.VarChar(36)
   userId     String?  @map("user_id") @db.VarChar(36)
@@ -459,6 +502,7 @@ model AuditLog {
 // 6. CONFIGURACIÓN EDITABLE EN TIEMPO DE EJECUCIÓN (solo valores no secretos)
 // ----------------------------------------------------------------------------
 
+// Ajuste editable: `key` es el nombre y `value` su valor en formato JSON.
 model AppSetting {
   key             String   @id @db.VarChar(80)
   value           String   @db.Text

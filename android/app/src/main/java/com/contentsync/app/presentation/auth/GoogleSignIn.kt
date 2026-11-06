@@ -1,3 +1,4 @@
+/** Acceso con Google nativo de Android, mediante CredentialManager. */
 package com.contentsync.app.presentation.auth
 
 import android.content.Context

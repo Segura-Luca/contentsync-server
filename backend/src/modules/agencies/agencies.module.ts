@@ -1,3 +1,4 @@
+/** Módulo de agencias: administración de agencias, reservada a ADMIN_GENERAL. */
 import { Module } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { AgenciesController } from './agencies.controller';

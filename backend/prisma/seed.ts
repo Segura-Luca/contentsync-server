@@ -1,3 +1,8 @@
+/**
+ * Carga datos de demostración: roles, usuarios, agencias, clientes, ideas y cronogramas.
+ * Se ejecuta con `npm run prisma:seed`, exige SEED_DEFAULT_PASSWORD y se niega a correr en producción.
+ * Usa upsert para poder ejecutarlo varias veces sin duplicar usuarios ni agencias.
+ */
 import 'dotenv/config';
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -15,6 +20,7 @@ import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
+/** Crea las tres secciones base de una agencia y, si no tiene ninguna idea, tres ideas de ejemplo. */
 async function seedAgencyIdeas(
   agencyId: string,
   creatorUserId: string,
@@ -75,6 +81,7 @@ async function seedAgencyIdeas(
   }
 }
 
+/** Crea todos los datos en orden, respetando las dependencias entre tablas. */
 async function main() {
   console.log('Iniciando seed de ContentSync (MySQL 3FN)...');
 
@@ -109,6 +116,7 @@ async function main() {
     },
   });
 
+  // Protección: las cuentas de demostración nunca deben llegar a producción.
   if (process.env.NODE_ENV === 'production') {
     throw new Error('El seed carga cuentas de demostración: no se ejecuta en producción.');
   }
@@ -383,6 +391,7 @@ async function main() {
   });
 }
 
+// Ejecuta el seed, informa cualquier error y siempre cierra la conexión.
 main()
   .catch((e) => {
     console.error('Error ejecutando seed:', e);

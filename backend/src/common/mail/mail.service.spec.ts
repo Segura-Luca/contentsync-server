@@ -1,3 +1,7 @@
+/**
+ * Pruebas unitarias del servicio de correo: orden de los transportes, cascada ante fallos y envío del secreto del webhook.
+ * Se simula `fetch`, así que no se envía ningún correo real.
+ */
 import { MailService } from './mail.service';
 
 describe('MailService', () => {

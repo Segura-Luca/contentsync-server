@@ -1,3 +1,4 @@
+/** Carga, guarda y restablece los ajustes editables de la plataforma. */
 import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -22,20 +23,24 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     private readonly config: AppConfigService,
   ) {}
 
+  /** Carga los ajustes al arrancar y programa su actualización periódica. unref() no retiene el apagado del proceso. */
   async onModuleInit(): Promise<void> {
     await this.reload();
     this.timer = setInterval(() => void this.reload(), this.config.settingsRefreshSeconds * 1000);
     this.timer.unref();
   }
 
+  /** Detiene la actualización periódica al apagar. */
   onModuleDestroy(): void {
     if (this.timer) clearInterval(this.timer);
   }
 
+  /** Devuelve los ajustes vigentes, sin consultar la base de datos. */
   current(): RuntimeSettings {
     return this.snapshot;
   }
 
+  /** Combina lo guardado con los valores de fábrica, ignorando claves desconocidas. */
   private merge(overrides: Record<string, unknown>): RuntimeSettings {
     const merged = cloneDefaultSettings();
     const target = merged as unknown as Record<string, unknown>;
@@ -46,6 +51,7 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     return merged;
   }
 
+  /** Vuelve a leer de MySQL. Si falla, conserva los últimos valores conocidos. */
   async reload(): Promise<void> {
     try {
       const rows = (await this.prisma.appSetting.findMany()) ?? [];
@@ -63,6 +69,7 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Guarda los valores enviados, recarga la copia en memoria y lo registra en la auditoría. */
   async update(dto: UpdateSettingsDto, userId: string): Promise<RuntimeSettings> {
     if (dto.defaultTimezone && !isValidTimeZone(dto.defaultTimezone)) {
       throw new BadRequestException(`Zona horaria desconocida: ${dto.defaultTimezone}.`);

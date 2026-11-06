@@ -1,3 +1,4 @@
+# Archivos que no se copian a la imagen de Docker: dependencias, compilados, secretos y subidas.
 node_modules
 dist
 coverage

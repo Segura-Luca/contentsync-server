@@ -1,3 +1,7 @@
+/**
+ * DTO de autenticación: definen y validan los datos que llegan en cada petición.
+ * Los decoradores @Is... y @Max... validan; los @Api... documentan en Swagger.
+ */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Equals,
@@ -12,9 +16,11 @@ import {
 } from 'class-validator';
 import { SocialProvider } from '@prisma/client';
 
+// Contraseña segura: de 8 a 64 caracteres, con mayúscula, minúscula, número y símbolo.
 const STRONG_PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d])[A-Za-z\d\S]{8,64}$/;
 
+/** Datos para registrar una agencia. */
 export class RegisterDto {
   @ApiProperty({ example: 'usuario@agencia.com' })
   @IsEmail({}, { message: 'Debe proporcionar un correo electrónico válido.' })
@@ -66,6 +72,7 @@ export class RegisterDto {
   timezone?: string;
 }
 
+/** Campos editables del perfil propio. Todos opcionales. */
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'Valentina Gómez' })
   @IsOptional()
@@ -87,6 +94,7 @@ export class UpdateProfileDto {
   agencyName?: string;
 }
 
+/** Datos obligatorios tras registrarse con un proveedor social. */
 export class CompleteProfileDto {
   @ApiProperty({ example: 'Ana' })
   @IsString()
@@ -107,6 +115,7 @@ export class CompleteProfileDto {
   agencyName!: string;
 }
 
+/** Correo y código de 6 dígitos para terminar el registro. */
 export class VerifyRegistrationCodeDto {
   @ApiProperty({ example: 'usuario@agencia.com' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
@@ -120,6 +129,7 @@ export class VerifyRegistrationCodeDto {
   code!: string;
 }
 
+/** Inicio de sesión. La contraseña es opcional: sin ella se detectan cuentas que aún no la crearon. */
 export class LoginDto {
   @ApiProperty({ example: 'agencia.nova@contentsync.io' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
@@ -138,10 +148,12 @@ export class LoginDto {
   deviceInfo?: string;
 }
 
+/** Uso interno: el token llega por cookie, no en el cuerpo de la petición. */
 export interface RefreshTokenDto {
   refreshToken: string;
 }
 
+/** Token del proveedor social y datos opcionales de la cuenta. */
 export class SocialLoginDto {
   @ApiProperty({ enum: SocialProvider, example: SocialProvider.GOOGLE })
   @IsEnum(SocialProvider)
@@ -179,12 +191,14 @@ export class SocialLoginDto {
   deviceInfo?: string;
 }
 
+/** Correo para solicitar un código de recuperación. */
 export class ForgotPasswordDto {
   @ApiProperty({ example: 'agencia.nova@contentsync.io' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
   email!: string;
 }
 
+/** Correo y código a comprobar. */
 export class VerifyOtpCodeDto {
   @ApiProperty({ example: 'usuario@gmail.com' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
@@ -198,6 +212,7 @@ export class VerifyOtpCodeDto {
   code!: string;
 }
 
+/** Correo, código (`token`) y nueva contraseña. */
 export class ResetPasswordDto {
   @ApiProperty({ example: 'usuario@gmail.com' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })
@@ -219,6 +234,7 @@ export class ResetPasswordDto {
   newPassword!: string;
 }
 
+/** Confirmación escrita para eliminar la cuenta. */
 export class DeleteAccountDto {
   @ApiProperty({ example: 'ELIMINAR' })
   @Equals('ELIMINAR', { message: 'Escribí ELIMINAR para confirmar.' })

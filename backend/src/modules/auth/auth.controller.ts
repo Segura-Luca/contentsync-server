@@ -1,3 +1,7 @@
+/**
+ * Rutas HTTP de autenticación (/api/v1/auth/...). Reciben la petición y delegan la lógica en AuthService.
+ * Las marcadas con @AuthThrottle() tienen el límite de peticiones estricto, porque validan credenciales o envían correos.
+ */
 import { Body, Controller, Get, Ip, Param, Patch, Post, Query, Req, Res, UnauthorizedException, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -26,6 +30,7 @@ import {
   VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
 
+/** RefreshCookieInterceptor mueve el refresh token de las respuestas a una cookie httpOnly. */
 @ApiTags('Autenticación y Seguridad')
 @Controller('auth')
 @UseInterceptors(RefreshCookieInterceptor)
@@ -43,6 +48,7 @@ export class AuthController {
     return host ? `${req.protocol}://${host}` : undefined;
   }
 
+  /** Paso 1 del registro de una agencia: crea la cuenta sin verificar y envía el código. */
   @Public()
   @AuthThrottle()
   @Post('register')
@@ -51,6 +57,7 @@ export class AuthController {
     return this.authService.register(dto, ip);
   }
 
+  /** Paso 2 del registro: valida el código y abre la sesión. */
   @Public()
   @AuthThrottle()
   @Post('verify-registration')
@@ -59,6 +66,7 @@ export class AuthController {
     return this.authService.verifyRegistrationCode(dto, ip);
   }
 
+  /** Inicio de sesión. Puede responder con tokens o pedir verificar el correo o crear una contraseña. */
   @Public()
   @AuthThrottle()
   @Post('login')
@@ -69,6 +77,7 @@ export class AuthController {
     return this.authService.login(dto, ip);
   }
 
+  /** Acceso con un token ya emitido por el proveedor (Google desde la web o la app Android). */
   @Public()
   @AuthThrottle()
   @Post('social')
@@ -77,6 +86,7 @@ export class AuthController {
     return this.authService.socialLogin(dto, ip);
   }
 
+  /** Identificadores públicos que la web necesita para mostrar los botones de acceso social. */
   @Public()
   @Get('social/config')
   @ApiOperation({ summary: 'Identificadores públicos de apps para iniciar sesión con Google, Facebook y GitHub' })
@@ -84,6 +94,7 @@ export class AuthController {
     return this.authService.getSocialPublicConfig();
   }
 
+  /** Inicia el acceso con Facebook o GitHub: guarda el nonce en una cookie y redirige al proveedor. */
   @Public()
   @AuthThrottle()
   @Get('oauth/:provider')
@@ -119,6 +130,7 @@ export class AuthController {
     }
   }
 
+  /** El proveedor vuelve aquí con un código: se canjea, se abre la sesión y se redirige a la web. */
   @Public()
   @AuthThrottle()
   @Get('oauth/:provider/callback')
@@ -159,6 +171,7 @@ export class AuthController {
     }
   }
 
+  /** Renueva la sesión con la cookie. Si falla, borra la cookie para no seguir reintentando. */
   @Public()
   @Post('refresh')
   @ApiOperation({ summary: 'Rotar Refresh Token y obtener nuevo par Access/Refresh con detección de reuso' })
@@ -173,6 +186,7 @@ export class AuthController {
     }
   }
 
+  /** Cierra la sesión. Es pública para que funcione aunque el access token ya haya vencido. */
   @Public()
   @Post('logout')
   @ApiOperation({ summary: 'Cerrar sesión y revocar refresh tokens activos' })
@@ -181,6 +195,7 @@ export class AuthController {
     return this.authService.logoutWithRefreshToken(this.oauthState.readCookie(req.headers.cookie, REFRESH_COOKIE), ip);
   }
 
+  /** Devuelve los datos del usuario autenticado. */
   @ApiBearerAuth('jwt-auth')
   @Get('me')
   @ApiOperation({ summary: 'Obtener perfil y permisos del usuario autenticado' })
@@ -188,6 +203,7 @@ export class AuthController {
     return user;
   }
 
+  /** Datos obligatorios que completa una sola vez quien se registró con un proveedor social. */
   @ApiBearerAuth('jwt-auth')
   @Post('me/complete-profile')
   @ApiOperation({ summary: 'Completar los datos básicos de una cuenta creada con Google, Facebook o GitHub' })
@@ -195,6 +211,7 @@ export class AuthController {
     return this.authService.completeProfile(user.sub, dto);
   }
 
+  /** Edita el perfil propio desde Ajustes. */
   @ApiBearerAuth('jwt-auth')
   @Patch('me')
   @ApiOperation({ summary: 'Actualizar nombre y zona horaria del usuario autenticado' })
@@ -202,6 +219,7 @@ export class AuthController {
     return this.authService.updateProfile(user.sub, dto);
   }
 
+  /** Elimina la cuenta propia y borra la cookie de sesión. */
   @ApiBearerAuth('jwt-auth')
   @AuthThrottle()
   @Post('me/delete')
@@ -217,6 +235,7 @@ export class AuthController {
     return result;
   }
 
+  /** Envía un código para recuperar o crear la contraseña. */
   @Public()
   @AuthThrottle()
   @Post('forgot-password')
@@ -225,6 +244,7 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
+  /** Comprueba el código antes de mostrar el campo de nueva contraseña. */
   @Public()
   @AuthThrottle()
   @Post('verify-otp')
@@ -233,6 +253,7 @@ export class AuthController {
     return this.authService.verifyOtpCode(dto);
   }
 
+  /** Guarda la nueva contraseña y abre una sesión. */
   @Public()
   @AuthThrottle()
   @Post('reset-password')

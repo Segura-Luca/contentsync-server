@@ -1,3 +1,7 @@
+/**
+ * Lógica de clientes y su aislamiento entre agencias (multi-tenant).
+ * Ningún cliente queda activo hasta que el dueño del correo confirme "Sí, soy yo".
+ */
 import {
   BadRequestException,
   ConflictException,
@@ -44,10 +48,12 @@ export class ClientsService {
     private readonly settings: SettingsService,
   ) {}
 
+  /** Calcula el vencimiento de una invitación según los ajustes. */
   private inviteExpiry(): Date {
     return new Date(Date.now() + this.settings.current().clientInviteTtlHours * 3600000);
   }
 
+  /** Envía el correo con los botones para aceptar o rechazar. Los datos se escapan antes de insertarlos en el HTML. */
   private async sendClientConfirmationEmail(params: {
     email: string;
     fullName: string;
@@ -430,6 +436,10 @@ export class ClientsService {
     return this.applyConfirmationDecision(client, decision);
   }
 
+  /**
+   * Aplica la decisión. Aceptar activa el perfil; rechazar lo anula y libera el correo.
+   * En ambos casos se avisa a la agencia y queda registro en la auditoría.
+   */
   private async applyConfirmationDecision(
     client: {
       id: string;
@@ -552,6 +562,7 @@ export class ClientsService {
     };
   }
 
+  /** Edita un cliente tras validar que pertenece a la agencia del usuario. */
   async update(id: string, dto: UpdateClientDto, user: AuthenticatedUser) {
     if (user.role === RoleCode.CLIENTE) {
       throw new ForbiddenException('Un cliente no puede modificar su estado administrativo.');
@@ -577,6 +588,7 @@ export class ClientsService {
     return withoutConfirmationToken(updated);
   }
 
+  /** Eliminación lógica del cliente y su usuario. Cambia el correo guardado para que pueda volver a usarse. */
   async softDelete(id: string, user: AuthenticatedUser) {
     if (user.role === RoleCode.CLIENTE) {
       throw new ForbiddenException('Operación no permitida para el rol CLIENTE.');

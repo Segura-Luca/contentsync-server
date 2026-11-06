@@ -1,3 +1,7 @@
+/**
+ * Módulo raíz: reúne todos los módulos de la aplicación y registra las protecciones
+ * que se aplican a TODAS las rutas sin tener que repetirlas en cada controlador.
+ */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
@@ -18,14 +22,17 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { SettingsModule } from './modules/settings/settings.module';
 
+/** Declara qué módulos componen la aplicación y qué protecciones globales usa. */
 @Module({
   imports: [
+    // Lee las variables de entorno de .env y las valida al arrancar: si son inválidas, el servidor no inicia.
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env', '../.env'],
       validate: validateEnv,
     }),
     AppConfigModule,
+    // Límite de peticiones por minuto: uno general y otro estricto solo para rutas marcadas con @AuthThrottle().
     ThrottlerModule.forRootAsync({
       inject: [AppConfigService],
       useFactory: (config: AppConfigService) => [
@@ -48,6 +55,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     SchedulesModule,
     NotificationsModule,
   ],
+  // Se ejecutan en este orden: límite de peticiones, autenticación JWT y control de roles. El filtro traduce errores de Prisma.
   providers: [
     { provide: APP_FILTER, useClass: PrismaExceptionFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },

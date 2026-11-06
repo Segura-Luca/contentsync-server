@@ -1,3 +1,4 @@
+/** Pruebas unitarias de clientes: aislamiento entre agencias, reenvío de invitaciones y confirmación por enlace. */
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ClientConfirmationStatus, RoleCode } from '@prisma/client';
 import { cloneDefaultSettings } from '../settings/settings.defaults';
