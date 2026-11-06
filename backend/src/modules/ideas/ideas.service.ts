@@ -127,6 +127,16 @@ export class IdeasService {
       throw new ConflictException(`Ya existe una sección llamada "${cleanName}".`);
     }
 
+    // Los bloques guardan el color: dos etiquetas con el mismo no se podrían distinguir.
+    if (dto.color) {
+      const sameColor = await this.prisma.contentIdeaSection.findFirst({
+        where: { agencyId, color: dto.color },
+      });
+      if (sameColor) {
+        throw new ConflictException(`Ese color ya lo usa la etiqueta "${sameColor.name}". Elegí otro.`);
+      }
+    }
+
     const count = await this.prisma.contentIdeaSection.count({
       where: { agencyId },
     });

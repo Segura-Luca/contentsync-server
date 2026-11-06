@@ -72,8 +72,8 @@ Alcance: backend NestJS, esquema y migraciones, SPA web, proyecto Android (`Main
 Antes había valores fijos en el código: remitente, URL, duración de sesiones, límites, reintentos, versión de la API de Meta. Ahora:
 
 - **Variables de entorno** validadas al arrancar: ver `.env.example`.
-- **Ajustes** en la app (`ADMIN_GENERAL`), sin reiniciar: nombre de la app, registro, zona horaria, y vigencias e intentos de códigos e invitaciones.
-- **Perfil**: cada usuario edita su nombre y zona horaria.
+- **Ajustes** en la app (`ADMIN_GENERAL`), sin reiniciar: nombre de la app, registro y vigencias e intentos de códigos e invitaciones.
+- **Perfil**: cada usuario edita su nombre.
 
 ## Segunda tanda, antes del lanzamiento
 

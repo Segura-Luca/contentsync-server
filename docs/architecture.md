@@ -67,4 +67,4 @@ La aplicación Android (`minSdk = 26`, `targetSdk = 34`) es un WebView de la app
    - Un archivo en S3 solo puede referenciarse desde la carpeta de su cliente.
    - Se ven con enlaces firmados que vencen a las 12 horas, así que el bucket puede ser privado.
    - Al quitar un archivo o eliminar un bloque, se borra del almacenamiento salvo que otro bloque lo use, como pasa al duplicar una semana.
-4. **Ajustes editables (`SettingsModule`):** nombre de la app, registro de agencias, zona horaria y vigencias de códigos e invitaciones. Se guardan en MySQL y se aplican sin reiniciar.
+4. **Ajustes editables (`SettingsModule`):** nombre de la app, registro de agencias y vigencias de códigos e invitaciones. Se guardan en MySQL y se aplican sin reiniciar.

@@ -70,9 +70,7 @@ La aplicación se configura en dos niveles:
 | Nivel | Dónde | Qué contiene |
 | :--- | :--- | :--- |
 | **Infraestructura y secretos** | Variables de entorno, documentadas en [`.env.example`](.env.example). Se validan al arrancar. | Base de datos, URL pública, JWT, correo, almacenamiento e inicio de sesión social. |
-| **Reglas de negocio** | **Ajustes** en la app, con una cuenta `ADMIN_GENERAL`. Se guardan en MySQL y se aplican sin reiniciar. | Nombre de la app, registro de agencias, zona horaria, y vigencias e intentos de códigos e invitaciones. |
-
-Cada usuario elige además su propia zona horaria.
+| **Reglas de negocio** | **Ajustes** en la app, con una cuenta `ADMIN_GENERAL`. Se guardan en MySQL y se aplican sin reiniciar. | Nombre de la app, registro de agencias y vigencias e intentos de códigos e invitaciones. |
 
 ### Ejecutar Tests del Backend (Unitarios + E2E)
 ```bash

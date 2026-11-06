@@ -39,33 +39,33 @@
     }
 
     html[data-theme="light"] {
-      --canvas: #F4F3EF;
-      --stage: #FAF9F6;
-      --inspector: #EEECE5;
-      --elevated: #E4E1D8;
-      --hairline: #D4D0C5;
-      --border-strong: #9C9689;
-      --text-primary: #141518;
-      --text-secondary: #484C56;
-      --text-muted: #6B707B;
-      --signal: #141518;
-      --on-signal: #FAF9F6;
-      --signal-subtle-bg: #E3F191;
-      --signal-subtle-fg: #2A3800;
-      --tally-live: #065F46;
-      --tally-live-bg: #D1FAE5;
-      --tally-warn: #92400E;
-      --tally-warn-bg: #FEF3C7;
-      --tally-fault: #991B1B;
-      --tally-fault-bg: #FEE2E2;
-      --scrim: rgba(20, 21, 24, 0.54);
+      --canvas: #F1F4FA;
+      --stage: #FFFFFF;
+      --inspector: #F6F8FD;
+      --elevated: #E9EEF7;
+      --hairline: #DDE3EF;
+      --border-strong: #B3BDD0;
+      --text-primary: #1C2436;
+      --text-secondary: #46516A;
+      --text-muted: #5F6A83;
+      --signal: #4F46E5;
+      --on-signal: #FFFFFF;
+      --signal-subtle-bg: #E9E8FE;
+      --signal-subtle-fg: #3730A3;
+      --tally-live: #047857;
+      --tally-live-bg: #D6F5E7;
+      --tally-warn: #A1560A;
+      --tally-warn-bg: #FDF0D0;
+      --tally-fault: #B42318;
+      --tally-fault-bg: #FDE6E3;
+      --scrim: rgba(28, 36, 54, 0.45);
 
-      --note-amber-fg: #B45309; --note-amber-bg: #FEF3C7;
-      --note-emerald-fg: #047857; --note-emerald-bg: #D1FAE5;
-      --note-sky-fg: #0369A1; --note-sky-bg: #E0F2FE;
-      --note-rose-fg: #BE123C; --note-rose-bg: #FFE4E6;
-      --note-violet-fg: #6D28D9; --note-violet-bg: #EDE9FE;
-      --note-lime-fg: #3F6212; --note-lime-bg: #ECFCCB;
+      --note-amber-fg: #B45309; --note-amber-bg: #FDF1D3;
+      --note-emerald-fg: #047857; --note-emerald-bg: #DBF6EA;
+      --note-sky-fg: #0369A1; --note-sky-bg: #DDF1FD;
+      --note-rose-fg: #BE123C; --note-rose-bg: #FFE6EA;
+      --note-violet-fg: #6D28D9; --note-violet-bg: #EEE9FE;
+      --note-lime-fg: #4D7C0F; --note-lime-bg: #EDF8D2;
     }
 
     html, body { max-width: 100%; overflow-x: hidden; }
@@ -179,7 +179,7 @@
       transform-origin: bottom center;
       transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 240ms ease;
     }
-    html[data-theme="light"] .brand-mark span { background: var(--text-primary); }
+    html[data-theme="light"] .brand-mark span { background: var(--signal); }
     .brand-mark span:nth-child(1) { height: 18px; }
     .brand-mark span:nth-child(2) { height: 11px; opacity: 0.72; }
     .brand-mark span:nth-child(3) { height: 16px; }
@@ -290,7 +290,15 @@
       font-weight: 600;
       border-left-color: var(--signal-subtle-fg);
     }
-    html[data-theme="light"] .rail-item.active { border-left-color: var(--text-primary); }
+    html[data-theme="light"] .rail-item.active {
+      background: var(--signal-subtle-bg);
+      color: var(--signal-subtle-fg);
+      border-left-color: var(--signal);
+    }
+    html[data-theme="light"] .topbar { box-shadow: 0 1px 3px rgba(28, 36, 54, 0.06); }
+    html[data-theme="light"] .plan-block-card,
+    html[data-theme="light"] .idea-card { box-shadow: 0 1px 2px rgba(28, 36, 54, 0.05), 0 3px 10px rgba(28, 36, 54, 0.05); }
+    html[data-theme="light"] .modal-panel { box-shadow: 0 12px 40px rgba(28, 36, 54, 0.22); }
 
     .workspace-content { flex: 1; min-width: 0; }
     .bottom-bar { display: none; }
@@ -431,7 +439,7 @@
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: var(--note-fg);
+      background: var(--note-dot, var(--note-fg));
       display: inline-block;
     }
 
@@ -712,15 +720,6 @@
       { num: 7, code: 'DOM', full: 'Domingo' }
     ];
 
-    const NOTE_COLORS = [
-      { code: 'AMBER',   label: 'Ámbar' },
-      { code: 'EMERALD', label: 'Verde' },
-      { code: 'SKY',     label: 'Azul' },
-      { code: 'ROSE',    label: 'Coral' },
-      { code: 'VIOLET',  label: 'Violeta' },
-      { code: 'LIME',    label: 'Lima' }
-    ];
-
     const API_BASE = APP_CONFIG.apiBase || '/api/v1';
 
     const state = {
@@ -774,8 +773,10 @@
       newWeekNotes: '',
 
       showDuplicateModal: false,
+      dupSourceId: null,
       dupTargetStart: '',
       dupTitle: '',
+      dupTitleEdited: false,
       dupIncludeMedia: true,
 
       // Modal de Bloque del Día: tipo de contenido, textos, fotos y videos
@@ -1539,15 +1540,34 @@
       const latestStart = clientScheds[0]?.weekStartDate || sched.weekStartDate;
       const nextMonday = addDaysIso(latestStart, 7);
 
+      state.dupSourceId = sched.id;
       state.dupTargetStart = nextMonday;
-      state.dupTitle = sched.title.replace(/\s*\(Duplicada.*\)$/i, '') + ' · ' + fmtShortDate(nextMonday);
+      state.dupTitleEdited = false;
+      state.dupTitle = duplicateTitleSuggestion();
       state.dupIncludeMedia = true;
       state.showDuplicateModal = true;
       render();
     }
 
+    /** "Semana 1 · 09 Nov" duplicada para el 16 sugiere "Semana 1 · 16 Nov", sin acumular fechas. */
+    function duplicateTitleSuggestion() {
+      const source = state.schedules.find(s => s.id === state.dupSourceId);
+      if (!source || !state.dupTargetStart) return state.dupTitle;
+      const baseTitle = source.title
+        .replace(/\s*\(Duplicada.*\)$/i, '')
+        .replace(/\s*·\s*\d{2} [A-Za-z]{3}$/, '');
+      const monday = getMondayOf(new Date(state.dupTargetStart + 'T12:00:00Z'));
+      return baseTitle + ' · ' + fmtShortDate(monday);
+    }
+
+    function setDuplicateChoice(field, value) {
+      state[field] = value;
+      if (!state.dupTitleEdited) state.dupTitle = duplicateTitleSuggestion();
+      render();
+    }
+
     async function submitDuplicateWeek() {
-      const sched = getActiveSchedule();
+      const sched = state.schedules.find(s => s.id === state.dupSourceId);
       if (!sched || !state.dupTargetStart) return;
       const mondayIso = getMondayOf(new Date(state.dupTargetStart + 'T12:00:00Z'));
 
@@ -1605,7 +1625,7 @@
         state.editingBlockId = null;
         state.blkDay = dayNum;
         state.blkTime = '18:00';
-        state.blkColor = NOTE_COLORS[(dayNum - 1) % NOTE_COLORS.length].code;
+        state.blkColor = state.ideaSections[0]?.color || 'AMBER';
         state.blkContentType = 'REEL';
         state.blkProductionStatus = 'PENDING';
         state.blkTitle = '';
@@ -2012,7 +2032,7 @@
       openBlockModal(1, null);
       state.blkTitle = idea.title;
       state.blkNotes = idea.content;
-      state.blkColor = NOTE_COLORS.some(c => c.code === idea.section?.color) ? idea.section.color : 'AMBER';
+      if (idea.section?.color) state.blkColor = idea.section.color;
       render();
     }
 
@@ -2594,7 +2614,7 @@
                         const videos = media.filter(m => m.kind === 'VIDEO').length;
                         const comments = (blk.comments || []).length;
                         return `
-                          <article class="plan-block-card color-${esc(blk.noteColor || 'AMBER')}"
+                          <article class="plan-block-card ${sectionColorClass(blk.noteColor || 'AMBER')}" style="${sectionColorStyle(blk.noteColor)}"
                             onclick="state.inspectBlockId='${blk.id}';state.confirmDeleteBlockId=null;render();">
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
                               <span class="mono" style="font-size:11px;font-weight:700;color:var(--note-fg);">
@@ -2734,17 +2754,29 @@
     }
 
     function renderDuplicateWeekModal() {
-      const sched = getActiveSchedule();
+      const sched = state.schedules.find(s => s.id === state.dupSourceId);
       if (!sched) return '';
+      const clientWeeks = state.schedules.filter(s => s.clientId === sched.clientId);
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){state.showDuplicateModal=false;render();}">
           <div class="modal-panel" style="max-width:520px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
                 <div class="eyebrow">DUPLICAR SEMANA</div>
-                <h3 style="font-size:18px;font-weight:700;">Duplicar «${esc(sched.title)}»</h3>
+                <h3 style="font-size:18px;font-weight:700;">Elegí qué semana copiar</h3>
               </div>
               <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showDuplicateModal=false;render();">✕</button>
+            </div>
+
+            <div class="field">
+              <label>Semana a duplicar</label>
+              <select id="dup-source" class="input" onchange="setDuplicateChoice('dupSourceId', this.value)">
+                ${clientWeeks.map(week => `
+                  <option value="${esc(week.id)}" ${week.id === sched.id ? 'selected' : ''}>
+                    ${esc(fmtShortDate(week.weekStartDate))} al ${esc(fmtShortDate(week.weekStartDate, 6))} · ${esc(week.title)} (${(week.items || []).length} bloques)
+                  </option>
+                `).join('')}
+              </select>
             </div>
 
             <p style="font-size:13px;color:var(--text-secondary);">
@@ -2754,12 +2786,12 @@
             <div class="field">
               <label>Lunes de la semana destino</label>
               <input class="input mono" type="date" value="${esc(state.dupTargetStart)}"
-                onchange="state.dupTargetStart=this.value;render();" />
+                onchange="setDuplicateChoice('dupTargetStart', this.value)" />
             </div>
 
             <div class="field">
               <label>Nombre para la nueva semana</label>
-              <input class="input" value="${esc(state.dupTitle)}" oninput="state.dupTitle=this.value" />
+              <input class="input" value="${esc(state.dupTitle)}" oninput="state.dupTitle=this.value;state.dupTitleEdited=true;" />
             </div>
 
             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px 12px;border:1px solid var(--hairline);background:var(--canvas);border-radius:4px;">
@@ -2777,6 +2809,25 @@
             </div>
           </div>
         </div>
+      `;
+    }
+
+    /** Cada etiqueta es un color con nombre, creado en Ideas de contenido. */
+    function renderBlockLabelPicker() {
+      const selected = state.ideaSections.find(sec => sec.color.toLowerCase() === String(state.blkColor).toLowerCase());
+      const swatch = (color, label, active) => `
+        <button type="button" class="swatch-btn ${sectionColorClass(color)} ${active ? 'active' : ''}" style="${sectionColorStyle(color)}"
+          onclick="state.blkColor='${esc(color)}';render();">
+          <span class="swatch-dot"></span>
+          <span>${esc(label)}</span>
+        </button>
+      `;
+      return `
+        <div class="swatch-row">
+          ${state.ideaSections.map(sec => swatch(sec.color, sec.name, sec.id === selected?.id)).join('')}
+          ${selected ? '' : swatch(state.blkColor, 'Sin etiqueta', true)}
+        </div>
+        ${state.ideaSections.length === 0 ? '<div style="font-size:12px;color:var(--text-muted);">Creá etiquetas en Ideas de contenido.</div>' : ''}
       `;
     }
 
@@ -2883,16 +2934,8 @@
             </div>
 
             <div class="field">
-              <label>Color del bloque</label>
-              <div class="swatch-row">
-                ${NOTE_COLORS.map(c => `
-                  <button type="button" class="swatch-btn color-${c.code} ${state.blkColor === c.code ? 'active' : ''}"
-                    onclick="state.blkColor='${c.code}';render();">
-                    <span class="swatch-dot"></span>
-                    <span>${c.label}</span>
-                  </button>
-                `).join('')}
-              </div>
+              <label>Etiqueta</label>
+              ${renderBlockLabelPicker()}
             </div>
 
             ${state.blkSaving && state.blkUploadProgress > 0 ? `
@@ -2976,7 +3019,7 @@
             </div>
 
             ${blk.notes ? `
-              <div class="color-${esc(blk.noteColor || 'AMBER')}" style="border-left:4px solid var(--note-fg);background:var(--note-bg);padding:11px 13px;border-radius:3px;">
+              <div class="${sectionColorClass(blk.noteColor || 'AMBER')}" style="${sectionColorStyle(blk.noteColor)}border-left:4px solid var(--note-fg);background:var(--note-bg);padding:11px 13px;border-radius:3px;">
                 <div class="eyebrow" style="color:var(--note-fg);margin-bottom:4px;">CONTENIDO</div>
                 <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(blk.notes)}</div>
               </div>
@@ -3066,8 +3109,31 @@
       return isHexColor(color) ? '' : 'color-' + esc(color || 'LIME');
     }
 
+    /** Aclara u oscurece el color elegido lo justo para que el texto se lea en el tema activo. */
+    function readableNoteColor(hex) {
+      const light = state.theme === 'light';
+      const background = light ? [255, 255, 255] : [27, 31, 41];
+      const target = light ? 0 : 255;
+      const luminance = rgb => {
+        const [r, g, b] = rgb.map(v => {
+          const c = v / 255;
+          return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const contrast = (a, b) => {
+        const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+        return (hi + 0.05) / (lo + 0.05);
+      };
+      let rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+      for (let i = 0; i < 20 && contrast(rgb, background) < 4.5; i++) {
+        rgb = rgb.map(v => v + (target - v) * 0.12);
+      }
+      return '#' + rgb.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+    }
+
     function sectionColorStyle(color) {
-      return isHexColor(color) ? `--note-fg:${color};--note-bg:${color}26;` : '';
+      return isHexColor(color) ? `--note-dot:${color};--note-fg:${readableNoteColor(color)};--note-bg:${color}26;` : '';
     }
 
     function renderIdeasScreen() {
@@ -3143,7 +3209,7 @@
                 return `
                   <button class="filter-tab ${state.ideaSectionFilter === sec.id ? 'active' : ''}"
                     onclick="state.ideaSectionFilter='${sec.id}';state.confirmDeleteSectionId=null;render();">
-                    <span class="${sectionColorClass(sec.color)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--note-fg);${sectionColorStyle(sec.color)}"></span>${esc(sec.name)} (${count})
+                    <span class="${sectionColorClass(sec.color)}" style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--note-dot, var(--note-fg));${sectionColorStyle(sec.color)}"></span>${esc(sec.name)} (${count})
                   </button>
                 `;
               }).join('')}
@@ -3526,19 +3592,12 @@
       render();
     }
 
-    function timeZoneOptions() {
-      const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
-      return zones.map(zone => `<option value="${esc(zone)}"></option>`).join('');
-    }
-
     async function saveProfile() {
       const fullName = (document.getElementById('pf-name')?.value || '').trim();
-      const timezone = (document.getElementById('pf-tz')?.value || '').trim();
       if (!fullName) { setBanner('Ingresá tu nombre.', true); return; }
-      const r = await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName, timezone }) });
+      const r = await apiFetch('/auth/me', { method: 'PATCH', body: JSON.stringify({ fullName }) });
       if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
       state.session.fullName = r.data.fullName;
-      state.session.timezone = r.data.timezone;
       setBanner('Perfil actualizado.');
     }
 
@@ -3556,8 +3615,7 @@
       APP_CONFIG = {
         ...APP_CONFIG,
         appName: data.settings.appName,
-        registrationEnabled: data.settings.registrationEnabled,
-        defaultTimezone: data.settings.defaultTimezone
+        registrationEnabled: data.settings.registrationEnabled
       };
     }
 
@@ -3571,7 +3629,6 @@
         body: JSON.stringify({
           appName: (document.getElementById('set-name')?.value || '').trim(),
           registrationEnabled: Boolean(document.getElementById('set-reg')?.checked),
-          defaultTimezone: (document.getElementById('set-tz')?.value || '').trim(),
           otpTtlMinutes: settingNumber('set-otp-ttl'),
           otpMaxAttempts: settingNumber('set-otp-max'),
           otpResendCooldownSeconds: settingNumber('set-otp-wait'),
@@ -3625,7 +3682,6 @@
           </div>
           <div style="${grid}">
             <div class="field"><label>Nombre de la aplicación</label><input id="set-name" class="input" maxlength="60" value="${esc(c.appName)}" /></div>
-            <div class="field"><label>Zona horaria predeterminada</label><input id="set-tz" class="input" list="tz-options" maxlength="80" value="${esc(c.defaultTimezone)}" /></div>
           </div>
           ${toggle('set-reg', 'Permitir el registro de nuevas agencias', c.registrationEnabled)}
           <div class="eyebrow">SEGURIDAD</div>
@@ -3718,11 +3774,6 @@
             <div class="field">
               <label>Nombre visible</label>
               <input id="pf-name" class="input" value="${esc(s.fullName)}" maxlength="150" />
-            </div>
-            <div class="field">
-              <label>Zona horaria</label>
-              <input id="pf-tz" class="input" list="tz-options" value="${esc(s.timezone || '')}" maxlength="80" />
-              <datalist id="tz-options">${timeZoneOptions()}</datalist>
             </div>
             <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar perfil</button>
           </div>
