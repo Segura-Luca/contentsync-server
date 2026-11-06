@@ -133,15 +133,6 @@ export class ClientsService {
             emailVerified: true,
           },
         },
-        platformConnections: {
-          select: {
-            id: true,
-            platform: true,
-            accountHandle: true,
-            status: true,
-            tokenExpiresAt: true,
-          },
-        },
       },
     });
     return clients.map(withoutConfirmationToken);
@@ -160,14 +151,6 @@ export class ClientsService {
       include: {
         agency: { select: { id: true, name: true, ownerUserId: true } },
         user: { select: { id: true, email: true, fullName: true, timezone: true } },
-        platformConnections: {
-          select: {
-            id: true,
-            platform: true,
-            accountHandle: true,
-            status: true,
-          },
-        },
       },
     });
 
@@ -271,7 +254,6 @@ export class ClientsService {
           user: {
             select: { id: true, email: true, fullName: true, emailVerified: true },
           },
-          platformConnections: true,
         },
       });
     });
@@ -332,11 +314,17 @@ export class ClientsService {
       throw new BadRequestException('Este cliente ya confirmó su identidad.');
     }
 
-    const newToken = crypto.randomBytes(32).toString('hex');
+    // Conservar el token vigente: si no, cada reenvío deja inservibles los correos que el cliente ya recibió.
+    const isCurrent =
+      fullClient.confirmationStatus === ClientConfirmationStatus.PENDING &&
+      fullClient.confirmationToken &&
+      fullClient.confirmationExpiresAt &&
+      fullClient.confirmationExpiresAt > new Date();
+    const token = isCurrent ? fullClient.confirmationToken! : crypto.randomBytes(32).toString('hex');
     await this.prisma.client.update({
       where: { id: fullClient.id },
       data: {
-        confirmationToken: newToken,
+        confirmationToken: token,
         confirmationExpiresAt: this.inviteExpiry(),
         confirmationStatus: ClientConfirmationStatus.PENDING,
       },
@@ -355,7 +343,7 @@ export class ClientsService {
       fullName: fullClient.user.fullName,
       companyName: fullClient.companyName,
       agencyName: fullClient.agency.name,
-      token: newToken,
+      token,
     });
 
     return {

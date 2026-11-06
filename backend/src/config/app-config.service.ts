@@ -109,29 +109,12 @@ export class AppConfigService {
     return `${this.publicBaseUrl(fromRequest)}/${this.apiPrefix}/${path.replace(/^\/+/, '')}`;
   }
 
-  get mockPlatforms(): boolean {
-    return !this.isProduction && this.bool('MOCK_PLATFORMS', false);
-  }
   get fcmMockMode(): boolean {
     return this.bool('FCM_MOCK_MODE', true);
   }
+
   get metaGraphVersion(): string {
     return this.getRaw('META_GRAPH_VERSION') || 'v20.0';
-  }
-  get youtubeClientId(): string | undefined {
-    return this.get('YOUTUBE_CLIENT_ID') || this.get('GOOGLE_AUTH_CLIENT_ID');
-  }
-  get instagramAppId(): string | undefined {
-    return this.get('INSTAGRAM_APP_ID') || this.get('FACEBOOK_AUTH_APP_ID');
-  }
-  get instagramAppSecret(): string | undefined {
-    return this.get('INSTAGRAM_APP_SECRET') || this.get('FACEBOOK_AUTH_APP_SECRET');
-  }
-  get instagramScopes(): string {
-    return (
-      this.getRaw('INSTAGRAM_SCOPES') ||
-      'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management'
-    );
   }
 
   get publicDir(): string {
@@ -146,15 +129,6 @@ export class AppConfigService {
     return this.int('UPLOAD_MAX_MB', 500) * 1024 * 1024;
   }
 
-  get schedulerEnabled(): boolean {
-    return this.bool('PUBLISH_SCHEDULER_ENABLED', true);
-  }
-  get schedulerIntervalMs(): number {
-    return this.int('PUBLISH_SCHEDULER_INTERVAL_MS', 20000);
-  }
-  get publishStaleMinutes(): number {
-    return this.int('PUBLISH_STALE_MINUTES', 15);
-  }
   get settingsRefreshSeconds(): number {
     return this.int('SETTINGS_REFRESH_SECONDS', 30);
   }

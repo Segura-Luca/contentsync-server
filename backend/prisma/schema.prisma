@@ -27,18 +27,6 @@ enum SocialProvider {
   GITHUB
 }
 
-enum SocialPlatform {
-  INSTAGRAM
-  TIKTOK
-  YOUTUBE
-}
-
-enum PlatformConnectionStatus {
-  ACTIVE
-  EXPIRED
-  REVOKED
-}
-
 enum ClientConfirmationStatus {
   PENDING
   CONFIRMED
@@ -52,14 +40,25 @@ enum ScheduleStatus {
   COMPLETED
 }
 
-enum VideoWorkflowStatus {
-  DRAFT
+enum ContentType {
+  REEL
+  CAROUSEL
+  STORY
+  POST
+  VIDEO
+  OTHER
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO
+}
+
+enum BlockReviewStatus {
   IN_REVIEW
   CHANGES_REQUESTED
   REJECTED
   APPROVED
-  SCHEDULED
-  PUBLISHED
 }
 
 enum ApprovalDecision {
@@ -68,30 +67,17 @@ enum ApprovalDecision {
   REJECTED
 }
 
-enum PublicationStatus {
-  PENDING
-  PROCESSING
-  PUBLISHED
-  FAILED
-}
-
-enum PrivacyLevel {
-  PUBLIC
-  UNLISTED
-  PRIVATE
-}
-
 enum NotificationType {
   NEW_SCHEDULE
-  VIDEO_IN_REVIEW
-  VIDEO_APPROVED
-  VIDEO_CHANGES_REQUESTED
-  VIDEO_REJECTED
-  PUBLICATION_SUCCESS
-  PUBLICATION_FAILED
+  SCHEDULE_DUPLICATED
+  SCHEDULE_CONFIRMED
+  BLOCK_IN_REVIEW
+  BLOCK_APPROVED
+  BLOCK_CHANGES_REQUESTED
+  BLOCK_REJECTED
+  BLOCK_COMMENT
   CLIENT_CONFIRMATION_REQUEST
   CLIENT_CONFIRMATION_RESPONSE
-  SCHEDULE_DUPLICATED
 }
 
 // ----------------------------------------------------------------------------
@@ -137,9 +123,9 @@ model User {
   createdSchedules    Schedule[]               @relation("ScheduleCreator")
   duplicatedSchedules ScheduleDuplicationLog[] @relation("DuplicationActor")
   createdIdeas        ContentIdea[]            @relation("IdeaCreator")
-  uploadedVideos      Video[]                  @relation("VideoUploader")
-  approvalsReviewed   Approval[]               @relation("ApprovalReviewer")
-  comments            VideoComment[]
+  blockReviews        BlockReview[]
+  blockComments       BlockComment[]
+  confirmedSchedules  Schedule[]               @relation("ScheduleConfirmer")
   notifications       Notification[]
   auditLogs           AuditLog[]
   updatedSettings     AppSetting[]
@@ -230,11 +216,9 @@ model Client {
 
   agency              Agency                   @relation(fields: [agencyId], references: [id], onDelete: Restrict)
   user                User                     @relation("ClientUser", fields: [userId], references: [id], onDelete: Restrict)
-  platformConnections PlatformConnection[]
   schedules           Schedule[]
   duplicationLogs     ScheduleDuplicationLog[]
   contentIdeas        ContentIdea[]
-  videos              Video[]
 
   @@index([agencyId])
   @@index([confirmationStatus])
@@ -244,105 +228,7 @@ model Client {
 }
 
 // ----------------------------------------------------------------------------
-// 3. CONEXIONES OAUTH DE PLATAFORMAS (Separadas del login social)
-// ----------------------------------------------------------------------------
-
-model PlatformConnection {
-  id                    String                   @id @default(uuid()) @db.VarChar(36)
-  clientId              String                   @map("client_id") @db.VarChar(36)
-  platform              SocialPlatform
-  externalAccountId     String                   @map("external_account_id") @db.VarChar(180)
-  accountHandle         String                   @map("account_handle") @db.VarChar(120)
-  encryptedAccessToken  String                   @map("encrypted_access_token") @db.Text
-  encryptedRefreshToken String?                  @map("encrypted_refresh_token") @db.Text
-  tokenExpiresAt        DateTime?                @map("token_expires_at")
-  scopes                String?                  @db.VarChar(500)
-  status                PlatformConnectionStatus @default(ACTIVE)
-  createdAt             DateTime                 @default(now()) @map("created_at")
-  updatedAt             DateTime                 @updatedAt @map("updated_at")
-
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([clientId, platform])
-  @@index([clientId])
-  @@index([status])
-  @@map("platform_connections")
-}
-
-// ----------------------------------------------------------------------------
-// 4. VIDEOS, HASHTAGS Y TARGETS POR PLATAFORMA (1FN, 2FN, 3FN estrictas)
-// ----------------------------------------------------------------------------
-
-model Video {
-  id               String              @id @default(uuid()) @db.VarChar(36)
-  clientId         String              @map("client_id") @db.VarChar(36)
-  uploadedByUserId String              @map("uploaded_by_user_id") @db.VarChar(36)
-  title            String              @db.VarChar(150)
-  description      String              @db.Text
-  storageKey       String              @map("storage_key") @db.VarChar(500)
-  thumbnailKey     String?             @map("thumbnail_key") @db.VarChar(500)
-  durationSeconds  Int                 @map("duration_seconds")
-  sizeBytes        BigInt              @map("size_bytes")
-  mimeType         String              @default("video/mp4") @map("mime_type") @db.VarChar(60)
-  aspectRatio      String              @default("9:16") @map("aspect_ratio") @db.VarChar(16)
-  workflowStatus   VideoWorkflowStatus @default(DRAFT) @map("workflow_status")
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
-  deletedAt        DateTime?           @map("deleted_at")
-
-  client          Client                @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  uploadedByUser  User                  @relation("VideoUploader", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  platformTargets VideoPlatformTarget[]
-  hashtags        VideoHashtag[]
-  scheduleItems   ScheduleItem[]
-  approvals       Approval[]
-  comments        VideoComment[]
-  publications    Publication[]
-
-  @@index([clientId, workflowStatus])
-  @@index([createdAt])
-  @@index([deletedAt])
-  @@map("videos")
-}
-
-model VideoHashtag {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  videoId   String   @map("video_id") @db.VarChar(36)
-  tag       String   @db.VarChar(80)
-  position  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-
-  @@unique([videoId, tag])
-  @@index([tag])
-  @@map("video_hashtags")
-}
-
-model VideoPlatformTarget {
-  id                String         @id @default(uuid()) @db.VarChar(36)
-  videoId           String         @map("video_id") @db.VarChar(36)
-  platform          SocialPlatform
-  customTitle       String?        @map("custom_title") @db.VarChar(150)
-  customDescription String?        @map("custom_description") @db.Text
-  privacyLevel      PrivacyLevel   @default(PUBLIC) @map("privacy_level")
-  shareToFeed       Boolean        @default(true) @map("share_to_feed")
-  allowComments     Boolean        @default(true) @map("allow_comments")
-  allowDuetStitch   Boolean        @default(true) @map("allow_duet_stitch")
-  madeForKids       Boolean        @default(false) @map("made_for_kids")
-  categoryId        String?        @default("22") @map("category_id") @db.VarChar(20)
-  createdAt         DateTime       @default(now()) @map("created_at")
-  updatedAt         DateTime       @updatedAt @map("updated_at")
-
-  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-
-  @@unique([videoId, platform])
-  @@index([videoId])
-  @@map("video_platform_targets")
-}
-
-// ----------------------------------------------------------------------------
-// 5. CRONOGRAMAS SEMANALES (LUNES A VIERNES), BLOQUES DE COLOR Y DUPLICACIÓN
+// 3. CRONOGRAMAS SEMANALES (LUNES A VIERNES), BLOQUES, FOTOS, VIDEOS Y REVISIÓN
 // ----------------------------------------------------------------------------
 
 model Schedule {
@@ -355,11 +241,14 @@ model Schedule {
   title            String         @db.VarChar(150)
   summaryNotes     String?        @map("summary_notes") @db.Text
   status           ScheduleStatus @default(IN_REVIEW)
+  confirmedAt      DateTime?      @map("confirmed_at")
+  confirmedByUserId String?       @map("confirmed_by_user_id") @db.VarChar(36)
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
   client               Client                   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdByUser        User                     @relation("ScheduleCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  confirmedByUser      User?                    @relation("ScheduleConfirmer", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
   duplicatedFrom       Schedule?                @relation("ScheduleCloneChain", fields: [duplicatedFromId], references: [id], onDelete: SetNull)
   duplicatedChildren   Schedule[]               @relation("ScheduleCloneChain")
   items                ScheduleItem[]
@@ -369,31 +258,81 @@ model Schedule {
   @@unique([clientId, weekStartDate])
   @@index([clientId, weekStartDate])
   @@index([status])
+  @@index([confirmedByUserId])
   @@map("schedules")
 }
 
 model ScheduleItem {
-  id               String    @id @default(uuid()) @db.VarChar(36)
-  scheduleId       String    @map("schedule_id") @db.VarChar(36)
-  videoId          String?   @map("video_id") @db.VarChar(36)
-  dayOfWeek        Int       @map("day_of_week") // 1 (Lun) .. 5 (Vie) [soporta 1..7]
-  blockTitle       String    @default("Bloque de contenido") @map("block_title") @db.VarChar(160)
-  noteColor        String    @default("AMBER") @map("note_color") @db.VarChar(30)
-  notes            String?   @db.Text
-  plannedTime      String    @default("18:00") @map("planned_time") @db.VarChar(10)
-  plannedPublishAt DateTime? @map("planned_publish_at")
-  autoPublish      Boolean   @default(true) @map("auto_publish")
-  sortOrder        Int       @default(0) @map("sort_order")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id           String            @id @default(uuid()) @db.VarChar(36)
+  scheduleId   String            @map("schedule_id") @db.VarChar(36)
+  dayOfWeek    Int               @map("day_of_week") // 1 (Lun) .. 5 (Vie) [soporta 1..7]
+  contentType  ContentType       @default(OTHER) @map("content_type")
+  blockTitle   String            @default("Bloque de contenido") @map("block_title") @db.VarChar(160)
+  noteColor    String            @default("AMBER") @map("note_color") @db.VarChar(30)
+  notes        String?           @db.Text
+  caption      String?           @db.Text
+  plannedTime  String            @default("18:00") @map("planned_time") @db.VarChar(10)
+  reviewStatus BlockReviewStatus @default(IN_REVIEW) @map("review_status")
+  sortOrder    Int               @default(0) @map("sort_order")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
 
-  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  video    Video?   @relation(fields: [videoId], references: [id], onDelete: SetNull)
+  schedule Schedule            @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  media    ScheduleItemMedia[]
+  reviews  BlockReview[]
+  comments BlockComment[]
 
   @@index([scheduleId, dayOfWeek, sortOrder])
-  @@index([videoId])
-  @@index([plannedPublishAt])
   @@map("schedule_items")
+}
+
+model ScheduleItemMedia {
+  id             String    @id @default(uuid()) @db.VarChar(36)
+  scheduleItemId String    @map("schedule_item_id") @db.VarChar(36)
+  kind           MediaKind
+  storageKey     String    @map("storage_key") @db.VarChar(500)
+  mimeType       String    @map("mime_type") @db.VarChar(60)
+  sizeBytes      BigInt    @default(0) @map("size_bytes")
+  originalName   String?   @map("original_name") @db.VarChar(255)
+  description    String?   @db.Text
+  position       Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  scheduleItem ScheduleItem @relation(fields: [scheduleItemId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleItemId, position])
+  @@map("schedule_item_media")
+}
+
+model BlockReview {
+  id             String           @id @default(uuid()) @db.VarChar(36)
+  scheduleItemId String           @map("schedule_item_id") @db.VarChar(36)
+  reviewerUserId String           @map("reviewer_user_id") @db.VarChar(36)
+  decision       ApprovalDecision
+  feedbackNotes  String?          @map("feedback_notes") @db.Text
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  scheduleItem ScheduleItem @relation(fields: [scheduleItemId], references: [id], onDelete: Cascade)
+  reviewerUser User         @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([scheduleItemId, createdAt])
+  @@index([reviewerUserId])
+  @@map("block_reviews")
+}
+
+model BlockComment {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  scheduleItemId String   @map("schedule_item_id") @db.VarChar(36)
+  authorUserId   String   @map("author_user_id") @db.VarChar(36)
+  message        String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  scheduleItem ScheduleItem @relation(fields: [scheduleItemId], references: [id], onDelete: Cascade)
+  authorUser   User         @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([scheduleItemId, createdAt])
+  @@index([authorUserId])
+  @@map("block_comments")
 }
 
 model ScheduleDuplicationLog {
@@ -404,7 +343,7 @@ model ScheduleDuplicationLog {
   targetScheduleId   String   @map("target_schedule_id") @db.VarChar(36)
   duplicatedByUserId String   @map("duplicated_by_user_id") @db.VarChar(36)
   blocksCopiedCount  Int      @map("blocks_copied_count")
-  includeVideos      Boolean  @default(false) @map("include_videos")
+  includeMedia       Boolean  @default(false) @map("include_media")
   notes              String?  @db.VarChar(500)
   createdAt          DateTime @default(now()) @map("created_at")
 
@@ -420,7 +359,7 @@ model ScheduleDuplicationLog {
 }
 
 // ----------------------------------------------------------------------------
-// 6. IDEAS DE CONTENIDO PRIVADAS DE LA AGENCIA (Secciones + Ideas en 3FN)
+// 4. IDEAS DE CONTENIDO PRIVADAS DE LA AGENCIA (Secciones + Ideas en 3FN)
 // ----------------------------------------------------------------------------
 
 model ContentIdeaSection {
@@ -449,7 +388,6 @@ model ContentIdea {
   title           String   @db.VarChar(180)
   content         String   @db.Text
   referenceUrl    String?  @map("reference_url") @db.VarChar(500)
-  platforms       String?  @db.VarChar(120)
   isPinned        Boolean  @default(false) @map("is_pinned")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -465,85 +403,9 @@ model ContentIdea {
   @@map("content_ideas")
 }
 
-// ----------------------------------------------------------------------------
-// 7. FLUJO DE APROBACIÓN Y COMENTARIOS
-// ----------------------------------------------------------------------------
-
-model Approval {
-  id             String           @id @default(uuid()) @db.VarChar(36)
-  videoId        String           @map("video_id") @db.VarChar(36)
-  reviewerUserId String           @map("reviewer_user_id") @db.VarChar(36)
-  decision       ApprovalDecision
-  feedbackNotes  String?          @map("feedback_notes") @db.Text
-  createdAt      DateTime         @default(now()) @map("created_at")
-
-  video        Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  reviewerUser User  @relation("ApprovalReviewer", fields: [reviewerUserId], references: [id], onDelete: Restrict)
-
-  @@index([videoId, createdAt])
-  @@map("approvals")
-}
-
-model VideoComment {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  videoId      String   @map("video_id") @db.VarChar(36)
-  authorUserId String   @map("author_user_id") @db.VarChar(36)
-  message      String   @db.Text
-  timestampSec Int?     @map("timestamp_sec")
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  video      Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  authorUser User  @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
-
-  @@index([videoId, createdAt])
-  @@map("video_comments")
-}
 
 // ----------------------------------------------------------------------------
-// 8. PUBLICACIONES MULTIPLATAFORMA E INTENTOS
-// ----------------------------------------------------------------------------
-
-model Publication {
-  id               String            @id @default(uuid()) @db.VarChar(36)
-  videoId          String            @map("video_id") @db.VarChar(36)
-  platform         SocialPlatform
-  scheduledFor     DateTime          @map("scheduled_for")
-  publishedAt      DateTime?         @map("published_at")
-  status           PublicationStatus @default(PENDING)
-  externalPostId   String?           @map("external_post_id") @db.VarChar(180)
-  externalPostUrl  String?           @map("external_post_url") @db.VarChar(500)
-  lastErrorMessage String?           @map("last_error_message") @db.Text
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-
-  video    Video                @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  attempts PublicationAttempt[]
-
-  @@unique([videoId, platform])
-  @@index([status, scheduledFor])
-  @@index([platform, status])
-  @@map("publications")
-}
-
-model PublicationAttempt {
-  id            String   @id @default(uuid()) @db.VarChar(36)
-  publicationId String   @map("publication_id") @db.VarChar(36)
-  attemptNumber Int      @map("attempt_number")
-  isSuccess     Boolean  @map("is_success")
-  errorCode     String?  @map("error_code") @db.VarChar(80)
-  errorDetail   String?  @map("error_detail") @db.Text
-  durationMs    Int      @default(0) @map("duration_ms")
-  attemptedAt   DateTime @default(now()) @map("attempted_at")
-
-  publication Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
-
-  @@unique([publicationId, attemptNumber])
-  @@index([publicationId])
-  @@map("publication_attempts")
-}
-
-// ----------------------------------------------------------------------------
-// 9. NOTIFICACIONES Y LOGS DE AUDITORÍA
+// 5. NOTIFICACIONES Y LOGS DE AUDITORÍA
 // ----------------------------------------------------------------------------
 
 model Notification {
@@ -581,7 +443,7 @@ model AuditLog {
 }
 
 // ----------------------------------------------------------------------------
-// 10. CONFIGURACIÓN EDITABLE EN TIEMPO DE EJECUCIÓN (solo valores no secretos)
+// 6. CONFIGURACIÓN EDITABLE EN TIEMPO DE EJECUCIÓN (solo valores no secretos)
 // ----------------------------------------------------------------------------
 
 model AppSetting {

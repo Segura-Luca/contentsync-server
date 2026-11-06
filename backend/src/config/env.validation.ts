@@ -1,17 +1,12 @@
 import * as crypto from 'crypto';
 
-/** Valor de ejemplo publicado en el repositorio: jamás válido como secreto real. */
-const EXAMPLE_ENCRYPTION_KEY =
-  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
-
 export function isPlaceholder(value: string | undefined | null): boolean {
   if (!value) return true;
   const v = value.trim();
   return (
     v.length === 0 ||
     /^(your-|tu-|tu_|change_this|changeme|replace_)/i.test(v) ||
-    v.includes('your-') ||
-    v === EXAMPLE_ENCRYPTION_KEY
+    v.includes('your-')
   );
 }
 
@@ -57,23 +52,7 @@ export function validateEnv(raw: RawEnv): RawEnv {
     errors.push('JWT_ACCESS_SECRET y JWT_REFRESH_SECRET deben ser distintos.');
   }
 
-  const encryptionKey = str(env, 'OAUTH_ENCRYPTION_KEY');
-  const validKeyFormat = Boolean(encryptionKey && /^[0-9a-fA-F]{64}$/.test(encryptionKey));
-  if (encryptionKey && !validKeyFormat) {
-    errors.push('OAUTH_ENCRYPTION_KEY debe tener exactamente 64 caracteres hexadecimales (32 bytes).');
-  } else if (isProduction && (!validKeyFormat || encryptionKey === EXAMPLE_ENCRYPTION_KEY)) {
-    errors.push('OAUTH_ENCRYPTION_KEY debe ser una clave propia: la de ejemplo es pública.');
-  } else if (!validKeyFormat) {
-    env.OAUTH_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
-    warnings.push('OAUTH_ENCRYPTION_KEY ausente: se generó una temporal (los tokens guardados no sobrevivirán al reinicio).');
-  } else if (encryptionKey === EXAMPLE_ENCRYPTION_KEY) {
-    warnings.push('OAUTH_ENCRYPTION_KEY usa el valor de ejemplo público: cambiala antes de guardar tokens reales.');
-  }
-
   if (isProduction) {
-    if (str(env, 'MOCK_PLATFORMS')?.toLowerCase() === 'true') {
-      errors.push('MOCK_PLATFORMS=true no está permitido en producción: marcaría publicaciones falsas como publicadas.');
-    }
     if (!str(env, 'PUBLIC_APP_URL') && !str(env, 'RENDER_EXTERNAL_URL')) {
       errors.push('PUBLIC_APP_URL es obligatoria en producción (se usa en correos y callbacks OAuth).');
     }
@@ -84,8 +63,6 @@ export function validateEnv(raw: RawEnv): RawEnv {
     'UPLOAD_MAX_MB',
     'RATE_LIMIT_PER_MINUTE',
     'AUTH_RATE_LIMIT_PER_MINUTE',
-    'PUBLISH_SCHEDULER_INTERVAL_MS',
-    'PUBLISH_STALE_MINUTES',
     'SETTINGS_REFRESH_SECONDS',
     'SMTP_PORT',
   ]) {
@@ -94,13 +71,13 @@ export function validateEnv(raw: RawEnv): RawEnv {
       errors.push(`${key} debe ser un entero positivo (recibido: "${value}").`);
     }
   }
-  for (const key of ['MOCK_PLATFORMS', 'FCM_MOCK_MODE', 'SWAGGER_ENABLED', 'SMTP_SECURE', 'PUBLISH_SCHEDULER_ENABLED']) {
+  for (const key of ['FCM_MOCK_MODE', 'SWAGGER_ENABLED', 'SMTP_SECURE']) {
     const value = str(env, key);
     if (value !== undefined && !['true', 'false'].includes(value.toLowerCase())) {
       errors.push(`${key} debe ser "true" o "false" (recibido: "${value}").`);
     }
   }
-  for (const key of ['PUBLIC_APP_URL', 'N8N_WEBHOOK_URL', 'GMAIL_HTTPS_WEBHOOK_URL', 'S3_ENDPOINT', 'S3_PUBLIC_URL']) {
+  for (const key of ['PUBLIC_APP_URL', 'N8N_WEBHOOK_URL', 'GMAIL_HTTPS_WEBHOOK_URL', 'S3_ENDPOINT']) {
     const value = str(env, key);
     if (value !== undefined && !isPlaceholder(value) && !/^https?:\/\/\S+$/i.test(value)) {
       errors.push(`${key} debe ser una URL http(s) válida.`);

@@ -11,8 +11,8 @@ const S3_CONFIG: Record<string, string> = {
   S3_BUCKET: 'videos',
 };
 
-function serviceWith(values: Record<string, string>) {
-  return new StorageService({ get: (key: string) => values[key] } as any);
+function serviceWith(values: Record<string, string>, prisma: any = {}) {
+  return new StorageService({ get: (key: string) => values[key] } as any, prisma);
 }
 
 describe('StorageService.uploadObject', () => {
@@ -75,5 +75,52 @@ describe('StorageService.uploadObject', () => {
     await expect(failure).rejects.toBeInstanceOf(ServiceUnavailableException);
     await expect(failure).rejects.not.toThrow(/detalle interno/);
     expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  describe('archivos sin uso', () => {
+    function withPrisma(count: number) {
+      const service = serviceWith(S3_CONFIG, { scheduleItemMedia: { count: jest.fn().mockResolvedValue(count) } });
+      const send = jest.fn().mockResolvedValue({});
+      (service as any).s3Client = { send };
+      return { service, send };
+    }
+
+    it('borra el archivo que ya nadie usa', async () => {
+      const { service, send } = withPrisma(0);
+      await service.deleteIfUnused(['clients/c1/a.mp4']);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0][0].input).toEqual({ Bucket: 'videos', Key: 'clients/c1/a.mp4' });
+    });
+
+    it('conserva un archivo que otro bloque sigue usando', async () => {
+      const { service, send } = withPrisma(1);
+      await service.deleteIfUnused(['clients/c1/a.mp4']);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('un fallo al borrar no interrumpe a quien llama', async () => {
+      const { service, send } = withPrisma(0);
+      send.mockRejectedValue(new Error('s3 caído'));
+      await expect(service.deleteIfUnused(['clients/c1/a.mp4'])).resolves.toBeUndefined();
+    });
+
+    it('no toca archivos que no son de la plataforma', async () => {
+      const { service, send } = withPrisma(0);
+      await service.deleteIfUnused(['https://otro.test/a.mp4']);
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('enlaces', () => {
+    it('los archivos de S3 se ven con un enlace firmado y temporal', async () => {
+      const url = await serviceWith(S3_CONFIG).getMediaUrl('clients/c1/a.jpg');
+      expect(url).toContain('https://example.test/s3/videos/clients/c1/a.jpg');
+      expect(url).toContain('X-Amz-Signature=');
+      expect(url).toContain('X-Amz-Expires=43200');
+    });
+
+    it('las subidas locales conservan su ruta', async () => {
+      await expect(serviceWith({}).getMediaUrl('/uploads/videos/a.jpg')).resolves.toBe('/uploads/videos/a.jpg');
+    });
   });
 });

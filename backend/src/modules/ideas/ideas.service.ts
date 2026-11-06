@@ -280,7 +280,6 @@ export class IdeasService {
         title: dto.title.trim(),
         content: dto.content.trim(),
         referenceUrl: dto.referenceUrl?.trim() || null,
-        platforms: dto.platforms?.trim() || 'INSTAGRAM,TIKTOK,YOUTUBE',
         isPinned: dto.isPinned ?? false,
       },
       include: {
@@ -343,7 +342,6 @@ export class IdeasService {
           dto.referenceUrl === undefined
             ? undefined
             : dto.referenceUrl?.trim() || null,
-        platforms: dto.platforms?.trim(),
         isPinned: dto.isPinned,
       },
       include: {

@@ -62,11 +62,6 @@ export class CreateContentIdeaDto {
   @Matches(/^(https?:\/\/\S+)?$/i, { message: 'El enlace de referencia debe comenzar con http:// o https://.' })
   referenceUrl?: string;
 
-  @ApiPropertyOptional({ example: 'INSTAGRAM,TIKTOK,YOUTUBE' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  platforms?: string;
 
   @ApiPropertyOptional({ default: false })
   @IsOptional()

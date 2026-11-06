@@ -1,5 +1,7 @@
 # Auditoría de ContentSync — 4 de noviembre de 2026
 
+> **Nota del 6 de noviembre de 2026:** desde la versión 2.0, ContentSync ya no se conecta con redes sociales ni publica. Lo que este documento dice sobre publicación, tokens de redes y límites por red queda como registro histórico: ese código se eliminó.
+
 Alcance: backend NestJS, esquema y migraciones, SPA web, proyecto Android (`MainActivity` y configuración de compilación), Docker, Render y CI.
 
 ## Severidad crítica: corregido
@@ -70,7 +72,7 @@ Alcance: backend NestJS, esquema y migraciones, SPA web, proyecto Android (`Main
 Antes había valores fijos en el código: remitente, URL, duración de sesiones, límites, reintentos, versión de la API de Meta. Ahora:
 
 - **Variables de entorno** validadas al arrancar: ver `.env.example`.
-- **Ajustes** en la app (`ADMIN_GENERAL`), sin reiniciar: nombre de la app, aprobación obligatoria, registro, zona horaria, códigos, invitaciones, reintentos y límites por red. También muestra qué integraciones están activas, sin exponer credenciales.
+- **Ajustes** en la app (`ADMIN_GENERAL`), sin reiniciar: nombre de la app, registro, zona horaria, y vigencias e intentos de códigos e invitaciones.
 - **Perfil**: cada usuario edita su nombre y zona horaria.
 
 ## Segunda tanda, antes del lanzamiento
@@ -87,16 +89,16 @@ Antes había valores fijos en el código: remitente, URL, duración de sesiones,
 
 1. **Guardar la clave de firma.** Copiá `android/signing/contentsync-release.jks` y `android/keystore.properties` fuera del equipo. Si se pierden, no se puede actualizar la app sin desinstalarla.
 2. **Registrar la huella en Google Cloud.** Sin el SHA-1 de la clave nueva, el acceso con Google falla en la app. Ver `docs/deployment-guide.md`.
-3. **Almacenamiento de videos.** Cargar las variables `S3_*` y `UPLOAD_MAX_MB=50` en Render (ver `docs/deployment-guide.md`).
+3. **Almacenamiento de archivos.** Cargar las variables `S3_*` y `UPLOAD_MAX_MB=50` en Render, y dejar el bucket privado (ver `docs/deployment-guide.md`).
 4. **Rotar credenciales** si `backend/.env` se compartió alguna vez: nunca estuvo en Git, pero contiene la contraseña de aplicación de Gmail y los secretos de Google, Meta y GitHub.
 5. **Revisar producción.** Si el seed se ejecutó ahí, existen cuentas con la contraseña publicada `ContentSync2026!`, incluida la de tu correo real. Lo más simple antes del lanzamiento es empezar con una base vacía.
 6. **Datos personales en el historial.** El dump anterior, con hashes y tu correo, sigue en el historial público de Git. Quitarlo requiere reescribir el historial.
 
 ## Limitaciones conocidas: sin corregir
 
-- **Publicación real sin probar.** No hay cuentas de prueba: los adaptadores se verificaron con respuestas simuladas, según la documentación de cada API. Conviene una prueba real por red antes de usarlos con clientes.
 - **Notificaciones push.** Firebase no está implementado y requiere un proyecto propio: los avisos solo aparecen dentro de la app.
-- **Almacenamiento en Render.** Sin las variables `S3_*`, los videos quedan en el disco del plan gratuito y se pierden al reiniciar.
-- **Tamaño de video.** Supabase Free admite hasta 50 MB por archivo. Un video más pesado se rechaza con un aviso.
+- **Almacenamiento en Render.** Sin las variables `S3_*`, los archivos quedan en el disco del plan gratuito y se pierden al reiniciar.
+- **Tamaño de archivo.** Supabase Free admite hasta 50 MB por archivo. Uno más pesado se rechaza con un aviso.
+- **Descarga.** Quien ve un video o una foto puede guardarlo con las herramientas del navegador: ocultar el botón de descarga no lo impide.
 - **Inyección de scripts.** La CSP mantiene `unsafe-inline` porque la web usa manejadores en línea. El access token en memoria sigue expuesto durante un XSS.
 - **Acceso con Facebook en la app.** Sigue dentro del WebView porque necesita su cookie, y Meta puede bloquearlo. Sin probar con una cuenta real.

@@ -22,7 +22,6 @@ export class SettingsController {
     return {
       database: 'MySQL',
       publicUrl: this.config.publicBaseUrl(),
-      mockPlatforms: this.config.mockPlatforms,
       mail: {
         n8n: has('N8N_WEBHOOK_URL'),
         httpsRelay: has('GMAIL_HTTPS_WEBHOOK_URL'),
@@ -33,11 +32,6 @@ export class SettingsController {
         google: has('GOOGLE_AUTH_CLIENT_ID'),
         facebook: has('FACEBOOK_AUTH_APP_ID', 'FACEBOOK_AUTH_APP_SECRET'),
         github: has('GITHUB_AUTH_CLIENT_ID', 'GITHUB_AUTH_CLIENT_SECRET'),
-      },
-      publishing: {
-        youtube: Boolean(this.config.youtubeClientId && this.config.get('YOUTUBE_CLIENT_SECRET')),
-        instagram: Boolean(this.config.instagramAppId && this.config.instagramAppSecret),
-        tiktok: has('TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'),
       },
       storage: has('S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY') ? 'S3' : 'LOCAL',
       uploadMaxMb: Math.round(this.config.uploadMaxBytes / (1024 * 1024)),

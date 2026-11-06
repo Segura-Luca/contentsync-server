@@ -746,7 +746,7 @@ export class AuthService {
     return { message: 'Sesión cerrada.' };
   }
 
-  /** Perfil propio editable: nombre visible y zona horaria usada para programar publicaciones. */
+  /** Perfil propio editable: nombre visible y zona horaria. */
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.timezone && !isValidTimeZone(dto.timezone)) {
       throw new BadRequestException('Zona horaria desconocida.');

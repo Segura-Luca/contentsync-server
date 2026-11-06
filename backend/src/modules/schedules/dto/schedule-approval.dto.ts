@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
+  ArrayMaxSize,
   IsArray,
   IsBoolean,
   IsDateString,
@@ -17,7 +17,9 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { ApprovalDecision, SocialPlatform } from '@prisma/client';
+import { ApprovalDecision, ContentType } from '@prisma/client';
+
+export const MAX_MEDIA_PER_BLOCK = 20;
 
 export class CreateScheduleDto {
   @ApiProperty()
@@ -32,84 +34,42 @@ export class CreateScheduleDto {
   @IsDateString()
   weekEndDate!: string;
 
-  @ApiProperty({ example: 'Semana Lanzamiento Cold Brew Primavera' })
+  @ApiProperty({ example: 'Semana de lanzamiento Cold Brew' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(150)
   title!: string;
 
-  @ApiPropertyOptional({ example: 'Foco en Reels educativos y detrás de escena.' })
+  @ApiPropertyOptional({ example: 'Foco en reels educativos y detrás de escena.' })
   @IsOptional()
   @IsString()
   summaryNotes?: string;
 }
 
-export class InlineBlockVideoDto {
-  @ApiProperty({ example: '/uploads/videos/reel_lunes.mp4' })
+export class BlockMediaInputDto {
+  @ApiProperty({ description: 'Clave devuelta por POST /media/upload' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
   storageKey!: string;
 
-  @ApiProperty({ example: 'Reel Educativo Espresso' })
+  @ApiPropertyOptional({ example: 'Primera imagen: el producto en primer plano.' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(150)
-  title!: string;
+  @MaxLength(2000)
+  description?: string;
 
-  @ApiProperty({ example: 'Paso a paso para calibrar espresso en 30 segundos.' })
-  @IsString()
-  @IsNotEmpty()
-  description!: string;
-
-  @ApiProperty({ type: [String], example: ['cafe', 'barista', 'reels'] })
-  @IsArray()
-  @IsString({ each: true })
-  hashtags!: string[];
-
-  @ApiProperty({ enum: SocialPlatform, isArray: true })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsEnum(SocialPlatform, { each: true })
-  platforms!: SocialPlatform[];
-
-  @ApiPropertyOptional({ default: 30 })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
-  @Min(1)
-  @Max(86400)
-  durationSeconds?: number;
-
-  @ApiPropertyOptional({ default: 15000000 })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
+  @Min(0)
   sizeBytes?: number;
 
-  @ApiPropertyOptional({ default: 'video/mp4' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
-  mimeType?: string;
-
-  @ApiPropertyOptional({ default: true })
-  @IsOptional()
-  @IsBoolean()
-  shareToFeed?: boolean;
-
-  @ApiPropertyOptional({ default: true })
-  @IsOptional()
-  @IsBoolean()
-  allowComments?: boolean;
-
-  @ApiPropertyOptional({ default: true })
-  @IsOptional()
-  @IsBoolean()
-  allowDuetStitch?: boolean;
-
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  @IsBoolean()
-  madeForKids?: boolean;
+  @MaxLength(255)
+  originalName?: string;
 }
 
 export class CreateScheduleBlockDto {
@@ -119,7 +79,11 @@ export class CreateScheduleBlockDto {
   @Max(5)
   dayOfWeek!: number;
 
-  @ApiProperty({ example: 'Reel Educativo: 3 errores al moler café' })
+  @ApiProperty({ enum: ContentType, example: ContentType.REEL })
+  @IsEnum(ContentType)
+  contentType!: ContentType;
+
+  @ApiProperty({ example: '3 errores al moler café' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(160)
@@ -131,12 +95,15 @@ export class CreateScheduleBlockDto {
   @MaxLength(30)
   noteColor?: string;
 
-  @ApiPropertyOptional({
-    example: 'Mostrar comparativa de molienda gruesa vs fina y cerrar con CTA a tienda.',
-  })
+  @ApiPropertyOptional({ description: 'De qué trata el contenido' })
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Texto que acompañará a la publicación' })
+  @IsOptional()
+  @IsString()
+  caption?: string;
 
   @ApiPropertyOptional({ example: '18:30' })
   @IsOptional()
@@ -144,21 +111,13 @@ export class CreateScheduleBlockDto {
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'La hora debe tener formato HH:mm' })
   plannedTime?: string;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({ type: [BlockMediaInputDto] })
   @IsOptional()
-  @IsBoolean()
-  autoPublish?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  videoId?: string;
-
-  @ApiPropertyOptional({ type: InlineBlockVideoDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => InlineBlockVideoDto)
-  inlineVideo?: InlineBlockVideoDto;
+  @IsArray()
+  @ArrayMaxSize(MAX_MEDIA_PER_BLOCK)
+  @ValidateNested({ each: true })
+  @Type(() => BlockMediaInputDto)
+  media?: BlockMediaInputDto[];
 }
 
 export class UpdateScheduleBlockDto {
@@ -169,9 +128,15 @@ export class UpdateScheduleBlockDto {
   @Max(5)
   dayOfWeek?: number;
 
+  @ApiPropertyOptional({ enum: ContentType })
+  @IsOptional()
+  @IsEnum(ContentType)
+  contentType?: ContentType;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(160)
   blockTitle?: string;
 
@@ -186,104 +151,65 @@ export class UpdateScheduleBlockDto {
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ example: '19:00' })
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  caption?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'La hora debe tener formato HH:mm' })
   plannedTime?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: [BlockMediaInputDto], description: 'Si se envía, reemplaza la lista completa' })
   @IsOptional()
-  @IsBoolean()
-  autoPublish?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  removeVideo?: boolean;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUUID()
-  videoId?: string;
-
-  @ApiPropertyOptional({ type: InlineBlockVideoDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => InlineBlockVideoDto)
-  inlineVideo?: InlineBlockVideoDto;
+  @IsArray()
+  @ArrayMaxSize(MAX_MEDIA_PER_BLOCK)
+  @ValidateNested({ each: true })
+  @Type(() => BlockMediaInputDto)
+  media?: BlockMediaInputDto[];
 }
 
 export class DuplicateScheduleDto {
-  @ApiProperty({ example: '2026-11-09' })
+  @ApiProperty({ example: '2026-11-09', description: 'Lunes de la semana destino' })
   @IsDateString()
   targetWeekStartDate!: string;
 
-  @ApiPropertyOptional({ example: 'Semana Lanzamiento Cold Brew (Semana 2)' })
+  @ApiPropertyOptional({ example: 'Semana 2' })
   @IsOptional()
   @IsString()
   @MaxLength(150)
   title?: string;
 
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ default: false, description: 'Copiar también las fotos y los videos' })
   @IsOptional()
   @IsBoolean()
-  includeVideos?: boolean;
+  includeMedia?: boolean;
 
-  @ApiPropertyOptional({ example: 'Duplicado manteniendo estructura de bloques Lunes-Viernes' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @MaxLength(500)
   notes?: string;
 }
 
-export class AddScheduleItemDto {
-  @ApiProperty()
-  @IsUUID()
-  videoId!: string;
-
-  @ApiProperty({ example: 3, description: 'Día de la semana: 1 (Lunes) a 5 (Viernes)' })
-  @IsInt()
-  @Min(1)
-  @Max(5)
-  dayOfWeek!: number;
-
-  @ApiProperty({ example: '2026-10-23T18:00:00.000Z' })
-  @IsDateString()
-  plannedPublishAt!: string;
-
-  @ApiPropertyOptional({ example: 'Publicar en horario pico de la tarde.' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  notes?: string;
-}
-
-export class ReviewVideoDecisionDto {
-  @ApiProperty({
-    enum: ApprovalDecision,
-    description: 'APPROVED | CHANGES_REQUESTED | REJECTED',
-  })
+export class ReviewBlockDto {
+  @ApiProperty({ enum: ApprovalDecision })
   @IsEnum(ApprovalDecision)
   decision!: ApprovalDecision;
 
-  @ApiPropertyOptional({
-    example: 'Excelente edición, aprobado para salir en las 3 plataformas.',
-  })
+  @ApiPropertyOptional({ example: 'Cambiar el texto de la portada.' })
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   feedbackNotes?: string;
 }
 
-export class AddVideoCommentDto {
-  @ApiProperty({ example: '¿Podemos ajustar el subtítulo en el segundo 12?' })
+export class AddBlockCommentDto {
+  @ApiProperty({ example: '¿Podemos usar la otra foto?' })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(5000)
   message!: string;
-
-  @ApiPropertyOptional({ example: 12 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  timestampSec?: number;
 }

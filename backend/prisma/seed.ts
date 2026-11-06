@@ -3,33 +3,16 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import {
-  ApprovalDecision,
+  BlockReviewStatus,
   ClientConfirmationStatus,
+  ContentType,
   PrismaClient,
-  PublicationStatus,
   RoleCode,
   ScheduleStatus,
-  SocialPlatform,
-  VideoWorkflowStatus,
 } from '@prisma/client';
 import * as argon2 from 'argon2';
-import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
-
-function encryptDemoToken(plainText: string): string {
-  const keyHex =
-    process.env.OAUTH_ENCRYPTION_KEY || '0'.repeat(64);
-  const key = Buffer.from(keyHex.slice(0, 64), 'hex');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(plainText, 'utf8'),
-    cipher.final(),
-  ]);
-  const authTag = cipher.getAuthTag();
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
-}
 
 async function seedAgencyIdeas(
   agencyId: string,
@@ -64,7 +47,6 @@ async function seedAgencyIdeas(
           title: '3 errores al preparar espresso en casa (y cómo corregirlos)',
           content:
             'Gancho primeros 2 seg mostrando extracción canalizada. Explicar molienda, compactación y temperatura. Cerrar invitando a guardar el Reel.',
-          platforms: 'INSTAGRAM,TIKTOK,YOUTUBE',
           isPinned: true,
         },
         {
@@ -75,7 +57,6 @@ async function seedAgencyIdeas(
           title: 'POV: Cuando el cliente pide un café "bien cargado" a las 19:30',
           content:
             'Audio en tendencia + reacción rápida del barista en barra. Corte dinámico de 15 segundos ideal para alcance orgánico.',
-          platforms: 'INSTAGRAM,TIKTOK',
           isPinned: false,
         },
         {
@@ -86,7 +67,6 @@ async function seedAgencyIdeas(
           title: 'Pack Degustación Origen Huila — Envío sin cargo 48 hs',
           content:
             'Mostrar apertura de bolsa en grano, textura del tueste medio y beneficio directo para suscriptores mensuales.',
-          platforms: 'INSTAGRAM,YOUTUBE',
           isPinned: false,
         },
       ],
@@ -296,30 +276,6 @@ async function main() {
     });
     createdClients.push(client);
 
-    for (const platform of [
-      SocialPlatform.INSTAGRAM,
-      SocialPlatform.TIKTOK,
-      SocialPlatform.YOUTUBE,
-    ]) {
-      await prisma.platformConnection.upsert({
-        where: {
-          clientId_platform: {
-            clientId: client.id,
-            platform,
-          },
-        },
-        update: {},
-        create: {
-          clientId: client.id,
-          platform,
-          externalAccountId: `${platform.toLowerCase()}_${client.id.slice(0, 8)}`,
-          accountHandle: `@${c.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18)}`,
-          encryptedAccessToken: encryptDemoToken(`mock_access_${platform}_${client.id}`),
-          encryptedRefreshToken: encryptDemoToken(`mock_refresh_${platform}_${client.id}`),
-          tokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-        },
-      });
-    }
   }
 
   // 5. Ideas privadas para Nova Digital y para Luca Segura Media
@@ -350,38 +306,9 @@ async function main() {
         createdByUserId: target.ownerId,
         weekStartDate: weekStart,
         weekEndDate: weekEnd,
-        title: `Plan Lunes a Viernes · Especial Primavera (${target.label})`,
-        summaryNotes: 'Pauta semanal estructurada en bloques de contenido de Lunes a Viernes.',
+        title: `Especial Primavera (${target.label})`,
+        summaryNotes: 'Contenido de la semana organizado de lunes a viernes.',
         status: ScheduleStatus.IN_REVIEW,
-      },
-    });
-
-    const videoWed = await prisma.video.create({
-      data: {
-        clientId: target.client.id,
-        uploadedByUserId: target.ownerId,
-        title: 'Receta Cold Brew en 45 segundos',
-        description: 'Descubre cómo preparamos nuestro Cold Brew infusionado durante 18 horas.',
-        storageKey: 'clients/demo/cold-brew-recipe.mp4',
-        durationSeconds: 45,
-        sizeBytes: BigInt(28500000),
-        mimeType: 'video/mp4',
-        aspectRatio: '9:16',
-        workflowStatus: VideoWorkflowStatus.SCHEDULED,
-        hashtags: {
-          create: [
-            { tag: 'coldbrew', position: 0 },
-            { tag: 'cafedeespecialidad', position: 1 },
-            { tag: 'reels', position: 2 },
-          ],
-        },
-        platformTargets: {
-          create: [
-            { platform: SocialPlatform.INSTAGRAM, shareToFeed: true },
-            { platform: SocialPlatform.TIKTOK, allowDuetStitch: true },
-            { platform: SocialPlatform.YOUTUBE, madeForKids: false },
-          ],
-        },
       },
     });
 
@@ -390,135 +317,61 @@ async function main() {
         {
           scheduleId: schedule.id,
           dayOfWeek: 1,
-          blockTitle: 'Educativo: Molienda ideal para prensa francesa',
+          contentType: ContentType.REEL,
+          blockTitle: 'Molienda ideal para prensa francesa',
           noteColor: 'SKY',
-          notes: 'Subir Reel explicativo mostrando grosor de grano en primer plano.',
+          notes: 'Reel explicativo mostrando el grosor del grano en primer plano.',
+          caption: '¿Sabías que la molienda cambia todo? Te mostramos la ideal para prensa francesa.',
           plannedTime: '11:00',
-          plannedPublishAt: new Date('2026-10-26T14:00:00.000Z'),
-          autoPublish: true,
+          reviewStatus: BlockReviewStatus.APPROVED,
           sortOrder: 0,
         },
         {
           scheduleId: schedule.id,
           dayOfWeek: 2,
-          blockTitle: 'Detrás de escena: Apertura de barra 07:30 AM',
+          contentType: ContentType.STORY,
+          blockTitle: 'Detrás de escena: apertura de barra',
           noteColor: 'AMBER',
-          notes: 'Sonido ASMR de máquina de espresso calentando y primeros clientes.',
+          notes: 'Historias con el sonido de la máquina calentando y los primeros clientes.',
           plannedTime: '13:30',
-          plannedPublishAt: new Date('2026-10-27T16:30:00.000Z'),
-          autoPublish: true,
           sortOrder: 0,
         },
         {
           scheduleId: schedule.id,
-          videoId: videoWed.id,
           dayOfWeek: 3,
-          blockTitle: 'Receta Cold Brew 45s (Video anexado)',
+          contentType: ContentType.CAROUSEL,
+          blockTitle: 'Receta de Cold Brew paso a paso',
           noteColor: 'LIME',
-          notes: 'Video ya cargado y configurado para emisión automática a las 18:00.',
+          notes: 'Carrusel de cinco imágenes: una por cada paso de la receta.',
+          caption: 'Tu Cold Brew en casa, en cinco pasos. Guardá este posteo para probarlo.',
           plannedTime: '18:00',
-          plannedPublishAt: new Date('2026-10-28T21:00:00.000Z'),
-          autoPublish: true,
+          reviewStatus: BlockReviewStatus.CHANGES_REQUESTED,
           sortOrder: 0,
         },
         {
           scheduleId: schedule.id,
           dayOfWeek: 4,
-          blockTitle: 'Entretenimiento: Mito vs Realidad del tueste oscuro',
+          contentType: ContentType.REEL,
+          blockTitle: 'Mito o realidad del tueste oscuro',
           noteColor: 'ROSE',
-          notes: 'Formato dinámico de preguntas rápidas con el tostador.',
+          notes: 'Preguntas rápidas con el tostador.',
           plannedTime: '19:00',
-          plannedPublishAt: new Date('2026-10-29T22:00:00.000Z'),
-          autoPublish: true,
           sortOrder: 0,
         },
         {
           scheduleId: schedule.id,
           dayOfWeek: 5,
-          blockTitle: 'Venta: Degustación de Viernes 2x1 en filtrados',
+          contentType: ContentType.POST,
+          blockTitle: 'Degustación de viernes 2x1 en filtrados',
           noteColor: 'EMERALD',
-          notes: 'Llamado a la acción claro invitando a pasar el viernes por la tarde.',
+          notes: 'Imagen única con la promoción, invitando a pasar el viernes por la tarde.',
+          caption: 'Este viernes, 2x1 en filtrados. ¡Te esperamos!',
           plannedTime: '17:00',
-          plannedPublishAt: new Date('2026-10-30T20:00:00.000Z'),
-          autoPublish: true,
           sortOrder: 0,
         },
       ],
     });
   }
-
-  // Video histórico publicado para el Historial
-  await prisma.video.create({
-    data: {
-      clientId: kafecitoClient.id,
-      uploadedByUserId: agency1Owner.id,
-      title: 'Tueste artesanal de granos colombianos',
-      description: 'Así logramos el perfil achocolatado en nuestro lote Huila.',
-      storageKey: 'clients/kafecito/2026-10/roasting-huila.mp4',
-      durationSeconds: 52,
-      sizeBytes: BigInt(34100000),
-      mimeType: 'video/mp4',
-      aspectRatio: '9:16',
-      workflowStatus: VideoWorkflowStatus.PUBLISHED,
-      hashtags: {
-        create: [
-          { tag: 'tuestedecafe', position: 0 },
-          { tag: 'colombiancoffee', position: 1 },
-        ],
-      },
-      platformTargets: {
-        create: [
-          { platform: SocialPlatform.INSTAGRAM, shareToFeed: true },
-          { platform: SocialPlatform.TIKTOK, allowDuetStitch: true },
-          { platform: SocialPlatform.YOUTUBE, madeForKids: false },
-        ],
-      },
-      approvals: {
-        create: {
-          reviewerUserId: kafecitoClient.userId,
-          decision: ApprovalDecision.APPROVED,
-          feedbackNotes: '¡Excelente iluminación y ritmo! Aprobado para las 3 redes.',
-        },
-      },
-      publications: {
-        create: [
-          {
-            platform: SocialPlatform.INSTAGRAM,
-            scheduledFor: new Date('2026-10-15T15:00:00.000Z'),
-            publishedAt: new Date('2026-10-15T15:00:12.000Z'),
-            status: PublicationStatus.PUBLISHED,
-            externalPostId: 'ig_reel_9981234',
-            externalPostUrl: 'https://www.instagram.com/reel/CxyzDemo1/',
-            attempts: {
-              create: { attemptNumber: 1, isSuccess: true, durationMs: 1420 },
-            },
-          },
-          {
-            platform: SocialPlatform.TIKTOK,
-            scheduledFor: new Date('2026-10-15T15:00:00.000Z'),
-            publishedAt: new Date('2026-10-15T15:00:15.000Z'),
-            status: PublicationStatus.PUBLISHED,
-            externalPostId: 'tt_vid_7741290',
-            externalPostUrl: 'https://www.tiktok.com/@kafecito/video/7741290',
-            attempts: {
-              create: { attemptNumber: 1, isSuccess: true, durationMs: 1850 },
-            },
-          },
-          {
-            platform: SocialPlatform.YOUTUBE,
-            scheduledFor: new Date('2026-10-15T15:00:00.000Z'),
-            publishedAt: new Date('2026-10-15T15:00:19.000Z'),
-            status: PublicationStatus.PUBLISHED,
-            externalPostId: 'yt_short_AbCdEf123',
-            externalPostUrl: 'https://youtube.com/shorts/AbCdEf123',
-            attempts: {
-              create: { attemptNumber: 1, isSuccess: true, durationMs: 2190 },
-            },
-          },
-        ],
-      },
-    },
-  });
 
   console.log('Seed completado exitosamente:', {
     admin: adminUser.email,

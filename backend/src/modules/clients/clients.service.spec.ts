@@ -5,7 +5,7 @@ import { ClientsService } from './clients.service';
 
 describe('ClientsService (aislamiento multi-tenant y "Sí, soy yo")', () => {
   const mockPrisma: any = {
-    client: { findMany: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+    client: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     user: { update: jest.fn() },
     notification: { updateMany: jest.fn() },
     $transaction: jest.fn(async (ops: unknown[]) => ops),
@@ -48,6 +48,48 @@ describe('ClientsService (aislamiento multi-tenant y "Sí, soy yo")', () => {
 
     expect(listed).not.toHaveProperty('confirmationToken');
     expect(single).not.toHaveProperty('confirmationToken');
+  });
+
+  describe('reenviar la confirmación', () => {
+    const owned = { id: 'c-1', agencyId: 'agency-nova' };
+    const full = {
+      ...owned,
+      userId: 'u-1',
+      companyName: 'Marca',
+      agency: { name: 'Nova' },
+      user: { email: 'cliente@example.test', fullName: 'Cliente' },
+    };
+    const sentToken = () => mockPrisma.client.update.mock.calls[0][0].data.confirmationToken;
+
+    it('conserva el enlace vigente para que los correos anteriores sigan sirviendo', async () => {
+      mockPrisma.client.findFirst.mockResolvedValueOnce(owned);
+      mockPrisma.client.findUnique.mockResolvedValueOnce({
+        ...full,
+        confirmationStatus: ClientConfirmationStatus.PENDING,
+        confirmationToken: 'token-vigente',
+        confirmationExpiresAt: new Date(Date.now() + 60000),
+      });
+
+      await service.resendConfirmation('c-1', agencyUser);
+
+      expect(sentToken()).toBe('token-vigente');
+      expect(mockMail.send.mock.calls[0][1].html).toContain('token=token-vigente');
+    });
+
+    it('genera un enlace nuevo si el anterior venció', async () => {
+      mockPrisma.client.findFirst.mockResolvedValueOnce(owned);
+      mockPrisma.client.findUnique.mockResolvedValueOnce({
+        ...full,
+        confirmationStatus: ClientConfirmationStatus.PENDING,
+        confirmationToken: 'token-vencido',
+        confirmationExpiresAt: new Date(Date.now() - 60000),
+      });
+
+      await service.resendConfirmation('c-1', agencyUser);
+
+      expect(sentToken()).not.toBe('token-vencido');
+      expect(sentToken()).toHaveLength(64);
+    });
   });
 
   it('bloquea a una AGENCIA sobre clientes de otra agencia', async () => {

@@ -10,67 +10,45 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { RoleCode } from '@prisma/client';
+import { AuthenticatedUser, CurrentUser } from '../../common/decorators/auth.decorators';
 import {
-  AuthenticatedUser,
-  CurrentUser,
-  Roles,
-} from '../../common/decorators/auth.decorators';
-import {
-  AddScheduleItemDto,
-  AddVideoCommentDto,
+  AddBlockCommentDto,
   CreateScheduleBlockDto,
   CreateScheduleDto,
   DuplicateScheduleDto,
-  ReviewVideoDecisionDto,
+  ReviewBlockDto,
   UpdateScheduleBlockDto,
 } from './dto/schedule-approval.dto';
 import { SchedulesService } from './schedules.service';
 
-@ApiTags('Plan Semanal (Lunes a Viernes), Bloques y Duplicación')
+@ApiTags('Cronogramas y revisión')
 @ApiBearerAuth('jwt-auth')
 @Controller('schedules')
 export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
 
   @Get()
-  @ApiOperation({
-    summary:
-      'Listar planes semanales de Lunes a Viernes con sus bloques de colores y videos según el rol del usuario',
-  })
+  @ApiOperation({ summary: 'Listar cronogramas con sus bloques, fotos, videos, revisiones y comentarios' })
   @ApiQuery({ name: 'clientId', required: false })
-  findAll(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('clientId') clientId?: string,
-  ) {
+  findAll(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
     return this.schedulesService.listSchedules(user, clientId);
   }
 
   @Get('duplication-logs')
-  @ApiOperation({
-    summary: 'Consultar el registro histórico de semanas duplicadas',
-  })
+  @ApiOperation({ summary: 'Consultar el registro de semanas duplicadas' })
   @ApiQuery({ name: 'clientId', required: false })
-  listDuplicationLogs(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('clientId') clientId?: string,
-  ) {
+  listDuplicationLogs(@CurrentUser() user: AuthenticatedUser, @Query('clientId') clientId?: string) {
     return this.schedulesService.listDuplicationLogs(user, clientId);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post()
-  @ApiOperation({ summary: 'Crear nuevo plan semanal (Lunes a Viernes) para un cliente confirmado' })
+  @ApiOperation({ summary: 'Crear un cronograma semanal (lunes a viernes) para un cliente confirmado' })
   create(@Body() dto: CreateScheduleDto, @CurrentUser() user: AuthenticatedUser) {
     return this.schedulesService.createSchedule(dto, user);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post(':scheduleId/blocks')
-  @ApiOperation({
-    summary:
-      'Agregar un bloque con nota de color, horario y video opcional configurado a un día de la semana',
-  })
+  @ApiOperation({ summary: 'Agregar un bloque de contenido con su tipo, texto, fotos y videos' })
   createBlock(
     @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
     @Body() dto: CreateScheduleBlockDto,
@@ -79,11 +57,8 @@ export class SchedulesController {
     return this.schedulesService.createBlock(scheduleId, dto, user);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Patch('blocks/:blockId')
-  @ApiOperation({
-    summary: 'Editar bloque del día (color, nota, horario o video configurado)',
-  })
+  @ApiOperation({ summary: 'Editar un bloque. Si cambia lo que ve el cliente, vuelve a revisión' })
   updateBlock(
     @Param('blockId', ParseUUIDPipe) blockId: string,
     @Body() dto: UpdateScheduleBlockDto,
@@ -92,23 +67,15 @@ export class SchedulesController {
     return this.schedulesService.updateBlock(blockId, dto, user);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Delete('blocks/:blockId')
-  @ApiOperation({ summary: 'Eliminar un bloque del plan semanal' })
-  deleteBlock(
-    @Param('blockId', ParseUUIDPipe) blockId: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  @ApiOperation({ summary: 'Eliminar un bloque y sus archivos' })
+  deleteBlock(@Param('blockId', ParseUUIDPipe) blockId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.schedulesService.deleteBlock(blockId, user);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
   @Post(':scheduleId/duplicate')
-  @ApiOperation({
-    summary:
-      'Duplicar una semana completa hacia otra fecha dejando constancia en el registro de duplicaciones',
-  })
-  duplicateSchedule(
+  @ApiOperation({ summary: 'Duplicar una semana, con o sin sus fotos y videos' })
+  duplicate(
     @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
     @Body() dto: DuplicateScheduleDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -116,39 +83,29 @@ export class SchedulesController {
     return this.schedulesService.duplicateSchedule(scheduleId, dto, user);
   }
 
-  @Roles(RoleCode.ADMIN_GENERAL, RoleCode.AGENCIA)
-  @Post(':scheduleId/items')
-  @ApiOperation({
-    summary: 'Asignar un video existente a un día/hora del cronograma semanal',
-  })
-  addItem(
-    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
-    @Body() dto: AddScheduleItemDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.schedulesService.addItemAndSubmitForReview(scheduleId, dto, user);
+  @Post(':scheduleId/confirm')
+  @ApiOperation({ summary: 'Confirmar la semana completa (cliente)' })
+  confirm(@Param('scheduleId', ParseUUIDPipe) scheduleId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.schedulesService.confirmSchedule(scheduleId, user);
   }
 
-  @Post('videos/:videoId/review')
-  @ApiOperation({
-    summary:
-      'Revisar video (Cliente o Admin): APROBAR, PEDIR CAMBIOS o RECHAZAR dejando notas',
-  })
-  reviewVideo(
-    @Param('videoId', ParseUUIDPipe) videoId: string,
-    @Body() dto: ReviewVideoDecisionDto,
+  @Post('blocks/:blockId/review')
+  @ApiOperation({ summary: 'Aprobar, pedir cambios o rechazar un bloque (cliente)' })
+  review(
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: ReviewBlockDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.schedulesService.reviewVideo(videoId, dto, user);
+    return this.schedulesService.reviewBlock(blockId, dto, user);
   }
 
-  @Post('videos/:videoId/comments')
-  @ApiOperation({ summary: 'Agregar nota o comentario con marca de tiempo en el video' })
+  @Post('blocks/:blockId/comments')
+  @ApiOperation({ summary: 'Dejar un comentario en un bloque' })
   addComment(
-    @Param('videoId', ParseUUIDPipe) videoId: string,
-    @Body() dto: AddVideoCommentDto,
+    @Param('blockId', ParseUUIDPipe) blockId: string,
+    @Body() dto: AddBlockCommentDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.schedulesService.addComment(videoId, dto, user);
+    return this.schedulesService.addComment(blockId, dto, user);
   }
 }

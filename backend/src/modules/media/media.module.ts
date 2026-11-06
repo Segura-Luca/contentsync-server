@@ -1,16 +1,15 @@
+import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppConfigService } from '../../config/app-config.service';
-import { Module } from '@nestjs/common';
-import { AuditService } from '../../common/audit/audit.service';
 import { ClientsModule } from '../clients/clients.module';
-import { StorageService } from '../storage/storage.service';
-import { VideosController } from './videos.controller';
-import { VideosService } from './videos.service';
+import { StorageModule } from '../storage/storage.module';
+import { MediaController } from './media.controller';
 
 @Module({
   imports: [
     ClientsModule,
+    StorageModule,
     MulterModule.registerAsync({
       inject: [AppConfigService],
       // La carpeta temporal empieza con punto: los estáticos de Express no sirven archivos ocultos.
@@ -20,8 +19,6 @@ import { VideosService } from './videos.service';
       }),
     }),
   ],
-  controllers: [VideosController],
-  providers: [VideosService, StorageService, AuditService],
-  exports: [VideosService, StorageService],
+  controllers: [MediaController],
 })
-export class VideosModule {}
+export class MediaModule {}

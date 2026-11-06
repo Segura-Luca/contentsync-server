@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { Prisma, RoleCode } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AuditService } from '../../common/audit/audit.service';
@@ -12,8 +12,6 @@ import { StorageService } from '../storage/storage.service';
  */
 @Injectable()
 export class AccountDeletionService {
-  private readonly logger = new Logger(AccountDeletionService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -42,14 +40,15 @@ export class AccountDeletionService {
     const uniqueUserIds = [...new Set(userIds)];
     const now = new Date();
 
-    const videos = await this.prisma.video.findMany({
-      where: { clientId: { in: clientIds }, deletedAt: null },
-      select: { storageKey: true, thumbnailKey: true },
+    const media = await this.prisma.scheduleItemMedia.findMany({
+      where: { scheduleItem: { schedule: { clientId: { in: clientIds } } } },
+      select: { storageKey: true },
     });
 
     const operations: Prisma.PrismaPromise<unknown>[] = [
-      this.prisma.platformConnection.deleteMany({ where: { clientId: { in: clientIds } } }),
-      this.prisma.video.updateMany({ where: { clientId: { in: clientIds }, deletedAt: null }, data: { deletedAt: now } }),
+      this.prisma.scheduleItemMedia.deleteMany({
+        where: { scheduleItem: { schedule: { clientId: { in: clientIds } } } },
+      }),
       this.prisma.client.updateMany({
         where: { id: { in: clientIds } },
         data: {
@@ -108,23 +107,8 @@ export class AccountDeletionService {
     });
 
     // Los archivos se borran al final: si esto falla, la cuenta ya no existe y solo queda un archivo huérfano.
-    const keys = videos.flatMap((video) => [video.storageKey, video.thumbnailKey]).filter((key): key is string => !!key);
-    await this.deleteFiles([...new Set(keys)]);
+    await this.storage.deleteIfUnused(media.map((row) => row.storageKey));
 
     return { message: 'Tu cuenta se eliminó correctamente.' };
-  }
-
-  private async deleteFiles(keys: string[]) {
-    for (const key of keys) {
-      try {
-        // Una subida local no pertenece a un cliente: otro video activo podría usar el mismo archivo.
-        const stillUsed = await this.prisma.video.count({
-          where: { deletedAt: null, OR: [{ storageKey: key }, { thumbnailKey: key }] },
-        });
-        if (!stillUsed) await this.storage.deleteObject(key);
-      } catch (error: any) {
-        this.logger.error(`No se pudo borrar el archivo de una cuenta eliminada: ${error?.name}: ${error?.message}`);
-      }
-    }
   }
 }

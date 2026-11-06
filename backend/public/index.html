@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ContentSync — Planificación, Ideas y Publicación Multired</title>
+  <title>ContentSync — Cronogramas y aprobaciones entre agencias y clientes</title>
+  <meta name="description" content="Agencias y clientes en un solo lugar: compartí el cronograma, mostrá cada pieza de contenido y recibí comentarios y aprobaciones." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -217,68 +218,6 @@
     .badge-warn { background: var(--tally-warn-bg); color: var(--tally-warn); border-color: var(--tally-warn); }
     .badge-fault { background: var(--tally-fault-bg); color: var(--tally-fault); border-color: var(--tally-fault); }
 
-    .tri-conduit {
-      display: inline-flex;
-      align-items: center;
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 11px;
-      font-weight: 600;
-    }
-    .tri-node {
-      padding: 2px 5px;
-      border-radius: 2px;
-      border: 1px solid var(--border-strong);
-      background: var(--elevated);
-      color: var(--text-primary);
-      line-height: 1.2;
-    }
-    .tri-node.off { background: transparent; border-color: var(--hairline); color: var(--text-muted); font-weight: 400; }
-    .tri-node.live { background: var(--tally-live-bg); border-color: var(--tally-live); color: var(--tally-live); }
-    .tri-node.warn { background: var(--tally-warn-bg); border-color: var(--tally-warn); color: var(--tally-warn); }
-    .tri-node.fault { background: var(--tally-fault-bg); border-color: var(--tally-fault); color: var(--tally-fault); }
-    .tri-wire {
-      position: relative;
-      width: 8px;
-      height: 1px;
-      background: var(--border-strong);
-      display: inline-block;
-      overflow: hidden;
-    }
-    .tri-wire.flowing::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent 0%, var(--signal-subtle-fg) 55%, transparent 100%);
-      animation: wirePacket 2.6s linear infinite;
-    }
-
-    .reel-frame {
-      position: relative;
-      aspect-ratio: 9 / 16;
-      border-radius: 4px;
-      border: 1px solid var(--border-strong);
-      overflow: hidden;
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 5px;
-      color: #F8FAFC;
-    }
-    .reel-tag {
-      position: relative;
-      z-index: 2;
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 11px;
-      line-height: 1.1;
-      padding: 2px 5px;
-      border-radius: 2px;
-      background: rgba(8, 10, 14, 0.78);
-      color: #F8FAFC;
-    }
 
     .topbar {
       position: sticky;
@@ -357,7 +296,7 @@
     .bottom-bar { display: none; }
 
     /* ==========================================================================
-       CUADRÍCULA SEMANAL LUNES A VIERNES (SECCIÓN PLAN)
+       CUADRÍCULA SEMANAL LUNES A VIERNES
        ========================================================================== */
     .plan-page {
       padding: 20px 22px 40px;
@@ -579,37 +518,6 @@
       transform: translateY(-1px);
     }
 
-    .router-schematic {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border: 1px solid var(--hairline);
-      background: var(--inspector);
-      border-radius: 4px;
-      max-width: 480px;
-    }
-    .router-master-box {
-      padding: 6px 8px;
-      border: 1px solid var(--border-strong);
-      background: var(--stage);
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-    .router-svg { flex: 1; min-width: 72px; height: 44px; display: block; }
-    .router-trace-base { fill: none; stroke: var(--border-strong); stroke-width: 1.2; }
-    .router-trace-pulse {
-      fill: none;
-      stroke: var(--signal-subtle-fg);
-      stroke-width: 1.6;
-      stroke-linecap: round;
-      stroke-dasharray: 18 110;
-      animation: routerFlow 3.2s linear infinite;
-    }
-    html[data-theme="light"] .router-trace-pulse { stroke: var(--tally-live); }
-    .router-trace-pulse.t2 { animation-delay: -0.45s; }
-    .router-trace-pulse.t3 { animation-delay: -0.9s; }
-
     .s3-progress-fill {
       height: 100%;
       background-color: var(--signal-subtle-fg);
@@ -663,19 +571,6 @@
       font-weight: 600;
     }
 
-    .patchbay-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-    }
-    .patchbay-slot {
-      text-align: left;
-      padding: 11px;
-      border-radius: 4px;
-      background: var(--canvas);
-      transition: border-color 160ms ease, background 160ms ease;
-    }
-    .patchbay-slot:hover { background: var(--inspector); }
 
     .page-pad {
       max-width: 1100px;
@@ -686,8 +581,6 @@
     .feedback-enter { animation: bannerSlide 180ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
     @keyframes tallyBreath { 0%, 100% { opacity: 0.42; } 50% { opacity: 1; } }
-    @keyframes wirePacket { 0% { transform: translateX(0); } 100% { transform: translateX(200%); } }
-    @keyframes routerFlow { 0% { stroke-dashoffset: 128; } 100% { stroke-dashoffset: 0; } }
     @keyframes studioEq1 { 0% { transform: scaleY(0.68); } 100% { transform: scaleY(1); } }
     @keyframes studioEq2 { 0% { transform: scaleY(1.25); } 100% { transform: scaleY(0.65); } }
     @keyframes studioEq3 { 0% { transform: scaleY(0.75); } 100% { transform: scaleY(1.05); } }
@@ -707,7 +600,6 @@
       .day-column { min-height: auto; }
       .stats-strip { grid-template-columns: repeat(2, 1fr); }
       .page-pad { padding: 14px; width: 100%; }
-      .patchbay-grid { grid-template-columns: minmax(0, 1fr); }
       .bottom-bar {
         position: fixed;
         bottom: 0;
@@ -754,21 +646,19 @@
   <script>
     // Configuración pública generada por el servidor (/app-config.js); se vuelve a leer al guardar Ajustes.
     let APP_CONFIG = window.__CS_CONFIG__ || {};
-    const PLATFORM_LIMITS = {
-      INSTAGRAM: { code: 'IG', name: 'Instagram Reels', maxSec: 90, maxMb: 1024 },
-      TIKTOK:    { code: 'TT', name: 'TikTok',          maxSec: 600, maxMb: 500 },
-      YOUTUBE:   { code: 'YT', name: 'YouTube Shorts',  maxSec: 60, maxMb: 2048 }
-    };
+    const CONTENT_TYPES = [
+      { code: 'REEL', label: 'Reel' },
+      { code: 'CAROUSEL', label: 'Carrusel' },
+      { code: 'STORY', label: 'Historia' },
+      { code: 'POST', label: 'Publicación' },
+      { code: 'VIDEO', label: 'Video' },
+      { code: 'OTHER', label: 'Otro' }
+    ];
+    const MAX_MEDIA_PER_BLOCK = 20;
 
-    function applyPlatformLimits(limits) {
-      Object.keys(PLATFORM_LIMITS).forEach((platform) => {
-        const limit = limits && limits[platform];
-        if (!limit) return;
-        PLATFORM_LIMITS[platform].maxSec = limit.maxDurationSeconds;
-        PLATFORM_LIMITS[platform].maxMb = limit.maxSizeMb;
-      });
+    function contentTypeLabel(code) {
+      return CONTENT_TYPES.find(t => t.code === code)?.label || 'Contenido';
     }
-    applyPlatformLimits(APP_CONFIG.platformLimits);
 
     function appName() {
       return APP_CONFIG.appName || 'ContentSync';
@@ -793,13 +683,6 @@
       { code: 'ROSE',    label: 'Coral' },
       { code: 'VIOLET',  label: 'Violeta' },
       { code: 'LIME',    label: 'Lima' }
-    ];
-
-    const REEL_PALETTES = [
-      'linear-gradient(165deg, #2E1E18 0%, #5D3A29 55%, #0F1014 100%)',
-      'linear-gradient(165deg, #172722 0%, #2D5245 55%, #0D1210 100%)',
-      'linear-gradient(165deg, #292216 0%, #6B5129 55%, #12100C 100%)',
-      'linear-gradient(165deg, #1B2130 0%, #374563 55%, #0E1017 100%)'
     ];
 
     const API_BASE = APP_CONFIG.apiBase || '/api/v1';
@@ -844,31 +727,12 @@
       duplicationLogs: [],
       ideaSections: [],
       ideas: [],
-      videos: [],
       notifications: [],
 
-      // Estado de Plan Semanal (Lunes a Viernes)
+      // Cronograma activo
       selectedClientId: null,
       selectedScheduleId: null,
 
-      // Subida de video individual (fuera del Plan)
-      upClientId: '',
-      upFile: null,
-      upPreviewUrl: '',
-      upTitle: '',
-      upDesc: '',
-      upTags: '',
-      upDur: 30,
-      upSizeBytes: 0,
-      upMime: 'video/mp4',
-      upPlatIG: true,
-      upPlatTT: true,
-      upPlatYT: true,
-      upMode: 'NOW',
-      upWhen: '',
-      upProgress: 0,
-      upSaving: false,
-      upError: '',
       showNewWeekModal: false,
       newWeekStart: '',
       newWeekTitle: '',
@@ -877,11 +741,11 @@
       showDuplicateModal: false,
       dupTargetStart: '',
       dupTitle: '',
-      dupIncludeVideos: true,
+      dupIncludeMedia: true,
       dupNotes: '',
       showDuplicationLogs: false,
 
-      // Modal de Bloque del Día (+ Subida de video desde Plan)
+      // Modal de Bloque del Día: tipo de contenido, textos, fotos y videos
       blockModalOpen: false,
       editingBlockId: null,
       blkDay: 1,
@@ -889,23 +753,9 @@
       blkColor: 'AMBER',
       blkTitle: '',
       blkNotes: '',
-      blkAttachVideo: false,
-      blkAutoPublish: true,
-      blkVideoFile: null,
-      blkVideoPreviewUrl: '',
-      blkExistingStorageKey: '',
-      blkVideoTitle: '',
-      blkVideoDesc: '',
-      blkVideoTags: '#contenido #reels #shorts',
-      blkVideoDur: 30,
-      blkVideoSizeBytes: 12000000,
-      blkVideoMime: 'video/mp4',
-      blkPlatIG: true,
-      blkPlatTT: true,
-      blkPlatYT: true,
-      blkShareFeed: true,
-      blkAllowComments: true,
-      blkAllowDuet: true,
+      blkContentType: 'REEL',
+      blkCaption: '',
+      blkMedia: [],
       blkUploadProgress: 0,
       blkSaving: false,
       blkError: '',
@@ -913,6 +763,7 @@
       // Modal de Inspección / Visado de Bloque (Cliente y Agencia)
       inspectBlockId: null,
       confirmDeleteBlockId: null,
+      confirmScheduleAsk: false,
 
       // Estado de Ideas de Contenido (Privadas de Agencia)
       ideaSectionFilter: 'ALL',
@@ -930,31 +781,13 @@
       ideaFormTitle: '',
       ideaFormContent: '',
       ideaFormRefUrl: '',
-      ideaFormPlatIG: true,
-      ideaFormPlatTT: true,
-      ideaFormPlatYT: true,
       ideaFormPinned: false,
       confirmDeleteIdeaId: null,
 
       // Clientes y Agencias
       showNewAgencyForm: false,
       showNewClientForm: false,
-      confirmDeleteClientId: null,
-
-      // Historial
-      histQuery: '',
-      histPlatform: null,
-
-      // Modal de Conexión OAuth / Token Real de Plataformas (YouTube / Instagram / TikTok)
-      platModalOpen: false,
-      platModalClientId: null,
-      platModalPlatform: null,
-      platModalHandle: '',
-      platModalExternalId: '',
-      platModalAccessToken: '',
-      platModalRefreshToken: '',
-      platModalBusy: false,
-      platModalError: ''
+      confirmDeleteClientId: null
     };
 
     const motionState = {
@@ -973,20 +806,6 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-    }
-
-    function fmtTimecode(sec) {
-      const s = Math.max(0, parseInt(sec || 0, 10));
-      const m = Math.floor(s / 60);
-      const r = s % 60;
-      return String(m).padStart(2, '0') + ':' + String(r).padStart(2, '0');
-    }
-
-    function reelBg(title) {
-      let h = 0;
-      const t = String(title || 'reel');
-      for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0;
-      return REEL_PALETTES[h % REEL_PALETTES.length];
     }
 
     function getMondayOf(dateObj) {
@@ -1022,13 +841,10 @@
 
     function workflowMeta(status) {
       switch (status) {
-        case 'IN_REVIEW':         return { label: 'EN REVISIÓN', cls: 'badge-review' };
-        case 'APPROVED':          return { label: 'APROBADO',    cls: 'badge-live' };
-        case 'SCHEDULED':         return { label: 'PROGRAMADO',  cls: 'badge-live' };
-        case 'PUBLISHED':         return { label: 'PUBLICADO',   cls: 'badge-live' };
-        case 'CHANGES_REQUESTED': return { label: 'AJUSTES',     cls: 'badge-warn' };
-        case 'REJECTED':          return { label: 'RECHAZADO',   cls: 'badge-fault' };
-        default:                  return { label: 'BORRADOR',    cls: '' };
+        case 'APPROVED':          return { label: 'APROBADO',        cls: 'badge-live' };
+        case 'CHANGES_REQUESTED': return { label: 'CAMBIOS PEDIDOS', cls: 'badge-warn' };
+        case 'REJECTED':          return { label: 'RECHAZADO',       cls: 'badge-fault' };
+        default:                  return { label: 'EN REVISIÓN',     cls: 'badge-review' };
       }
     }
 
@@ -1142,7 +958,6 @@
         apiFetch('/clients'),
         apiFetch('/schedules'),
         apiFetch('/schedules/duplication-logs'),
-        apiFetch('/videos'),
         apiFetch('/notifications'),
       ];
 
@@ -1155,7 +970,7 @@
       }
 
       const results = await Promise.all(calls);
-      const [pendRes, clRes, schRes, dupRes, vidRes, notRes] = results;
+      const [pendRes, clRes, schRes, dupRes, notRes] = results;
 
       if (role === 'ADMIN_GENERAL') loadPlatformSettings();
 
@@ -1177,21 +992,18 @@
       if (dupRes.ok && Array.isArray(dupRes.data)) {
         state.duplicationLogs = dupRes.data;
       }
-      if (vidRes.ok && Array.isArray(vidRes.data)) {
-        state.videos = vidRes.data;
-      }
       if (notRes.ok && Array.isArray(notRes.data)) {
         state.notifications = notRes.data;
       }
 
       if (role !== 'CLIENTE') {
-        const secRes = results[6];
-        const idRes = results[7];
+        const secRes = results[5];
+        const idRes = results[6];
         if (secRes?.ok && Array.isArray(secRes.data)) state.ideaSections = secRes.data;
         if (idRes?.ok && Array.isArray(idRes.data)) state.ideas = idRes.data;
       }
       if (role === 'ADMIN_GENERAL') {
-        const agRes = results[8];
+        const agRes = results[7];
         if (agRes?.ok && Array.isArray(agRes.data)) state.agencies = agRes.data;
       }
 
@@ -1207,16 +1019,6 @@
     }
 
     function normalizeClientFromApi(c) {
-      const conns = {
-        INSTAGRAM: { connected: false, handle: '' },
-        TIKTOK:    { connected: false, handle: '' },
-        YOUTUBE:   { connected: false, handle: '' }
-      };
-      (c.platformConnections || []).forEach(pc => {
-        if (conns[pc.platform] && pc.status === 'ACTIVE') {
-          conns[pc.platform] = { connected: true, handle: pc.accountHandle };
-        }
-      });
       return {
         id: c.id,
         agencyId: c.agencyId,
@@ -1226,8 +1028,7 @@
         confirmationStatus: c.confirmationStatus || 'CONFIRMED',
         confirmedAt: c.confirmedAt,
         contactFullName: c.user?.fullName || 'Contacto',
-        contactEmail: c.user?.email || '',
-        connections: conns
+        contactEmail: c.user?.email || ''
       };
     }
 
@@ -1604,26 +1405,25 @@
     }
 
     // =========================================================================
-    // ACCIONES DE DOMINIO: PLAN LUNES-VIERNES, BLOQUES, VIDEOS, DUPLICACIÓN
+    // ACCIONES DE DOMINIO: CRONOGRAMA, BLOQUES, ARCHIVOS, REVISIÓN Y DUPLICACIÓN
     // =========================================================================
     function allowedDestinations() {
       if (!state.session) return [];
       const role = state.session.role;
       if (role === 'CLIENTE') {
         return [
-          { id: 'schedules', code: '01', label: 'Plan semanal' },
+          { id: 'schedules', code: '01', label: 'Cronograma' },
           { id: 'accounts',  code: '02', label: 'Mi marca' },
           { id: 'history',   code: '03', label: 'Avisos' },
           { id: 'settings',  code: '04', label: 'Ajustes' }
         ];
       }
       return [
-        { id: 'schedules', code: '01', label: 'Plan' },
-        { id: 'upload',    code: '02', label: 'Subir video' },
-        { id: 'ideas',     code: '03', label: 'Ideas de contenido' },
-        { id: 'accounts',  code: '04', label: 'Clientes' },
-        { id: 'history',   code: '05', label: 'Historial' },
-        { id: 'settings',  code: '06', label: 'Ajustes' }
+        { id: 'schedules', code: '01', label: 'Cronogramas' },
+        { id: 'ideas',     code: '02', label: 'Ideas de contenido' },
+        { id: 'accounts',  code: '03', label: 'Clientes' },
+        { id: 'history',   code: '04', label: 'Avisos' },
+        { id: 'settings',  code: '05', label: 'Ajustes' }
       ];
     }
 
@@ -1634,7 +1434,7 @@
     function openNewWeekModal() {
       const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
       if (confirmed.length === 0) {
-        setBanner('Primero necesitás un cliente con identidad confirmada ("Sí, soy yo") para armarle un plan.', true);
+        setBanner('Primero necesitás un cliente con identidad confirmada ("Sí, soy yo") para armarle un cronograma.', true);
         return;
       }
       if (!state.selectedClientId || !confirmed.some(c => c.id === state.selectedClientId)) {
@@ -1647,7 +1447,7 @@
         suggestedMonday = addDaysIso(latest, 7);
       }
       state.newWeekStart = suggestedMonday;
-      state.newWeekTitle = 'Plan Lunes a Viernes · ' + fmtShortDate(suggestedMonday);
+      state.newWeekTitle = 'Semana del ' + fmtShortDate(suggestedMonday);
       state.newWeekNotes = '';
       state.showNewWeekModal = true;
       render();
@@ -1678,7 +1478,7 @@
       state.showNewWeekModal = false;
       await hydrateFromApi();
       state.selectedScheduleId = r.data.id;
-      setBanner('Nueva semana creada y visible para el cliente.');
+      setBanner('Semana creada. Ya la puede ver el cliente.');
     }
 
     function openDuplicateWeekModal() {
@@ -1690,7 +1490,7 @@
 
       state.dupTargetStart = nextMonday;
       state.dupTitle = sched.title.replace(/\s*\(Duplicada.*\)$/i, '') + ' · ' + fmtShortDate(nextMonday);
-      state.dupIncludeVideos = true;
+      state.dupIncludeMedia = true;
       state.dupNotes = 'Estructura semanal duplicada desde "' + sched.title + '"';
       state.showDuplicateModal = true;
       render();
@@ -1706,7 +1506,7 @@
         body: JSON.stringify({
           targetWeekStartDate: mondayIso,
           title: state.dupTitle.trim() || undefined,
-          includeVideos: state.dupIncludeVideos,
+          includeMedia: state.dupIncludeMedia,
           notes: state.dupNotes.trim() || undefined
         })
       });
@@ -1733,47 +1533,35 @@
       state.blkError = '';
       state.blkUploadProgress = 0;
       state.blkSaving = false;
-      state.blkVideoFile = null;
+      releaseBlockPreviews();
 
       if (block) {
         state.editingBlockId = block.id;
         state.blkDay = block.dayOfWeek;
         state.blkTime = block.plannedTime || '18:00';
         state.blkColor = block.noteColor || 'AMBER';
+        state.blkContentType = block.contentType || 'OTHER';
         state.blkTitle = block.blockTitle || '';
         state.blkNotes = block.notes || '';
-        state.blkAutoPublish = block.autoPublish !== false;
-
-        if (block.video) {
-          const v = block.video;
-          const plats = (v.platformTargets || []).map(pt => pt.platform);
-          state.blkAttachVideo = true;
-          state.blkExistingStorageKey = v.storageKey || '';
-          state.blkVideoPreviewUrl = (v.publicVideoUrl && v.publicVideoUrl.startsWith('/uploads/')) ? v.publicVideoUrl : '';
-          state.blkVideoTitle = v.title || block.blockTitle;
-          state.blkVideoDesc = v.description || '';
-          state.blkVideoTags = (v.hashtags || []).map(h => '#' + h.tag).join(' ') || '#reels';
-          state.blkVideoDur = v.durationSeconds || 30;
-          state.blkVideoSizeBytes = Number(v.sizeBytes || 12000000);
-          state.blkVideoMime = v.mimeType || 'video/mp4';
-          state.blkPlatIG = plats.includes('INSTAGRAM');
-          state.blkPlatTT = plats.includes('TIKTOK');
-          state.blkPlatYT = plats.includes('YOUTUBE');
-          state.blkShareFeed = true;
-          state.blkAllowComments = true;
-          state.blkAllowDuet = true;
-        } else {
-          resetBlockVideoFields();
-        }
+        state.blkCaption = block.caption || '';
+        state.blkMedia = (block.media || []).map(m => ({
+          storageKey: m.storageKey,
+          url: m.url || '',
+          kind: m.kind,
+          description: m.description || '',
+          sizeBytes: Number(m.sizeBytes || 0),
+          originalName: m.originalName || ''
+        }));
       } else {
         state.editingBlockId = null;
         state.blkDay = dayNum;
         state.blkTime = '18:00';
         state.blkColor = NOTE_COLORS[(dayNum - 1) % NOTE_COLORS.length].code;
+        state.blkContentType = 'REEL';
         state.blkTitle = '';
         state.blkNotes = '';
-        state.blkAutoPublish = true;
-        resetBlockVideoFields();
+        state.blkCaption = '';
+        state.blkMedia = [];
       }
 
       state.inspectBlockId = null;
@@ -1781,58 +1569,72 @@
       render();
     }
 
-    function resetBlockVideoFields() {
-      state.blkAttachVideo = false;
-      state.blkVideoFile = null;
-      state.blkVideoPreviewUrl = '';
-      state.blkExistingStorageKey = '';
-      state.blkVideoTitle = '';
-      state.blkVideoDesc = '';
-      state.blkVideoTags = '#contenido #reels #shorts';
-      state.blkVideoDur = 30;
-      state.blkVideoSizeBytes = 12000000;
-      state.blkVideoMime = 'video/mp4';
-      state.blkPlatIG = true;
-      state.blkPlatTT = true;
-      state.blkPlatYT = true;
-      state.blkShareFeed = true;
-      state.blkAllowComments = true;
-      state.blkAllowDuet = true;
+    function openBlockModalById(blockId) {
+      const block = (getActiveSchedule()?.items || []).find(x => x.id === blockId);
+      if (block) openBlockModal(block.dayOfWeek, block);
     }
 
-    function handleBlockVideoFileSelected(inputEl) {
-      const file = inputEl.files && inputEl.files[0];
-      if (!file) return;
-      state.blkVideoFile = file;
-      state.blkVideoSizeBytes = file.size || 1000000;
-      state.blkVideoMime = file.type || 'video/mp4';
-      if (!state.blkVideoTitle.trim()) {
-        state.blkVideoTitle = (state.blkTitle.trim() || file.name.replace(/\.[^.]+$/, '')).slice(0, 140);
-      }
-      if (state.blkVideoPreviewUrl && state.blkVideoPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(state.blkVideoPreviewUrl);
-      }
-      const blobUrl = URL.createObjectURL(file);
-      state.blkVideoPreviewUrl = blobUrl;
+    /** Las vistas previas locales ocupan memoria hasta liberarlas. */
+    function releaseBlockPreviews() {
+      (state.blkMedia || []).forEach(m => {
+        if (m.previewUrl) URL.revokeObjectURL(m.previewUrl);
+      });
+    }
 
-      const probe = document.createElement('video');
-      probe.preload = 'metadata';
-      probe.onloadedmetadata = () => {
-        if (probe.duration && isFinite(probe.duration)) {
-          state.blkVideoDur = Math.max(1, Math.round(probe.duration));
-        }
-        render();
-      };
-      probe.src = blobUrl;
+    function closeBlockModal() {
+      if (state.blkSaving) return;
+      releaseBlockPreviews();
+      state.blkMedia = [];
+      state.blockModalOpen = false;
+      render();
+    }
+
+    function handleBlockFilesSelected(inputEl) {
+      const files = Array.from(inputEl.files || []);
+      inputEl.value = '';
+      if (files.length === 0) return;
+      const maxMb = Number(APP_CONFIG.uploadMaxMb) || 0;
+      const rejected = [];
+      for (const file of files) {
+        // Algunos navegadores no informan el tipo: en ese caso decide el servidor, que mira el contenido.
+        const isMedia = !file.type || file.type.startsWith('image/') || file.type.startsWith('video/');
+        if (!isMedia) { rejected.push(file.name + ' no es una foto ni un video'); continue; }
+        if (maxMb && file.size > maxMb * 1024 * 1024) { rejected.push(file.name + ' supera los ' + maxMb + ' MB'); continue; }
+        if (state.blkMedia.length >= MAX_MEDIA_PER_BLOCK) { rejected.push('cada bloque admite hasta ' + MAX_MEDIA_PER_BLOCK + ' archivos'); break; }
+        state.blkMedia.push({
+          file,
+          storageKey: '',
+          previewUrl: URL.createObjectURL(file),
+          kind: file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE',
+          description: '',
+          sizeBytes: file.size,
+          originalName: file.name
+        });
+      }
+      state.blkError = rejected.length ? 'No se agregó: ' + rejected.join('; ') + '.' : '';
+      render();
+    }
+
+    function moveBlockMedia(index, delta) {
+      const target = index + delta;
+      if (target < 0 || target >= state.blkMedia.length) return;
+      const [item] = state.blkMedia.splice(index, 1);
+      state.blkMedia.splice(target, 0, item);
+      render();
+    }
+
+    function removeBlockMedia(index) {
+      const [item] = state.blkMedia.splice(index, 1);
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
       render();
     }
 
     async function uploadFileWithProgress(file, clientId, onProgress) {
       // Una subida larga no puede reintentarse sola: el token y el tamaño se comprueban antes de empezar.
-      const uploadConfig = await apiFetch('/videos/upload-config');
+      const uploadConfig = await apiFetch('/media/upload-config');
       if (uploadConfig.status === 401) await refreshSession();
       const maxMb = uploadConfig.data && uploadConfig.data.maxMb;
-      const tooBig = maxMb ? `El video pesa demasiado: el máximo es de ${maxMb} MB.` : 'El video pesa demasiado.';
+      const tooBig = maxMb ? `${file.name} pesa demasiado: el máximo es de ${maxMb} MB.` : `${file.name} pesa demasiado.`;
       if (maxMb && file.size > maxMb * 1024 * 1024) throw new Error(tooBig);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -1840,21 +1642,13 @@
         form.append('clientId', clientId);
         form.append('file', file);
 
-        xhr.open('POST', API_BASE + '/videos/upload-file');
+        xhr.open('POST', API_BASE + '/media/upload');
         if (state.jwtToken) {
           xhr.setRequestHeader('Authorization', 'Bearer ' + state.jwtToken);
         }
 
         xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) {
-            const pctVal = Math.max(5, Math.round((ev.loaded / ev.total) * 100));
-            if (onProgress) { onProgress(pctVal); return; }
-            state.blkUploadProgress = pctVal;
-            const fill = document.getElementById('blk-upload-bar');
-            const pct = document.getElementById('blk-upload-pct');
-            if (fill) fill.style.width = state.blkUploadProgress + '%';
-            if (pct) pct.textContent = state.blkUploadProgress + '%';
-          }
+          if (ev.lengthComputable && onProgress) onProgress(ev.loaded / ev.total);
         };
 
         xhr.onload = () => {
@@ -1862,12 +1656,12 @@
           try {
             const parsed = JSON.parse(xhr.responseText || '{}');
             if (xhr.status >= 200 && xhr.status < 300) resolve(parsed);
-            else reject(new Error(parsed.message || 'No se pudo subir el archivo de video.'));
+            else reject(new Error(parsed.message || 'No se pudo subir el archivo.'));
           } catch (_) {
-            reject(new Error('Respuesta inesperada al subir el video.'));
+            reject(new Error('Respuesta inesperada al subir el archivo.'));
           }
         };
-        xhr.onerror = () => reject(new Error('Error de red subiendo el archivo de video.'));
+        xhr.onerror = () => reject(new Error('Se cortó la conexión mientras se subía el archivo.'));
         xhr.send(form);
       });
     }
@@ -1879,111 +1673,59 @@
 
       const blockTitle = state.blkTitle.trim();
       if (!blockTitle) {
-        state.blkError = 'Escribí qué contenido se debe subir ese día.';
+        state.blkError = 'Escribí un título para el bloque.';
         render();
         return;
-      }
-
-      let inlineVideo = undefined;
-      let removeVideo = false;
-
-      if (state.blkAttachVideo) {
-        const platforms = [];
-        if (state.blkPlatIG) platforms.push('INSTAGRAM');
-        if (state.blkPlatTT) platforms.push('TIKTOK');
-        if (state.blkPlatYT) platforms.push('YOUTUBE');
-
-        if (platforms.length === 0) {
-          state.blkError = 'Seleccioná al menos una plataforma (Instagram, TikTok o YouTube).';
-          render();
-          return;
-        }
-
-        const dur = Math.max(1, parseInt(state.blkVideoDur || 30, 10));
-        const mb = state.blkVideoSizeBytes / (1024 * 1024);
-        const violation = platforms.find(p => dur > PLATFORM_LIMITS[p].maxSec || mb > PLATFORM_LIMITS[p].maxMb);
-        if (violation) {
-          const lim = PLATFORM_LIMITS[violation];
-          state.blkError = `${lim.name} admite hasta ${lim.maxSec} seg y ${lim.maxMb} MB.`;
-          render();
-          return;
-        }
-
-        state.blkSaving = true;
-        state.blkError = '';
-        render();
-
-        let storageKey = state.blkExistingStorageKey;
-        let finalSize = state.blkVideoSizeBytes;
-        let finalMime = state.blkVideoMime || 'video/mp4';
-
-        if (state.blkVideoFile) {
-          try {
-            state.blkUploadProgress = 8;
-            render();
-            const uploaded = await uploadFileWithProgress(state.blkVideoFile, sched.clientId);
-            storageKey = uploaded.storageKey;
-            finalSize = uploaded.sizeBytes || finalSize;
-            finalMime = uploaded.mimeType || finalMime;
-          } catch (e) {
-            state.blkSaving = false;
-            state.blkUploadProgress = 0;
-            state.blkError = e.message || 'No pudimos subir el video.';
-            render();
-            return;
-          }
-        } else if (!storageKey) {
-          state.blkSaving = false;
-          state.blkError = 'Elegí el archivo de video antes de guardar el bloque.';
-          render();
-          return;
-        }
-
-        const tags = String(state.blkVideoTags || '')
-          .split(/[\s,]+/)
-          .map(x => x.replace(/^#/, '').trim())
-          .filter(Boolean);
-
-        inlineVideo = {
-          storageKey,
-          title: (state.blkVideoTitle.trim() || blockTitle).slice(0, 150),
-          description: state.blkVideoDesc.trim() || state.blkNotes.trim() || blockTitle,
-          hashtags: tags,
-          platforms,
-          durationSeconds: dur,
-          sizeBytes: Math.max(1024, Math.round(finalSize)),
-          mimeType: finalMime,
-          shareToFeed: state.blkShareFeed,
-          allowComments: state.blkAllowComments,
-          allowDuetStitch: state.blkAllowDuet,
-          madeForKids: false
-        };
-      } else if (state.editingBlockId) {
-        removeVideo = true;
       }
 
       state.blkSaving = true;
       state.blkError = '';
       render();
 
+      // Se suben de a uno: si uno falla, los que ya subieron no se vuelven a enviar al reintentar.
+      const pending = state.blkMedia.filter(m => m.file);
+      for (let i = 0; i < pending.length; i++) {
+        const item = pending[i];
+        try {
+          const uploaded = await uploadFileWithProgress(item.file, sched.clientId, (fraction) => {
+            state.blkUploadProgress = Math.max(3, Math.round(((i + fraction) / pending.length) * 100));
+            const fill = document.getElementById('blk-upload-bar');
+            const pct = document.getElementById('blk-upload-pct');
+            if (fill) fill.style.width = state.blkUploadProgress + '%';
+            if (pct) pct.textContent = state.blkUploadProgress + '%';
+          });
+          item.storageKey = uploaded.storageKey;
+          item.sizeBytes = uploaded.sizeBytes || item.sizeBytes;
+          item.kind = uploaded.kind || item.kind;
+          item.file = null;
+        } catch (e) {
+          state.blkSaving = false;
+          state.blkUploadProgress = 0;
+          state.blkError = e.message || 'No pudimos subir uno de los archivos.';
+          render();
+          return;
+        }
+      }
+
       const payload = {
         dayOfWeek: state.blkDay,
+        contentType: state.blkContentType,
         blockTitle,
         noteColor: state.blkColor,
-        notes: state.blkNotes.trim() || '',
+        notes: state.blkNotes.trim(),
+        caption: state.blkCaption.trim(),
         plannedTime: state.blkTime || '18:00',
-        autoPublish: state.blkAutoPublish,
-        ...(inlineVideo ? { inlineVideo } : {}),
-        ...(removeVideo ? { removeVideo: true } : {})
+        media: state.blkMedia.map(m => ({
+          storageKey: m.storageKey,
+          description: (m.description || '').trim(),
+          sizeBytes: Math.round(m.sizeBytes || 0),
+          originalName: m.originalName || undefined
+        }))
       };
 
-      const url = state.editingBlockId
-        ? `/schedules/blocks/${state.editingBlockId}`
-        : `/schedules/${sched.id}/blocks`;
-      const method = state.editingBlockId ? 'PATCH' : 'POST';
-
-      const r = await apiFetch(url, {
-        method,
+      const wasEditing = Boolean(state.editingBlockId);
+      const r = await apiFetch(wasEditing ? `/schedules/blocks/${state.editingBlockId}` : `/schedules/${sched.id}/blocks`, {
+        method: wasEditing ? 'PATCH' : 'POST',
         body: JSON.stringify(payload)
       });
 
@@ -1996,15 +1738,11 @@
         return;
       }
 
+      releaseBlockPreviews();
+      state.blkMedia = [];
       state.blockModalOpen = false;
       await hydrateFromApi();
-      setBanner(
-        state.editingBlockId
-          ? 'Bloque del plan actualizado correctamente.'
-          : (inlineVideo
-              ? `Bloque y video guardados para el ${WEEKDAYS.find(w => w.num === state.blkDay)?.full || 'día'} a las ${state.blkTime} hs.`
-              : 'Bloque agregado al cronograma semanal.')
-      );
+      setBanner(wasEditing ? 'Bloque actualizado.' : 'Bloque agregado al cronograma. Le avisamos al cliente.');
     }
 
     async function deleteBlockConfirmed(blockId) {
@@ -2016,17 +1754,17 @@
         return;
       }
       await hydrateFromApi();
-      setBanner('Bloque eliminado del plan.');
+      setBanner('Bloque eliminado del cronograma.');
     }
 
-    async function submitVideoReview(videoId, decision) {
+    async function submitBlockReview(blockId, decision) {
       const noteEl = document.getElementById('inspect-review-note');
       const feedbackNotes = noteEl ? noteEl.value.trim() : '';
       if ((decision === 'CHANGES_REQUESTED' || decision === 'REJECTED') && feedbackNotes.length < 3) {
-        setBanner('Dejá un breve comentario indicando qué cambios necesitás antes de solicitar ajustes o rechazar.', true);
+        setBanner('Contá brevemente qué cambiarías o por qué lo rechazás.', true);
         return;
       }
-      const r = await apiFetch(`/schedules/videos/${videoId}/review`, {
+      const r = await apiFetch(`/schedules/blocks/${blockId}/review`, {
         method: 'POST',
         body: JSON.stringify({ decision, feedbackNotes: feedbackNotes || undefined })
       });
@@ -2035,14 +1773,14 @@
         return;
       }
       await hydrateFromApi();
-      setBanner('Tu revisión fue registrada y notificada a la agencia.');
+      setBanner('Listo: le avisamos a tu agencia.');
     }
 
-    async function submitVideoComment(videoId) {
+    async function submitBlockComment(blockId) {
       const noteEl = document.getElementById('inspect-review-note');
       const message = noteEl ? noteEl.value.trim() : '';
       if (!message) return;
-      const r = await apiFetch(`/schedules/videos/${videoId}/comments`, {
+      const r = await apiFetch(`/schedules/blocks/${blockId}/comments`, {
         method: 'POST',
         body: JSON.stringify({ message })
       });
@@ -2054,384 +1792,23 @@
       await hydrateFromApi();
     }
 
-    async function publishVideoNow(videoId) {
-      const r = await apiFetch('/publications/publish', {
-        method: 'POST',
-        body: JSON.stringify({ videoId })
-      });
+    async function confirmActiveSchedule() {
+      const sched = getActiveSchedule();
+      state.confirmScheduleAsk = false;
+      if (!sched) return;
+      const r = await apiFetch(`/schedules/${sched.id}/confirm`, { method: 'POST' });
       if (!r.ok) {
         setBanner(friendlyError(r.data, r.status), true);
         return;
       }
       await hydrateFromApi();
-      if (r.data?.mode === 'IMMEDIATE') {
-        setBanner('Publicando en las redes seleccionadas. Te avisamos cuando termine.');
-        watchPublications(videoId);
-      } else {
-        setBanner('Queda a la espera de la aprobación del cliente: se publicará en cuanto la confirme.');
-      }
-    }
-
-    async function retryPublication(publicationId, videoId) {
-      const r = await apiFetch('/publications/' + publicationId + '/retry', { method: 'POST' });
-      if (!r.ok) {
-        setBanner(friendlyError(r.data, r.status), true);
-        return;
-      }
-      await hydrateFromApi();
-      setBanner('Reintentando la publicación. Te avisamos cuando termine.');
-      watchPublications(videoId);
+      setBanner('¡Cronograma confirmado! Le avisamos a tu agencia.');
     }
 
     /** Volver a dibujar mientras alguien escribe borraría lo que está cargando. */
     function isEditingField() {
       const el = document.activeElement;
       return Boolean(el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
-    }
-
-    const WATCH_INTERVAL_MS = 5000;
-    const WATCH_MAX_POLLS = 180;
-    const watchedVideos = new Set();
-
-    /** La publicación corre en segundo plano en el servidor: se consulta hasta conocer el resultado. */
-    function watchPublications(videoId, polls = 0) {
-      if (polls === 0) {
-        if (watchedVideos.has(videoId)) return;
-        watchedVideos.add(videoId);
-      }
-      setTimeout(async () => {
-        if (!state.session) {
-          watchedVideos.delete(videoId);
-          return;
-        }
-        const r = await apiFetch('/videos/' + videoId);
-        const pubs = r.ok ? (r.data.publications || []) : [];
-        const settled = r.ok && pubs.every((p) => p.status === 'PUBLISHED' || p.status === 'FAILED');
-        if ((!settled || isEditingField()) && polls < WATCH_MAX_POLLS) {
-          watchPublications(videoId, polls + 1);
-          return;
-        }
-        watchedVideos.delete(videoId);
-        if (!settled) return;
-        await hydrateFromApi();
-        const failed = pubs.filter((p) => p.status === 'FAILED');
-        if (failed.length) {
-          const names = failed.map((p) => PLATFORM_LIMITS[p.platform]?.name || p.platform).join(', ');
-          setBanner('No se pudo publicar en ' + names + ': ' + (failed[0].lastErrorMessage || 'error desconocido') + '.', true);
-        } else {
-          setBanner('Video publicado en las redes seleccionadas.');
-        }
-      }, WATCH_INTERVAL_MS);
-    }
-
-    // =========================================================================
-    // ACCIONES DE DOMINIO: SUBIR VIDEO INDIVIDUAL (FUERA DEL PLAN)
-    // =========================================================================
-    function handleUploadFileSelected(inputEl) {
-      const file = inputEl.files && inputEl.files[0];
-      if (!file) return;
-      state.upFile = file;
-      state.upSizeBytes = file.size || 1000000;
-      state.upMime = file.type || 'video/mp4';
-      state.upError = '';
-      if (!state.upTitle.trim()) {
-        state.upTitle = file.name.replace(/\.[^.]+$/, '').slice(0, 140);
-      }
-      if (state.upPreviewUrl && state.upPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(state.upPreviewUrl);
-      }
-      const blobUrl = URL.createObjectURL(file);
-      state.upPreviewUrl = blobUrl;
-      const probe = document.createElement('video');
-      probe.preload = 'metadata';
-      probe.onloadedmetadata = () => {
-        if (probe.duration && isFinite(probe.duration)) {
-          state.upDur = Math.max(1, Math.round(probe.duration));
-        }
-        render();
-      };
-      probe.src = blobUrl;
-      render();
-    }
-
-    function resetUploadForm() {
-      if (state.upPreviewUrl && state.upPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(state.upPreviewUrl);
-      }
-      Object.assign(state, {
-        upFile: null, upPreviewUrl: '', upTitle: '', upDesc: '', upTags: '',
-        upDur: 30, upSizeBytes: 0, upMime: 'video/mp4',
-        upPlatIG: true, upPlatTT: true, upPlatYT: true,
-        upMode: 'NOW', upWhen: '', upProgress: 0, upSaving: false, upError: ''
-      });
-    }
-
-    async function submitIndividualUpload() {
-      if (state.upSaving) return;
-      const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
-      const clientId = state.upClientId || confirmed[0]?.id;
-      const fail = (msg) => { state.upError = msg; render(); };
-
-      if (!clientId) return fail('Primero necesitás un cliente que haya confirmado su cuenta.');
-      if (!state.upFile) return fail('Elegí el archivo de video que querés subir.');
-      const title = state.upTitle.trim();
-      if (!title) return fail('Escribí un título para la publicación.');
-      const platforms = [];
-      if (state.upPlatIG) platforms.push('INSTAGRAM');
-      if (state.upPlatTT) platforms.push('TIKTOK');
-      if (state.upPlatYT) platforms.push('YOUTUBE');
-      if (platforms.length === 0) return fail('Elegí al menos una red social.');
-      const tooLong = platforms.find(p => state.upDur > PLATFORM_LIMITS[p].maxSec);
-      if (tooLong) {
-        return fail(`El video dura ${state.upDur}s y ${PLATFORM_LIMITS[tooLong].name} admite hasta ${PLATFORM_LIMITS[tooLong].maxSec}s.`);
-      }
-
-      let scheduledFor;
-      if (state.upMode === 'LATER') {
-        if (!state.upWhen) return fail('Elegí la fecha y la hora de publicación.');
-        const when = new Date(state.upWhen);
-        if (isNaN(when.getTime()) || when.getTime() <= Date.now()) {
-          return fail('La fecha de publicación tiene que ser posterior a este momento.');
-        }
-        scheduledFor = when.toISOString();
-      }
-
-      state.upSaving = true;
-      state.upError = '';
-      state.upProgress = 5;
-      render();
-
-      let uploaded;
-      try {
-        uploaded = await uploadFileWithProgress(state.upFile, clientId, (pct) => {
-          state.upProgress = pct;
-          const fill = document.getElementById('up-progress-bar');
-          const lbl = document.getElementById('up-progress-pct');
-          if (fill) fill.style.width = pct + '%';
-          if (lbl) lbl.textContent = pct + '%';
-        });
-      } catch (e) {
-        state.upSaving = false;
-        state.upProgress = 0;
-        return fail(e.message || 'No pudimos subir el video.');
-      }
-
-      const tags = String(state.upTags || '')
-        .split(/[\s,]+/)
-        .map(x => x.replace(/^#/, '').trim())
-        .filter(Boolean);
-
-      const created = await apiFetch('/videos', {
-        method: 'POST',
-        body: JSON.stringify({
-          clientId,
-          title: title.slice(0, 150),
-          description: state.upDesc.trim() || title,
-          storageKey: uploaded.storageKey,
-          durationSeconds: state.upDur,
-          sizeBytes: Math.max(1024, Math.round(uploaded.sizeBytes || state.upSizeBytes)),
-          mimeType: uploaded.mimeType || state.upMime || 'video/mp4',
-          hashtags: tags,
-          platformTargets: platforms.map(p => ({ platform: p })),
-          publishMode: state.upMode === 'DRAFT' ? 'DRAFT' : 'DIRECT'
-        })
-      });
-
-      if (!created.ok) {
-        state.upSaving = false;
-        state.upProgress = 0;
-        return fail(friendlyError(created.data, created.status));
-      }
-
-      if (state.upMode !== 'DRAFT') {
-        const pub = await apiFetch('/publications/publish', {
-          method: 'POST',
-          body: JSON.stringify({
-            videoId: created.data.id,
-            ...(scheduledFor ? { scheduledFor } : {}),
-            userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          })
-        });
-        if (!pub.ok) {
-          state.upSaving = false;
-          state.upProgress = 0;
-          return fail('El video se guardó, pero no pudimos programarlo: ' + friendlyError(pub.data, pub.status));
-        }
-      }
-
-      const mode = state.upMode;
-      const awaitingApproval = created.data?.workflowStatus === 'IN_REVIEW';
-      if (mode !== 'DRAFT' && !scheduledFor && !awaitingApproval) watchPublications(created.data.id);
-      const whenTxt = scheduledFor ? fmtDateTimeHuman(scheduledFor) : '';
-      resetUploadForm();
-      await hydrateFromApi();
-      setBanner(
-        mode === 'DRAFT'
-          ? 'Video guardado como borrador.'
-          : awaitingApproval
-            ? 'Video enviado al cliente para su aprobación: se publicará en cuanto lo apruebe.'
-            : mode === 'LATER'
-            ? `Video programado para el ${whenTxt}.`
-            : 'Publicando en las redes seleccionadas. Te avisamos cuando termine.'
-      );
-    }
-
-    function renderUploadScreen() {
-      const confirmed = state.clients.filter(c => c.confirmationStatus === 'CONFIRMED');
-      if (!state.upClientId || !confirmed.some(c => c.id === state.upClientId)) {
-        state.upClientId = confirmed[0]?.id || '';
-      }
-      const mb = (state.upSizeBytes / (1024 * 1024)).toFixed(1);
-      const dur = state.upDur;
-      const minWhen = new Date(Date.now() + 5 * 60000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-      const recent = state.videos.slice(0, 6);
-
-      if (confirmed.length === 0) {
-        return `
-          <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
-            <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
-              <div class="eyebrow">PUBLICACIÓN INDIVIDUAL</div>
-              <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Subir video</h2>
-            </div>
-            <div style="border:1px solid var(--hairline);background:var(--stage);padding:18px;border-radius:4px;color:var(--text-secondary);font-size:14px;">
-              Todavía no tenés clientes con la cuenta confirmada. Creá un cliente en la sección <strong>Clientes</strong> y esperá a que presione "Sí, soy yo".
-            </div>
-          </div>`;
-      }
-
-      return `
-        <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;max-width:880px;">
-          <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
-            <div class="eyebrow">PUBLICACIÓN INDIVIDUAL</div>
-            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Subir video</h2>
-            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
-              Publicá un video suelto, sin necesidad de agregarlo al Plan semanal.
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Cliente / marca</label>
-            <select class="input" onchange="state.upClientId=this.value;render();" ${state.upSaving ? 'disabled' : ''}>
-              ${confirmed.map(c => `<option value="${c.id}" ${c.id === state.upClientId ? 'selected' : ''}>${esc(c.companyName)}</option>`).join('')}
-            </select>
-          </div>
-
-          <label class="dropzone-video">
-            <input type="file" accept="video/mp4,video/quicktime,video/webm" style="display:none;"
-              onchange="handleUploadFileSelected(this)" ${state.upSaving ? 'disabled' : ''} />
-            <div style="font-weight:600;color:var(--signal-subtle-fg);">
-              ${state.upFile
-                ? '✓ ' + esc(state.upFile.name) + ' (' + mb + ' MB · ' + dur + 's) · Hacé clic para cambiarlo'
-                : '📂 Hacé clic acá para elegir el video (.mp4 / .mov) desde tu equipo'}
-            </div>
-          </label>
-
-          ${state.upPreviewUrl ? `
-            <div style="display:flex;justify-content:center;background:#000;border-radius:4px;overflow:hidden;max-height:300px;">
-              <video src="${esc(state.upPreviewUrl)}" controls style="max-height:300px;max-width:100%;"></video>
-            </div>
-          ` : ''}
-
-          <div class="field">
-            <label>Redes donde se publicará</label>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-              ${[
-                { key: 'INSTAGRAM', prop: 'upPlatIG' },
-                { key: 'TIKTOK',    prop: 'upPlatTT' },
-                { key: 'YOUTUBE',   prop: 'upPlatYT' }
-              ].map(p => {
-                const active = state[p.prop];
-                const lim = PLATFORM_LIMITS[p.key];
-                const ok = !state.upFile || dur <= lim.maxSec;
-                return `
-                  <button type="button" style="padding:9px 10px;border-radius:4px;text-align:left;background:var(--canvas);border:1px solid ${active ? (ok ? 'var(--tally-live)' : 'var(--tally-fault)') : 'var(--hairline)'};"
-                    onclick="state.${p.prop}=!state.${p.prop};render();">
-                    <div style="font-weight:700;font-size:12px;color:${active ? 'var(--text-primary)' : 'var(--text-muted)'};">${active ? '✓ ' : ''}${lim.name}</div>
-                    <div style="font-size:11px;color:${!active ? 'var(--text-muted)' : (ok ? 'var(--tally-live)' : 'var(--tally-fault)')};margin-top:2px;">
-                      ${!active ? 'No se publica' : (ok ? 'Listo' : 'Máximo ' + lim.maxSec + ' s')}
-                    </div>
-                  </button>`;
-              }).join('')}
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div class="field">
-              <label>Título</label>
-              <input class="input" placeholder="Título de la publicación" value="${esc(state.upTitle)}" oninput="state.upTitle=this.value" />
-            </div>
-            <div class="field">
-              <label>Hashtags</label>
-              <input class="input" placeholder="#marca #reels" value="${esc(state.upTags)}" oninput="state.upTags=this.value" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Descripción</label>
-            <textarea class="input" rows="3" placeholder="El texto que acompañará al video" oninput="state.upDesc=this.value">${esc(state.upDesc)}</textarea>
-          </div>
-
-          <div class="field">
-            <label>¿Cuándo se publica?</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              ${[
-                { id: 'NOW',   label: 'Publicar ahora' },
-                { id: 'LATER', label: 'Programar fecha y hora' },
-                { id: 'DRAFT', label: 'Guardar como borrador' }
-              ].map(m => `
-                <button type="button" class="btn ${state.upMode === m.id ? 'btn-signal' : 'btn-outline'}"
-                  onclick="state.upMode='${m.id}';render();">${m.label}</button>
-              `).join('')}
-            </div>
-            ${state.upMode === 'LATER' ? `
-              <input class="input" type="datetime-local" min="${minWhen}" value="${esc(state.upWhen)}"
-                style="margin-top:8px;max-width:280px;" onchange="state.upWhen=this.value" />
-            ` : ''}
-          </div>
-
-          ${state.upProgress > 0 ? `
-            <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:10px 12px;border-radius:4px;">
-              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">
-                <span>Subiendo video...</span>
-                <span id="up-progress-pct">${state.upProgress}%</span>
-              </div>
-              <div style="height:5px;background:var(--hairline);margin-top:6px;border-radius:2px;overflow:hidden;">
-                <div id="up-progress-bar" class="s3-progress-fill" style="width:${state.upProgress}%;"></div>
-              </div>
-            </div>
-          ` : ''}
-
-          ${state.upError ? `
-            <div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">
-              ${esc(state.upError)}
-            </div>
-          ` : ''}
-
-          <div style="display:flex;justify-content:flex-end;gap:10px;">
-            <button class="btn btn-outline" ${state.upSaving ? 'disabled' : ''} onclick="resetUploadForm();render();">Limpiar</button>
-            <button class="btn btn-signal" ${state.upSaving ? 'disabled' : ''} onclick="submitIndividualUpload()">
-              ${state.upSaving ? 'Subiendo...' : (state.upMode === 'NOW' ? 'Subir y publicar' : state.upMode === 'LATER' ? 'Subir y programar' : 'Guardar borrador')}
-            </button>
-          </div>
-
-          ${recent.length ? `
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
-              <div class="eyebrow">ÚLTIMOS VIDEOS</div>
-              ${recent.map(v => {
-                const b = workflowMeta(v.workflowStatus);
-                return `
-                  <div style="border:1px solid var(--hairline);background:var(--stage);padding:10px 13px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-                    <div>
-                      <div style="font-weight:600;font-size:14px;">${esc(v.title)}</div>
-                      <div style="font-size:12px;color:var(--text-secondary);">${esc(v.client?.companyName || '')}</div>
-                    </div>
-                    <span class="badge ${b.cls}">${b.label}</span>
-                  </div>`;
-              }).join('')}
-            </div>
-          ` : ''}
-        </div>
-      `;
     }
 
     // =========================================================================
@@ -2476,16 +1853,12 @@
         return;
       }
       if (idea) {
-        const plats = String(idea.platforms || 'INSTAGRAM,TIKTOK,YOUTUBE').split(',');
         state.editingIdeaId = idea.id;
         state.ideaFormSectionId = idea.sectionId;
         state.ideaFormClientId = idea.clientId || '';
         state.ideaFormTitle = idea.title;
         state.ideaFormContent = idea.content;
         state.ideaFormRefUrl = idea.referenceUrl || '';
-        state.ideaFormPlatIG = plats.includes('INSTAGRAM');
-        state.ideaFormPlatTT = plats.includes('TIKTOK');
-        state.ideaFormPlatYT = plats.includes('YOUTUBE');
         state.ideaFormPinned = Boolean(idea.isPinned);
       } else {
         state.editingIdeaId = null;
@@ -2500,9 +1873,6 @@
         state.ideaFormTitle = '';
         state.ideaFormContent = '';
         state.ideaFormRefUrl = '';
-        state.ideaFormPlatIG = true;
-        state.ideaFormPlatTT = true;
-        state.ideaFormPlatYT = true;
         state.ideaFormPinned = false;
       }
       state.ideaModalOpen = true;
@@ -2516,10 +1886,6 @@
         setBanner('Completá el título y el desarrollo de la idea.', true);
         return;
       }
-      const plats = [];
-      if (state.ideaFormPlatIG) plats.push('INSTAGRAM');
-      if (state.ideaFormPlatTT) plats.push('TIKTOK');
-      if (state.ideaFormPlatYT) plats.push('YOUTUBE');
 
       const payload = {
         sectionId: state.ideaFormSectionId,
@@ -2527,7 +1893,6 @@
         title,
         content,
         referenceUrl: state.ideaFormRefUrl.trim() || undefined,
-        platforms: plats.join(','),
         isPinned: state.ideaFormPinned
       };
 
@@ -2581,10 +1946,6 @@
       state.blkTitle = idea.title;
       state.blkNotes = idea.content;
       state.blkColor = idea.section?.color || 'AMBER';
-      const plats = String(idea.platforms || '').split(',');
-      state.blkPlatIG = plats.includes('INSTAGRAM') || plats.length === 0;
-      state.blkPlatTT = plats.includes('TIKTOK');
-      state.blkPlatYT = plats.includes('YOUTUBE');
       render();
     }
 
@@ -2663,122 +2024,7 @@
       }
 
       await hydrateFromApi();
-      setBanner(r.data.message || '¡Identidad confirmada! Ya podés ver el plan semanal de tu marca.');
-    }
-
-    function openPlatformOAuthModal(clientId, platform) {
-      const cl = state.clients.find(c => c.id === clientId);
-      if (!cl) return;
-      const cur = cl.connections[platform] || {};
-      state.platModalOpen = true;
-      state.platModalClientId = clientId;
-      state.platModalPlatform = platform;
-      state.platModalHandle = cur.handle || ('@' + cl.companyName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18));
-      state.platModalExternalId = '';
-      state.platModalAccessToken = '';
-      state.platModalRefreshToken = '';
-      state.platModalBusy = false;
-      state.platModalError = '';
-      render();
-    }
-
-    async function startRealPlatformOAuthRedirect() {
-      if (state.platModalBusy) return;
-      const clientId = state.platModalClientId;
-      const platform = String(state.platModalPlatform || '').toLowerCase();
-      if (!clientId || !platform) return;
-      state.platModalBusy = true;
-      state.platModalError = '';
-      render();
-      const r = await apiFetch(`/platforms/oauth/${platform}/url?clientId=${encodeURIComponent(clientId)}`);
-      state.platModalBusy = false;
-      if (r.ok && r.data?.url) {
-        // Google y Meta bloquean la autorización dentro de un WebView: en la app se abre en el navegador.
-        if (window.ContentSyncAndroid && typeof window.ContentSyncAndroid.openExternal === 'function') {
-          window.ContentSyncAndroid.openExternal(r.data.url);
-          state.platModalError = '';
-          setBanner('Autorizá la cuenta en el navegador y volvé a la app: la conexión se actualiza sola.');
-          return;
-        }
-        window.location.href = r.data.url;
-        return;
-      }
-      state.platModalError = friendlyError(r.data, r.status);
-      render();
-    }
-
-    async function saveManualPlatformConnection() {
-      if (state.platModalBusy) return;
-      const clientId = state.platModalClientId;
-      const platform = state.platModalPlatform;
-      const accountHandle = String(state.platModalHandle || '').trim();
-      const externalAccountId = String(state.platModalExternalId || '').trim();
-      const accessToken = String(state.platModalAccessToken || '').trim();
-      const refreshToken = String(state.platModalRefreshToken || '').trim();
-
-      if (!accountHandle) {
-        state.platModalError = 'Ingresá el usuario o @handle de la cuenta.';
-        render();
-        return;
-      }
-      if (!externalAccountId) {
-        state.platModalError = 'Ingresá el ID del canal/cuenta (por ejemplo tu Instagram Business Account ID, Canal de YouTube o TikTok Open ID).';
-        render();
-        return;
-      }
-      if (!accessToken || accessToken.length < 10) {
-        state.platModalError = 'Pegá el Access Token OAuth 2.0 real de la plataforma para poder publicar videos de verdad.';
-        render();
-        return;
-      }
-
-      state.platModalBusy = true;
-      state.platModalError = '';
-      render();
-      const r = await apiFetch('/platforms/connect', {
-        method: 'POST',
-        body: JSON.stringify({
-          clientId,
-          platform,
-          accountHandle: accountHandle.startsWith('@') ? accountHandle : '@' + accountHandle,
-          externalAccountId,
-          accessToken,
-          refreshToken: refreshToken || undefined
-        })
-      });
-      state.platModalBusy = false;
-      if (!r.ok) {
-        state.platModalError = friendlyError(r.data, r.status);
-        render();
-        return;
-      }
-      state.platModalOpen = false;
-      await hydrateFromApi();
-      setBanner(`✓ Cuenta real ${accountHandle} vinculada en ${PLATFORM_LIMITS[platform].name} con cifrado AES-256-GCM.`);
-    }
-
-    async function revokePlatformOAuthNow() {
-      if (state.platModalBusy) return;
-      const clientId = state.platModalClientId;
-      const platform = state.platModalPlatform;
-      if (!clientId || !platform) return;
-      state.platModalBusy = true;
-      state.platModalError = '';
-      render();
-      const r = await apiFetch(`/platforms/${clientId}/${platform}`, { method: 'DELETE' });
-      state.platModalBusy = false;
-      if (!r.ok) {
-        state.platModalError = friendlyError(r.data, r.status);
-        render();
-        return;
-      }
-      state.platModalOpen = false;
-      await hydrateFromApi();
-      setBanner(`Conexión con ${PLATFORM_LIMITS[platform].name} desconectada.`);
-    }
-
-    function toggleOAuth(clientId, platform) {
-      openPlatformOAuthModal(clientId, platform);
+      setBanner(r.data.message || '¡Identidad confirmada! Ya podés ver el cronograma de tu marca.');
     }
 
     async function markNotificationRead(id) {
@@ -2789,23 +2035,6 @@
     // =========================================================================
     // COMPONENTES VISUALES Y PANTALLAS DEL ESTUDIO
     // =========================================================================
-    function renderTriConduit(platformsArr, status = 'SCHEDULED', publications = []) {
-      const keys = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE'];
-      const hasFlow = platformsArr.length > 0 && !['DRAFT', 'REJECTED'].includes(status);
-      return `<div class="tri-conduit">` +
-        keys.map((k, idx) => {
-          const targeted = platformsArr.includes(k);
-          const pub = (publications || []).find(p => p.platform === k);
-          let cls = 'tri-node';
-          if (!targeted) cls += ' off';
-          else if (pub && pub.status === 'FAILED') cls += ' fault';
-          else if ((pub && pub.status === 'PUBLISHED') || ['APPROVED','SCHEDULED','PUBLISHED'].includes(status)) cls += ' live';
-          else cls += ' warn';
-          const wire = idx < keys.length - 1 ? `<span class="tri-wire ${hasFlow ? 'flowing' : ''}"></span>` : '';
-          return `<span class="${cls}">${PLATFORM_LIMITS[k].code}</span>${wire}`;
-        }).join('') +
-      `</div>`;
-    }
 
     function renderTopBar() {
       const unread = state.notifications.filter(n => !n.isRead).length;
@@ -2823,7 +2052,7 @@
                 <span class="badge badge-review">${esc(roleLabel)}</span>
               </div>
               <div class="mono" style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                ${state.session ? esc(state.session.fullName) : 'Planificación semanal y publicación multired'}
+                ${state.session ? esc(state.session.fullName) : 'Agencias y clientes, en un solo lugar'}
               </div>
             </div>
           </div>
@@ -2850,7 +2079,7 @@
                 La agencia «${esc(pc.agency?.name || 'Agencia')}» quiere vincular tu correo (${esc(pc.user?.email || state.session?.email)}) como cliente de la marca «${esc(pc.companyName)}».
               </div>
               <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
-                Confirmá si reconocés esta vinculación para habilitar tu plan semanal. Si no sos vos, rechazala para liberar tu correo.
+                Confirmá si reconocés esta vinculación para ver el cronograma de tu marca. Si no sos vos, rechazala para liberar tu correo.
               </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -2873,27 +2102,24 @@
       `;
     }
 
-    function renderSignalRouterSchematic() {
+    function renderHowItWorks() {
+      const steps = [
+        ['1', 'La agencia arma el cronograma', 'Cada bloque dice qué es, de qué trata y lleva sus fotos o videos.'],
+        ['2', 'El cliente lo revisa', 'Ve todo desde la plataforma, comenta y pide cambios.'],
+        ['3', 'El cliente confirma', 'La semana queda aprobada y todo queda registrado.']
+      ];
       return `
-        <div class="router-schematic" aria-label="Un video publicado en tres redes">
-          <div class="router-master-box">
-            <div class="mono" style="font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">Tu plan semanal</div>
-            <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:2px;">Lunes a Viernes</div>
-          </div>
-          <svg class="router-svg" viewBox="0 0 112 44" preserveAspectRatio="none" aria-hidden="true">
-            <path class="router-trace-base" d="M 0 22 L 32 22 L 46 7 L 112 7" />
-            <path class="router-trace-base" d="M 0 22 L 112 22" />
-            <path class="router-trace-base" d="M 0 22 L 32 22 L 46 37 L 112 37" />
-            <path class="router-trace-pulse t1" d="M 0 22 L 32 22 L 46 7 L 112 7" />
-            <path class="router-trace-pulse t2" d="M 0 22 L 112 22" />
-            <path class="router-trace-pulse t3" d="M 0 22 L 32 22 L 46 37 L 112 37" />
-          </svg>
-          <div class="mono" style="display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:600;color:var(--tally-live);flex-shrink:0;">
-            <div>Instagram</div>
-            <div>TikTok</div>
-            <div>YouTube</div>
-          </div>
-        </div>
+        <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;max-width:50ch;">
+          ${steps.map(([n, title, text]) => `
+            <li style="display:flex;gap:10px;align-items:flex-start;">
+              <span class="mono" style="flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--signal-subtle-bg);color:var(--signal-subtle-fg);">${n}</span>
+              <div>
+                <div style="font-weight:600;font-size:14px;">${title}</div>
+                <div style="font-size:13px;color:var(--text-secondary);">${text}</div>
+              </div>
+            </li>
+          `).join('')}
+        </ol>
       `;
     }
 
@@ -3095,12 +2321,12 @@
             <div style="display:flex;flex-direction:column;gap:16px;">
               <div class="eyebrow">CONTENTSYNC</div>
               <h1 style="font-size:clamp(28px, 3.3vw, 42px);font-weight:700;">
-                Planificá de lunes a viernes.<br/>Subí una vez, salí en todas tus redes.
+                Tu agencia y tus clientes,<br/>en un solo lugar.
               </h1>
               <p style="color:var(--text-secondary);max-width:50ch;font-size:15px;">
-                Armá cuadrículas semanales con bloques de colores, guardá ideas privadas para tu agencia y compartí cada plan con tus clientes verificados.
+                Compartí el cronograma de cada semana, mostrá cada reel, carrusel o historia, y recibí comentarios y aprobaciones sin perderte entre chats y correos.
               </p>
-              ${renderSignalRouterSchematic()}
+              ${renderHowItWorks()}
             </div>
           </section>
 
@@ -3114,7 +2340,7 @@
     }
 
     // =========================================================================
-    // PANTALLA 1: PLAN SEMANAL (CUADRÍCULA LUNES A VIERNES + BLOQUES + VIDEO + DUPLICACIÓN)
+    // PANTALLA 1: CRONOGRAMA SEMANAL (LUNES A VIERNES, BLOQUES, REVISIÓN Y CONFIRMACIÓN)
     // =========================================================================
     function renderSchedulesScreen() {
       const role = state.session.role;
@@ -3125,7 +2351,7 @@
           <div class="page-pad">
             <div style="border:1px solid var(--tally-warn);background:var(--stage);border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px;">
               <div class="eyebrow" style="color:var(--tally-warn);">CONFIRMACIÓN PENDIENTE</div>
-              <h2 style="font-size:22px;font-weight:700;">Confirmá tu identidad para acceder a tu Plan Semanal</h2>
+              <h2 style="font-size:22px;font-weight:700;">Confirmá tu identidad para ver tu cronograma</h2>
               <p style="color:var(--text-secondary);max-width:60ch;">
                 Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con <strong>${esc(state.pendingConfirmation.agency?.name || 'la agencia')}</strong>, necesitamos que presiones <strong>"Sí, soy yo"</strong> arriba o acá mismo.
               </p>
@@ -3143,8 +2369,9 @@
       const activeSchedule = getActiveSchedule();
       const items = activeSchedule?.items || [];
 
-      const withVideoCount = items.filter(b => Boolean(b.video)).length;
-      const autoCount = items.filter(b => b.video && b.autoPublish).length;
+      const approvedCount = items.filter(b => b.reviewStatus === 'APPROVED').length;
+      const reviewCount = items.filter(b => b.reviewStatus === 'IN_REVIEW').length;
+      const blockedCount = items.filter(b => b.reviewStatus === 'CHANGES_REQUESTED' || b.reviewStatus === 'REJECTED').length;
       const clientDupLogs = state.duplicationLogs.filter(
         l => !state.selectedClientId || l.clientId === state.selectedClientId
       );
@@ -3154,14 +2381,14 @@
           <!-- Cabecera Principal -->
           <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--hairline);">
             <div>
-              <div class="eyebrow">${isClient ? 'CRONOGRAMA DE CONTENIDO DE TU MARCA' : 'PLANIFICACIÓN SEMANAL DE LUNES A VIERNES'}</div>
+              <div class="eyebrow">${isClient ? 'CRONOGRAMA DE TU MARCA' : 'CRONOGRAMAS DE TUS CLIENTES'}</div>
               <h2 style="font-size:24px;font-weight:700;margin-top:3px;">
-                ${isClient ? 'Plan de publicaciones de la semana' : 'Plan semanal en cuadrícula'}
+                ${isClient ? 'Tu contenido de la semana' : 'Cronograma semanal'}
               </h2>
               <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
                 ${isClient
-                  ? 'Acá podés ver día por día qué contenido se subirá, revisar los videos adjuntos y dejar tu aprobación.'
-                  : 'Organizá bloques de colores de lunes a viernes, anexá videos con subida automática en día y hora, o duplicá semanas completas.'}
+                  ? 'Mirá cada pieza, dejá tus comentarios y confirmá la semana cuando todo esté bien.'
+                  : 'Armá la semana con bloques de contenido, sumá fotos y videos, y compartilo con tu cliente para que lo revise y lo confirme.'}
               </p>
             </div>
 
@@ -3220,7 +2447,7 @@
                           ${esc(log.targetSchedule?.title || 'Semana nueva')}
                         </div>
                         <div class="mono" style="font-size:11px;color:var(--text-muted);">
-                          ${esc(log.client?.companyName || '')} · ${log.blocksCopiedCount} bloques copiados ${log.includeVideos ? '(con videos)' : '(solo notas)'} · Por ${esc(log.duplicatedByUser?.fullName || 'Agencia')} · ${fmtDateTimeHuman(log.createdAt)}
+                          ${esc(log.client?.companyName || '')} · ${log.blocksCopiedCount} bloques copiados ${log.includeMedia ? '(con archivos)' : '(solo notas)'} · Por ${esc(log.duplicatedByUser?.fullName || 'Agencia')} · ${fmtDateTimeHuman(log.createdAt)}
                         </div>
                         ${log.notes ? `<div style="font-size:12px;color:var(--text-secondary);">${esc(log.notes)}</div>` : ''}
                       </div>
@@ -3240,7 +2467,7 @@
           ${confirmedClients.length === 0 && !isClient ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
               <div class="eyebrow">SIN CLIENTES CONFIRMADOS</div>
-              <h3 style="font-size:18px;font-weight:600;margin-top:6px;">Agregá y confirmá un cliente para armar su plan</h3>
+              <h3 style="font-size:18px;font-weight:600;margin-top:6px;">Agregá y confirmá un cliente para armar su cronograma</h3>
               <p style="color:var(--text-secondary);margin-top:6px;max-width:56ch;">
                 Dirigite a la sección Clientes para dar de alta una marca. Una vez que el cliente confirme «Sí, soy yo», podrás crearle sus semanas de Lunes a Viernes.
               </p>
@@ -3248,14 +2475,14 @@
             </div>
           ` : !activeSchedule ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
-              <div class="eyebrow" style="color:var(--signal-subtle-fg);">PLAN SEMANAL</div>
+              <div class="eyebrow" style="color:var(--signal-subtle-fg);">CRONOGRAMA</div>
               <h3 style="font-size:18px;font-weight:600;margin-top:6px;">
-                ${isClient ? 'Tu agencia aún no publicó un plan para esta semana' : 'Todavía no hay semanas creadas para este cliente'}
+                ${isClient ? 'Tu agencia todavía no compartió un cronograma' : 'Todavía no hay semanas creadas para este cliente'}
               </h3>
               <p style="color:var(--text-secondary);margin-top:6px;max-width:54ch;">
                 ${isClient
-                  ? 'Te avisaremos apenas tu agencia cargue los bloques y videos de la semana.'
-                  : 'Creá la primera semana de Lunes a Viernes para empezar a cargar bloques de colores y programar videos.'}
+                  ? 'Te vamos a avisar apenas tu agencia cargue el contenido de la semana.'
+                  : 'Creá la primera semana de lunes a viernes para empezar a cargar el contenido.'}
               </p>
               ${!isClient ? `<button class="btn btn-signal" style="margin-top:14px;" onclick="openNewWeekModal()">+ Crear primera semana →</button>` : ''}
             </div>
@@ -3289,10 +2516,12 @@
 
               ${!isClient ? `
                 <button class="btn btn-signal" onclick="openBlockModal(1, null)">
-                  + Agregar bloque con video
+                  + Agregar bloque
                 </button>
               ` : ''}
             </div>
+
+            ${renderScheduleConfirmBar(activeSchedule, isClient, blockedCount)}
 
             <div class="stats-strip">
               <div class="stat-cell">
@@ -3300,12 +2529,12 @@
                 <div class="eyebrow">BLOQUES EN LA SEMANA</div>
               </div>
               <div class="stat-cell">
-                <div class="mono" style="font-size:19px;font-weight:700;color:var(--signal-subtle-fg);">${withVideoCount}</div>
-                <div class="eyebrow">VIDEOS ANEXADOS</div>
+                <div class="mono" style="font-size:19px;font-weight:700;color:var(--tally-live);">${approvedCount}</div>
+                <div class="eyebrow">APROBADOS</div>
               </div>
               <div class="stat-cell">
-                <div class="mono" style="font-size:19px;font-weight:700;color:var(--tally-live);">${autoCount}</div>
-                <div class="eyebrow">SUBIDA AUTOMÁTICA</div>
+                <div class="mono" style="font-size:19px;font-weight:700;color:${blockedCount ? 'var(--tally-warn)' : 'var(--signal-subtle-fg)'};">${blockedCount ? blockedCount : reviewCount}</div>
+                <div class="eyebrow">${blockedCount ? 'CON CAMBIOS PEDIDOS' : 'EN REVISIÓN'}</div>
               </div>
               <div class="stat-cell">
                 <div class="mono" style="font-size:19px;font-weight:700;">Lun — Vie</div>
@@ -3334,22 +2563,21 @@
                           Sin bloques cargados para el ${day.full.toLowerCase()}
                         </div>
                       ` : dayBlocks.map(blk => {
-                        const v = blk.video;
-                        const wf = v ? workflowMeta(v.workflowStatus) : null;
-                        const plats = v ? (v.platformTargets || []).map(p => p.platform) : [];
-                        const tags = v ? (v.hashtags || []).slice(0, 3).map(h => '#' + h.tag).join(' ') : '';
+                        const wf = workflowMeta(blk.reviewStatus);
+                        const media = blk.media || [];
+                        const photos = media.filter(m => m.kind === 'IMAGE').length;
+                        const videos = media.filter(m => m.kind === 'VIDEO').length;
+                        const comments = (blk.comments || []).length;
                         return `
                           <article class="plan-block-card color-${esc(blk.noteColor || 'AMBER')}"
                             onclick="state.inspectBlockId='${blk.id}';state.confirmDeleteBlockId=null;render();">
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
                               <span class="mono" style="font-size:11px;font-weight:700;color:var(--note-fg);">
-                                🕒 ${esc(blk.plannedTime || '18:00')} hs
+                                ${esc(contentTypeLabel(blk.contentType)).toUpperCase()}
                               </span>
-                              ${v && blk.autoPublish ? `
-                                <span class="mono" style="font-size:10px;padding:1px 5px;border-radius:2px;background:var(--tally-live-bg);color:var(--tally-live);border:1px solid var(--tally-live);" title="Se subirá solo este día a la hora configurada">
-                                  ⚡ AUTO
-                                </span>
-                              ` : ''}
+                              <span class="mono" style="font-size:11px;color:var(--text-muted);">
+                                ${esc(blk.plannedTime || '18:00')} hs
+                              </span>
                             </div>
 
                             <div style="font-weight:700;font-size:13.5px;line-height:1.3;color:var(--text-primary);">
@@ -3362,22 +2590,16 @@
                               </div>
                             ` : ''}
 
-                            ${v ? `
-                              <div style="margin-top:4px;padding-top:7px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:5px;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;gap:4px;">
-                                  <span class="mono" style="font-size:11px;font-weight:600;color:var(--text-primary);">
-                                    🎬 ${fmtTimecode(v.durationSeconds)}
-                                  </span>
-                                  <span class="badge ${wf.cls}" style="font-size:10px;padding:1px 5px;">${wf.label}</span>
-                                </div>
-                                ${tags ? `<div class="mono" style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tags)}</div>` : ''}
-                                <div>${renderTriConduit(plats, v.workflowStatus, v.publications)}</div>
-                              </div>
-                            ` : `
-                              <div class="mono" style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">
-                                Nota de pauta (sin video aún)
-                              </div>
-                            `}
+                            <div style="margin-top:4px;padding-top:7px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+                              <span class="mono" style="font-size:11px;color:var(--text-secondary);">
+                                ${[
+                                  photos ? photos + (photos === 1 ? ' foto' : ' fotos') : '',
+                                  videos ? videos + (videos === 1 ? ' video' : ' videos') : '',
+                                  comments ? comments + (comments === 1 ? ' comentario' : ' comentarios') : ''
+                                ].filter(Boolean).join(' · ') || 'Sin archivos todavía'}
+                              </span>
+                              <span class="badge ${wf.cls}" style="font-size:10px;padding:1px 5px;">${wf.label}</span>
+                            </div>
                           </article>
                         `;
                       }).join('')}
@@ -3405,6 +2627,45 @@
       `;
     }
 
+    function renderScheduleConfirmBar(sched, isClient, blockedCount) {
+      const hasItems = (sched.items || []).length > 0;
+      if (sched.status === 'APPROVED') {
+        return `
+          <div style="border:1px solid var(--tally-live);background:var(--tally-live-bg);padding:11px 14px;border-radius:5px;font-size:13.5px;font-weight:600;color:var(--tally-live);">
+            ✓ Cronograma confirmado${sched.confirmedByUser ? ' por ' + esc(sched.confirmedByUser.fullName) : ''}${sched.confirmedAt ? ' · ' + fmtDateTimeHuman(sched.confirmedAt) : ''}
+          </div>
+        `;
+      }
+      if (!isClient) {
+        return `
+          <div style="border:1px solid var(--hairline);background:var(--stage);padding:11px 14px;border-radius:5px;font-size:13px;color:var(--text-secondary);">
+            ${blockedCount
+              ? `El cliente pidió cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}. Al editarlos, vuelven a revisión.`
+              : (hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.')}
+          </div>
+        `;
+      }
+      if (!hasItems) return '';
+      return `
+        <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:12px 14px;border-radius:5px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="font-size:13.5px;max-width:60ch;">
+            ${blockedCount
+              ? `Pediste cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}: vas a poder confirmar cuando tu agencia los resuelva.`
+              : '¿Revisaste todo? Al confirmar, lo que siga en revisión queda aprobado.'}
+          </div>
+          ${blockedCount ? '' : (state.confirmScheduleAsk ? `
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:600;">¿Confirmás toda la semana?</span>
+              <button class="btn btn-signal" onclick="confirmActiveSchedule()">Sí, confirmar</button>
+              <button class="btn btn-outline" onclick="state.confirmScheduleAsk=false;render();">Cancelar</button>
+            </div>
+          ` : `
+            <button class="btn btn-signal" onclick="state.confirmScheduleAsk=true;render();">✓ Confirmar cronograma</button>
+          `)}
+        </div>
+      `;
+    }
+
     function renderNewWeekModal() {
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){state.showNewWeekModal=false;render();}">
@@ -3412,7 +2673,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
                 <div class="eyebrow">NUEVO CRONOGRAMA</div>
-                <h3 style="font-size:18px;font-weight:700;">Crear semana de Lunes a Viernes</h3>
+                <h3 style="font-size:18px;font-weight:700;">Crear semana de lunes a viernes</h3>
               </div>
               <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showNewWeekModal=false;render();">✕</button>
             </div>
@@ -3431,7 +2692,7 @@
 
             <div class="field">
               <label>Objetivo o nota general para el cliente (opcional)</label>
-              <textarea class="input" rows="2" placeholder="Ej. Foco en videos educativos cortos y promoción del viernes."
+              <textarea class="input" rows="2" placeholder="Ej. Foco en contenido educativo y promoción del viernes."
                 oninput="state.newWeekNotes=this.value">${esc(state.newWeekNotes)}</textarea>
             </div>
 
@@ -3474,11 +2735,11 @@
             </div>
 
             <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px 12px;border:1px solid var(--hairline);background:var(--canvas);border-radius:4px;">
-              <input type="checkbox" style="margin-top:3px;" ${state.dupIncludeVideos ? 'checked' : ''}
-                onchange="state.dupIncludeVideos=this.checked;render();" />
+              <input type="checkbox" style="margin-top:3px;" ${state.dupIncludeMedia ? 'checked' : ''}
+                onchange="state.dupIncludeMedia=this.checked;render();" />
               <div>
-                <div style="font-weight:600;font-size:13px;">Copiar también los videos anexados y configuraciones</div>
-                <div style="font-size:12px;color:var(--text-muted);">Si lo desmarcás, se copiarán únicamente los bloques de colores, textos y horarios vacíos para subir videos nuevos.</div>
+                <div style="font-weight:600;font-size:13px;">Copiar también las fotos y los videos</div>
+                <div style="font-size:12px;color:var(--text-muted);">Si lo desmarcás, se copian solo los bloques, con sus textos.</div>
               </div>
             </label>
 
@@ -3497,45 +2758,97 @@
     }
 
     function renderBlockEditorModal() {
-      const dur = Math.max(1, parseInt(state.blkVideoDur || 30, 10));
-      const mb = (state.blkVideoSizeBytes / (1024 * 1024)).toFixed(1);
-
       return `
-        <div class="modal-backdrop" onclick="if(event.target===this && !state.blkSaving){state.blockModalOpen=false;render();}">
+        <div class="modal-backdrop" onclick="if(event.target===this){closeBlockModal();}">
           <div class="modal-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
               <div>
-                <div class="eyebrow">${state.editingBlockId ? 'EDITAR BLOQUE DEL PLAN' : 'NUEVO BLOQUE EN CUADRÍCULA'}</div>
+                <div class="eyebrow">${state.editingBlockId ? 'EDITAR BLOQUE' : 'NUEVO BLOQUE'}</div>
                 <h3 style="font-size:19px;font-weight:700;">
-                  ${state.editingBlockId ? 'Configurar bloque y video del día' : 'Agregar bloque al día'}
+                  ${state.editingBlockId ? 'Editar contenido del día' : 'Agregar contenido al día'}
                 </h3>
               </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" ${state.blkSaving ? 'disabled' : ''} onclick="state.blockModalOpen=false;render();">✕</button>
+              <button class="btn btn-outline" style="padding:4px 9px;" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">✕</button>
             </div>
 
-            <!-- Día y Hora -->
-            <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:12px;">
+            <div class="field">
+              <label>Tipo de contenido</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${CONTENT_TYPES.map(t => `
+                  <button type="button" class="filter-tab ${state.blkContentType === t.code ? 'active' : ''}"
+                    onclick="state.blkContentType='${t.code}';render();">${t.label}</button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="field">
+              <label>Título</label>
+              <input class="input" maxlength="160" placeholder="Ej. 3 claves para elegir tu café"
+                value="${esc(state.blkTitle)}" oninput="state.blkTitle=this.value" />
+            </div>
+
+            <div class="field">
+              <label>Contenido: ¿de qué trata?</label>
+              <textarea class="input" rows="3" placeholder="La idea, cómo se va a ver y qué queremos transmitir."
+                oninput="state.blkNotes=this.value">${esc(state.blkNotes)}</textarea>
+            </div>
+
+            <div class="field">
+              <label>Texto de la publicación (opcional)</label>
+              <textarea class="input" rows="2" placeholder="El texto y los hashtags que lo van a acompañar."
+                oninput="state.blkCaption=this.value">${esc(state.blkCaption)}</textarea>
+            </div>
+
+            <div class="field">
+              <label>Fotos y videos para que el cliente los vea</label>
+              <label class="dropzone-video">
+                <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" style="display:none;"
+                  onchange="handleBlockFilesSelected(this)" />
+                <div style="font-weight:600;color:var(--signal-subtle-fg);">+ Agregar fotos o videos</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
+                  JPG, PNG, WEBP, GIF, MP4, MOV o WebM${APP_CONFIG.uploadMaxMb ? ', hasta ' + Number(APP_CONFIG.uploadMaxMb) + ' MB cada uno' : ''}.
+                </div>
+              </label>
+            </div>
+
+            ${state.blkMedia.length ? `
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                ${state.blkMedia.map((m, i) => `
+                  <div style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--hairline);border-radius:5px;padding:8px;background:var(--canvas);">
+                    <div style="flex:none;width:72px;height:72px;border-radius:4px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;">
+                      ${renderMediaPreview(m, 'width:100%;height:100%;object-fit:cover;')}
+                    </div>
+                    <div class="field" style="flex:1;min-width:0;">
+                      <label>${m.kind === 'VIDEO' ? 'Video' : 'Foto'} ${i + 1}: descripción</label>
+                      <textarea class="input" rows="2" maxlength="2000" placeholder="¿Qué se ve o qué hay que mirar acá?"
+                        oninput="state.blkMedia[${i}].description=this.value">${esc(m.description)}</textarea>
+                    </div>
+                    <div style="flex:none;display:flex;flex-direction:column;gap:4px;">
+                      <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Subir" aria-label="Subir" ${i === 0 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, -1)">↑</button>
+                      <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Bajar" aria-label="Bajar" ${i === state.blkMedia.length - 1 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, 1)">↓</button>
+                      <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Quitar" aria-label="Quitar" onclick="removeBlockMedia(${i})">✕</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
               <div class="field">
-                <label>Día de la semana (Lunes a Viernes)</label>
+                <label>Día de la semana</label>
                 <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;">
                   ${WEEKDAYS.map(d => `
                     <button type="button" class="filter-tab ${state.blkDay === d.num ? 'active' : ''}"
-                      style="padding:8px 0;text-align:center;"
-                      onclick="state.blkDay=${d.num};render();">
-                      ${d.code}
-                    </button>
+                      style="padding:8px 0;text-align:center;" onclick="state.blkDay=${d.num};render();">${d.code}</button>
                   `).join('')}
                 </div>
               </div>
-
               <div class="field">
-                <label>Hora configurada</label>
-                <input class="input mono" type="time" value="${esc(state.blkTime)}"
-                  oninput="state.blkTime=this.value" />
+                <label>Hora prevista</label>
+                <input class="input mono" type="time" value="${esc(state.blkTime)}" oninput="state.blkTime=this.value" />
               </div>
             </div>
 
-            <!-- Color de la Nota -->
             <div class="field">
               <label>Color del bloque</label>
               <div class="swatch-row">
@@ -3549,135 +2862,10 @@
               </div>
             </div>
 
-            <!-- Texto del Bloque -->
-            <div class="field">
-              <label>¿Qué se debe subir este día? (Título del bloque)</label>
-              <input class="input" placeholder="Ej. Reel educativo: 3 claves para elegir grano de café"
-                value="${esc(state.blkTitle)}" oninput="state.blkTitle=this.value" />
-            </div>
-
-            <div class="field">
-              <label>Notas e indicaciones del bloque (visible para el cliente)</label>
-              <textarea class="input" rows="2" placeholder="Detalle de la idea, gancho visual, llamada a la acción o recordatorios..."
-                oninput="state.blkNotes=this.value">${esc(state.blkNotes)}</textarea>
-            </div>
-
-            <!-- Anexar / Subir Video desde la sección Plan -->
-            <div style="border:1px solid ${state.blkAttachVideo ? 'var(--signal-subtle-fg)' : 'var(--border-strong)'};background:var(--inspector);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div>
-                  <div style="font-weight:700;font-size:14px;">🎬 Video para publicar este día</div>
-                  <div style="font-size:12px;color:var(--text-secondary);">
-                    Subí el video directamente acá y dejalo configurado para publicarse solo el ${WEEKDAYS.find(w => w.num === state.blkDay)?.full || 'día'} a las ${esc(state.blkTime)} hs.
-                  </div>
-                </div>
-                <button type="button" class="btn ${state.blkAttachVideo ? 'btn-fault' : 'btn-signal'}"
-                  onclick="state.blkAttachVideo=!state.blkAttachVideo;render();">
-                  ${state.blkAttachVideo ? 'Quitar video' : '+ Anexar / Subir video'}
-                </button>
-              </div>
-
-              ${state.blkAttachVideo ? `
-                <label class="dropzone-video">
-                  <input type="file" accept="video/mp4,video/quicktime,video/webm" style="display:none;"
-                    onchange="handleBlockVideoFileSelected(this)" />
-                  <div style="font-weight:600;color:var(--signal-subtle-fg);">
-                    ${state.blkVideoFile
-                      ? '✓ Archivo seleccionado: ' + esc(state.blkVideoFile.name) + ' (' + mb + ' MB · ' + dur + 's)'
-                      : (state.blkExistingStorageKey
-                          ? '✓ Video actual vinculado · Hacé clic si querés reemplazar el archivo'
-                          : '📂 Hacé clic acá para elegir un archivo de video (.mp4 / .mov) desde tu equipo')}
-                  </div>
-                  <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
-                    Detectamos duración y tamaño automáticamente para validar Instagram, TikTok y YouTube.
-                  </div>
-                </label>
-
-                ${state.blkVideoPreviewUrl ? `
-                  <div style="display:flex;justify-content:center;background:#000;border-radius:4px;overflow:hidden;max-height:220px;">
-                    <video src="${esc(state.blkVideoPreviewUrl)}" controls style="max-height:220px;max-width:100%;"></video>
-                  </div>
-                ` : ''}
-
-                <label style="display:flex;align-items:center;gap:9px;cursor:pointer;padding:9px 11px;border-radius:4px;background:var(--canvas);border:1px solid var(--tally-live);">
-                  <input type="checkbox" ${state.blkAutoPublish ? 'checked' : ''}
-                    onchange="state.blkAutoPublish=this.checked;render();" />
-                  <div>
-                    <div style="font-weight:600;font-size:13px;color:var(--tally-live);">
-                      ⚡ Subir automáticamente ese día a la hora configurada (${esc(state.blkTime)} hs)
-                    </div>
-                    <div style="font-size:11.5px;color:var(--text-secondary);">
-                      El sistema publicará el video automáticamente en las plataformas elegidas al llegar la fecha y hora del bloque.
-                    </div>
-                  </div>
-                </label>
-
-                <div class="field">
-                  <label>Plataformas donde se subirá</label>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    ${[
-                      { key: 'INSTAGRAM', prop: 'blkPlatIG' },
-                      { key: 'TIKTOK',    prop: 'blkPlatTT' },
-                      { key: 'YOUTUBE',   prop: 'blkPlatYT' }
-                    ].map(p => {
-                      const active = state[p.prop];
-                      const lim = PLATFORM_LIMITS[p.key];
-                      const ok = dur <= lim.maxSec;
-                      return `
-                        <button type="button" style="padding:9px 10px;border-radius:4px;text-align:left;background:var(--canvas);border:1px solid ${active ? (ok ? 'var(--tally-live)' : 'var(--tally-fault)') : 'var(--hairline)'};"
-                          onclick="state.${p.prop}=!state.${p.prop};render();">
-                          <div style="font-weight:700;font-size:12px;color:${active ? 'var(--text-primary)' : 'var(--text-muted)'};">
-                            ${active ? '✓ ' : ''}${lim.name}
-                          </div>
-                          <div class="mono" style="font-size:10.5px;color:${!active ? 'var(--text-muted)' : (ok ? 'var(--tally-live)' : 'var(--tally-fault)')};margin-top:2px;">
-                            ${!active ? 'Omitido' : (ok ? 'Compatible' : 'Máx ' + lim.maxSec + 's')}
-                          </div>
-                        </button>
-                      `;
-                    }).join('')}
-                  </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <div class="field">
-                    <label>Título del video</label>
-                    <input class="input" placeholder="Título para la publicación" value="${esc(state.blkVideoTitle)}"
-                      oninput="state.blkVideoTitle=this.value" />
-                  </div>
-                  <div class="field">
-                    <label>Hashtags</label>
-                    <input class="input mono" placeholder="#marca #reels #shorts" value="${esc(state.blkVideoTags)}"
-                      oninput="state.blkVideoTags=this.value" />
-                  </div>
-                </div>
-
-                <div class="field">
-                  <label>Descripción / Texto de la publicación</label>
-                  <textarea class="input" rows="2" placeholder="Escribí el copy que saldrá publicado en las redes seleccionadas..."
-                    oninput="state.blkVideoDesc=this.value">${esc(state.blkVideoDesc)}</textarea>
-                </div>
-
-                <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);">
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                    <input type="checkbox" ${state.blkShareFeed ? 'checked' : ''} onchange="state.blkShareFeed=this.checked" />
-                    Compartir en Feed principal
-                  </label>
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                    <input type="checkbox" ${state.blkAllowComments ? 'checked' : ''} onchange="state.blkAllowComments=this.checked" />
-                    Permitir comentarios
-                  </label>
-                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                    <input type="checkbox" ${state.blkAllowDuet ? 'checked' : ''} onchange="state.blkAllowDuet=this.checked" />
-                    Permitir Dúo / Remix
-                  </label>
-                </div>
-              ` : ''}
-            </div>
-
-            ${state.blkUploadProgress > 0 ? `
+            ${state.blkSaving && state.blkUploadProgress > 0 ? `
               <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:10px 12px;border-radius:4px;">
                 <div class="mono" style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--signal-subtle-fg);">
-                  <span>SUBIENDO ARCHIVO DE VIDEO...</span>
+                  <span>SUBIENDO ARCHIVOS...</span>
                   <span id="blk-upload-pct">${state.blkUploadProgress}%</span>
                 </div>
                 <div style="height:5px;background:var(--hairline);margin-top:6px;border-radius:2px;overflow:hidden;">
@@ -3693,14 +2881,24 @@
             ` : ''}
 
             <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:6px;border-top:1px solid var(--hairline);">
-              <button class="btn btn-outline" ${state.blkSaving ? 'disabled' : ''} onclick="state.blockModalOpen=false;render();">Cancelar</button>
+              <button class="btn btn-outline" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">Cancelar</button>
               <button class="btn btn-signal" ${state.blkSaving ? 'disabled' : ''} onclick="submitBlockModal()">
-                ${state.blkSaving ? 'Guardando…' : (state.editingBlockId ? 'Guardar cambios del bloque' : 'Guardar bloque en el Plan →')}
+                ${state.blkSaving ? 'Guardando…' : (state.editingBlockId ? 'Guardar cambios' : 'Guardar bloque')}
               </button>
             </div>
           </div>
         </div>
       `;
+    }
+
+    /** Foto o video con los controles mínimos: el cliente lo mira desde la plataforma. */
+    function renderMediaPreview(m, style, withControls = false) {
+      const url = m.previewUrl || m.url;
+      if (!url) return '<div style="font-size:12px;color:#fff;padding:12px;text-align:center;">Archivo no disponible</div>';
+      if (m.kind === 'VIDEO') {
+        return `<video src="${esc(url)}" style="${style}" preload="metadata" playsinline ${withControls ? 'controls controlslist="nodownload"' : 'muted'}></video>`;
+      }
+      return `<img src="${esc(url)}" alt="${esc(m.description || 'Imagen del bloque')}" style="${style}" loading="lazy" />`;
     }
 
     function renderBlockInspectorModal() {
@@ -3710,147 +2908,102 @@
         state.inspectBlockId = null;
         return '';
       }
-      const isClient = state.session.role === 'CLIENTE';
+      const role = state.session.role;
+      const isClient = role === 'CLIENTE';
       const dayObj = WEEKDAYS.find(d => d.num === blk.dayOfWeek) || { full: 'Día', num: 1 };
       const dateStr = sched ? fmtShortDate(sched.weekStartDate, blk.dayOfWeek - 1) : '';
-      const v = blk.video;
-      const wf = v ? workflowMeta(v.workflowStatus) : null;
-      const plats = v ? (v.platformTargets || []).map(p => p.platform) : [];
-      const hasPlayableUpload = v && v.publicVideoUrl && v.publicVideoUrl.startsWith('/uploads/');
+      const wf = workflowMeta(blk.reviewStatus);
+      const media = blk.media || [];
+      const comments = blk.comments || [];
 
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){state.inspectBlockId=null;render();}">
           <div class="modal-panel">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
-              <div>
+              <div style="min-width:0;">
                 <div class="mono" style="font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">
-                  ${dayObj.full.toUpperCase()} ${dateStr} · ${esc(blk.plannedTime || '18:00')} HS
+                  ${esc(contentTypeLabel(blk.contentType)).toUpperCase()} · ${dayObj.full.toUpperCase()} ${dateStr} · ${esc(blk.plannedTime || '18:00')} HS
                 </div>
-                <h3 style="font-size:20px;font-weight:700;margin-top:3px;">${esc(blk.blockTitle)}</h3>
+                <h3 style="font-size:20px;font-weight:700;margin-top:3px;overflow-wrap:anywhere;">${esc(blk.blockTitle)}</h3>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;">
-                ${wf ? `<span class="badge ${wf.cls}">${wf.label}</span>` : `<span class="badge">NOTA DE PAUTA</span>`}
+              <div style="display:flex;align-items:center;gap:8px;flex:none;">
+                <span class="badge ${wf.cls}">${wf.label}</span>
                 <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.inspectBlockId=null;render();">✕</button>
               </div>
             </div>
 
             ${blk.notes ? `
-              <div class="color-${esc(blk.noteColor || 'AMBER')}" style="border-left:4px solid var(--note-fg);background:var(--note-bg);padding:12px 14px;border-radius:4px;">
-                <div class="eyebrow" style="color:var(--note-fg);margin-bottom:4px;">PAUTA DEL DÍA</div>
-                <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;">${esc(blk.notes)}</div>
+              <div class="color-${esc(blk.noteColor || 'AMBER')}" style="border-left:4px solid var(--note-fg);background:var(--note-bg);padding:11px 13px;border-radius:3px;">
+                <div class="eyebrow" style="color:var(--note-fg);margin-bottom:4px;">CONTENIDO</div>
+                <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(blk.notes)}</div>
               </div>
             ` : ''}
 
-            ${v ? `
-              <div style="border:1px solid var(--hairline);background:var(--inspector);border-radius:5px;padding:14px;display:flex;flex-direction:column;gap:12px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                  <div>
-                    <div class="eyebrow">VIDEO CONFIGURADO</div>
-                    <div style="font-weight:700;font-size:16px;margin-top:2px;">${esc(v.title)}</div>
-                  </div>
-                  ${renderTriConduit(plats, v.workflowStatus, v.publications)}
-                </div>
+            ${blk.caption ? `
+              <div style="border:1px solid var(--hairline);padding:11px 13px;border-radius:4px;">
+                <div class="eyebrow" style="margin-bottom:4px;">TEXTO DE LA PUBLICACIÓN</div>
+                <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(blk.caption)}</div>
+              </div>
+            ` : ''}
 
-                ${hasPlayableUpload ? `
-                  <div style="background:#000;border-radius:4px;overflow:hidden;display:flex;justify-content:center;max-height:280px;">
-                    <video src="${esc(v.publicVideoUrl)}" controls style="max-height:280px;max-width:100%;"></video>
-                  </div>
-                ` : `
-                  <div style="display:flex;gap:14px;align-items:center;">
-                    <div class="reel-frame" style="width:68px;background:${reelBg(v.title)};">
-                      <span class="reel-tag">9:16</span>
-                      <span class="reel-tag" style="align-self:flex-end;">${fmtTimecode(v.durationSeconds)}</span>
+            ${media.length ? `
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                ${media.map((m, i) => `
+                  <figure style="border:1px solid var(--hairline);border-radius:5px;overflow:hidden;background:var(--inspector);">
+                    <div style="background:#000;display:flex;justify-content:center;">
+                      ${renderMediaPreview(m, 'max-width:100%;max-height:440px;display:block;', true)}
                     </div>
-                    <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
-                      <div style="font-size:13.5px;color:var(--text-secondary);line-height:1.45;">${esc(v.description)}</div>
-                      <div class="mono" style="font-size:12px;color:var(--text-muted);">
-                        ${(v.hashtags || []).map(h => '#' + esc(h.tag)).join(' ')}
-                      </div>
-                    </div>
-                  </div>
-                `}
-
-                ${hasPlayableUpload ? `
-                  <div style="font-size:13.5px;color:var(--text-secondary);line-height:1.45;">${esc(v.description)}</div>
-                  <div class="mono" style="font-size:12px;color:var(--text-muted);">
-                    ${(v.hashtags || []).map(h => '#' + esc(h.tag)).join(' ')}
-                  </div>
-                ` : ''}
-
-                <div style="font-size:12.5px;color:${blk.autoPublish ? 'var(--tally-live)' : 'var(--text-secondary)'};font-weight:600;">
-                  ${blk.autoPublish
-                    ? `⚡ Subida automática activada para el ${dayObj.full} ${dateStr} a las ${esc(blk.plannedTime)} hs en ${plats.map(p => PLATFORM_LIMITS[p].name).join(', ')}.`
-                    : 'Subida manual sujeta a confirmación.'}
-                </div>
-
-                <!-- Comentarios del Video -->
-                ${(v.comments || []).length > 0 ? `
-                  <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:6px;">
-                    <div class="eyebrow">COMENTARIOS</div>
-                    ${v.comments.map(c => `
-                      <div style="border-left:2px solid var(--signal-subtle-fg);padding-left:9px;font-size:13px;">
-                        <span class="mono" style="font-size:11px;color:var(--text-muted);">${esc(c.authorUser?.fullName || 'Usuario')}:</span>
-                        <div>${esc(c.message)}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : ''}
-
-                <!-- Controles de Visado / Comentarios -->
-                ${v.workflowStatus !== 'PUBLISHED' ? `
-                  <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
-                    <div class="field">
-                      <label>${isClient ? 'Dejar observación o aprobar este video' : 'Agregar nota sobre el video'}</label>
-                      <div style="display:flex;gap:8px;">
-                        <input id="inspect-review-note" class="input" placeholder="Escribí un comentario o sugerencia..." />
-                        <button class="btn btn-outline" onclick="submitVideoComment('${v.id}')">Comentar</button>
-                      </div>
-                    </div>
-                    <div style="display:${state.session.role === 'AGENCIA' ? 'none' : 'grid'};grid-template-columns:1.2fr 1fr 1fr;gap:8px;">
-                      <button class="btn btn-signal" onclick="submitVideoReview('${v.id}','APPROVED')">✓ Aprobar contenido</button>
-                      <button class="btn btn-warn" onclick="submitVideoReview('${v.id}','CHANGES_REQUESTED')">Pedir ajustes</button>
-                      <button class="btn btn-fault" onclick="submitVideoReview('${v.id}','REJECTED')">Rechazar</button>
-                    </div>
-                  </div>
-                ` : ''}
-
-                ${!isClient ? (v.publications || []).filter((p) => p.status === 'FAILED').map((p) => `
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--tally-fault);border-radius:4px;padding:8px 10px;">
-                    <span style="font-size:12px;min-width:0;overflow-wrap:anywhere;">${esc(PLATFORM_LIMITS[p.platform]?.name || p.platform)}: ${esc(p.lastErrorMessage || 'No se pudo publicar.')}</span>
-                    <button class="btn btn-outline" style="padding:5px 10px;" onclick="retryPublication('${p.id}','${v.id}')">Reintentar</button>
-                  </div>
-                `).join('') : ''}
-
-                ${!isClient && v.workflowStatus !== 'PUBLISHED' ? `
-                  <div style="display:flex;justify-content:flex-end;">
-                    <button class="btn btn-live" onclick="publishVideoNow('${v.id}')">
-                      Publicar ahora mismo en ${plats.length} ${plats.length === 1 ? 'red' : 'redes'} →
-                    </button>
-                  </div>
-                ` : ''}
+                    <figcaption style="padding:9px 12px;">
+                      <div class="mono" style="font-size:11px;color:var(--text-muted);">${m.kind === 'VIDEO' ? 'VIDEO' : 'FOTO'} ${i + 1} DE ${media.length}</div>
+                      ${m.description ? `<div style="font-size:13.5px;line-height:1.45;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(m.description)}</div>` : ''}
+                    </figcaption>
+                  </figure>
+                `).join('')}
               </div>
             ` : `
-              <div style="border:1px dashed var(--border-strong);border-radius:4px;padding:16px;text-align:center;color:var(--text-secondary);font-size:13px;">
-                ${isClient
-                  ? 'Tu agencia dejó pautado este tema para el día, y anexará el video correspondiente próximamente.'
-                  : 'Este bloque aún no tiene un archivo de video anexado.'}
+              <div style="border:1px dashed var(--border-strong);border-radius:4px;padding:16px;text-align:center;color:var(--text-muted);font-size:13px;">
+                ${isClient ? 'Tu agencia va a sumar las fotos o videos de este contenido.' : 'Este bloque todavía no tiene fotos ni videos.'}
               </div>
             `}
 
+            <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+              <div class="eyebrow">COMENTARIOS</div>
+              ${comments.length ? comments.map(c => `
+                <div style="border-left:2px solid var(--signal-subtle-fg);padding-left:9px;font-size:13px;">
+                  <span class="mono" style="font-size:11px;color:var(--text-muted);">${esc(c.authorUser?.fullName || 'Usuario')} · ${fmtDateTimeHuman(c.createdAt)}</span>
+                  <div style="white-space:pre-wrap;overflow-wrap:anywhere;">${esc(c.message)}</div>
+                </div>
+              `).join('') : `<div style="font-size:13px;color:var(--text-muted);">Todavía no hay comentarios.</div>`}
+
+              <div class="field">
+                <label>${isClient ? 'Tu comentario o los cambios que pedís' : 'Escribile al cliente'}</label>
+                <div style="display:flex;gap:8px;">
+                  <input id="inspect-review-note" class="input" maxlength="5000" placeholder="Escribí acá..." />
+                  <button class="btn btn-outline" onclick="submitBlockComment('${blk.id}')">Comentar</button>
+                </div>
+              </div>
+
+              ${role !== 'AGENCIA' ? `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+                  <button class="btn btn-signal" onclick="submitBlockReview('${blk.id}','APPROVED')">✓ Aprobar</button>
+                  <button class="btn btn-warn" onclick="submitBlockReview('${blk.id}','CHANGES_REQUESTED')">Pedir cambios</button>
+                  <button class="btn btn-fault" onclick="submitBlockReview('${blk.id}','REJECTED')">Rechazar</button>
+                </div>
+              ` : ''}
+            </div>
+
             ${!isClient ? `
-              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--hairline);flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--hairline);">
                 ${state.confirmDeleteBlockId === blk.id ? `
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:12px;color:var(--tally-fault);font-weight:600;">¿Eliminar este bloque?</span>
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-size:12px;color:var(--tally-fault);font-weight:600;">¿Eliminar este bloque y sus archivos?</span>
                     <button class="btn btn-fault" style="padding:5px 10px;" onclick="deleteBlockConfirmed('${blk.id}')">Sí, eliminar</button>
                     <button class="btn btn-outline" style="padding:5px 10px;" onclick="state.confirmDeleteBlockId=null;render();">Cancelar</button>
                   </div>
                 ` : `
                   <button class="btn btn-fault" onclick="state.confirmDeleteBlockId='${blk.id}';render();">Eliminar bloque</button>
                 `}
-                <button class="btn btn-signal" onclick='openBlockModal(${blk.dayOfWeek}, ${JSON.stringify(blk).replace(/'/g, "&#39;")})'>
-                  ${v ? 'Editar bloque / Cambiar video' : '+ Subir video o editar bloque'}
-                </button>
+                <button class="btn btn-signal" onclick="openBlockModalById('${blk.id}')">Editar bloque</button>
               </div>
             ` : ''}
           </div>
@@ -3990,7 +3143,6 @@
             <div class="ideas-grid">
               ${filteredIdeas.map(idea => {
                 const secColor = idea.section?.color || 'LIME';
-                const plats = String(idea.platforms || '').split(',').filter(Boolean);
                 return `
                   <article class="idea-card color-${esc(secColor)}">
                     <div style="display:flex;flex-direction:column;gap:8px;">
@@ -4019,7 +3171,6 @@
                     <div style="padding-top:10px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:8px;">
                       <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted);" class="mono">
                         <span>${idea.client ? esc(idea.client.companyName) : 'General Agencia'}</span>
-                        <span>${plats.map(p => PLATFORM_LIMITS[p]?.code || p).join(' · ')}</span>
                       </div>
 
                       ${state.confirmDeleteIdeaId === idea.id ? `
@@ -4034,7 +3185,7 @@
                         <div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">
                           <button class="btn btn-signal" style="padding:5px 9px;font-size:11px;"
                             onclick="sendIdeaToPlan('${idea.id}')">
-                            Llevar al Plan →
+                            Llevar al cronograma →
                           </button>
                           <div style="display:flex;gap:6px;">
                             <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;"
@@ -4112,19 +3263,6 @@
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-              <div style="display:flex;gap:6px;">
-                ${[
-                  { code: 'IG', prop: 'ideaFormPlatIG' },
-                  { code: 'TT', prop: 'ideaFormPlatTT' },
-                  { code: 'YT', prop: 'ideaFormPlatYT' }
-                ].map(p => `
-                  <button type="button" class="filter-tab ${state[p.prop] ? 'active' : ''}"
-                    onclick="state.${p.prop}=!state.${p.prop};render();">
-                    ${p.code}
-                  </button>
-                `).join('')}
-              </div>
-
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
                 <input type="checkbox" ${state.ideaFormPinned ? 'checked' : ''} onchange="state.ideaFormPinned=this.checked" />
                 📌 Fijar como destacada
@@ -4154,7 +3292,7 @@
               <div>
                 <div class="eyebrow">${isClient ? 'PERFIL DE MARCA' : 'CARTERA DE CLIENTES'}</div>
                 <h2 style="font-size:24px;font-weight:700;margin-top:2px;">
-                  ${isClient ? 'Mi marca y canales conectados' : 'Clientes y verificación de identidad'}
+                  ${isClient ? 'Mi marca' : 'Clientes y verificación de identidad'}
                 </h2>
               </div>
               ${!isClient ? `
@@ -4226,7 +3364,7 @@
                         ` : `
                           <button class="btn btn-outline" style="padding:6px 10px;"
                             onclick="state.selectedClientId='${cl.id}';syncSelectedScheduleForClient();state.activeTab='schedules';render();">
-                            Ver Plan →
+                            Ver cronograma →
                           </button>
                         `}
 
@@ -4240,217 +3378,53 @@
                     ` : ''}
                   </div>
 
-                  ${isConfirmed ? `
-                    <div class="patchbay-grid">
-                      ${['INSTAGRAM','TIKTOK','YOUTUBE'].map(p => {
-                        const conn = cl.connections[p];
-                        const lim = PLATFORM_LIMITS[p];
-                        return `
-                          <button class="patchbay-slot" style="border:1px solid ${conn.connected ? 'var(--tally-live)' : 'var(--hairline)'};"
-                            onclick="toggleOAuth('${cl.id}','${p}')">
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                              <span class="mono" style="font-weight:700;font-size:12px;">${lim.code} · ${lim.name}</span>
-                              <span class="tally-dot ${conn.connected ? '' : 'static'}" style="color:${conn.connected ? 'var(--tally-live)' : 'var(--text-muted)'};"></span>
-                            </div>
-                            <div style="font-size:13px;margin-top:5px;color:${conn.connected ? 'var(--text-primary)' : 'var(--text-muted)'};">
-                              ${conn.connected ? esc(conn.handle) : 'Sin conectar'}
-                            </div>
-                            <div class="mono" style="font-size:11px;margin-top:4px;color:${conn.connected ? 'var(--tally-live)' : 'var(--text-muted)'};">
-                              ${conn.connected ? 'CONECTADO' : 'CONECTAR →'}
-                            </div>
-                          </button>
-                        `;
-                      }).join('')}
-                    </div>
-                  ` : `
+                  ${!isConfirmed ? `
                     <div style="font-size:12.5px;color:var(--tally-warn);background:var(--tally-warn-bg);padding:9px 12px;border-radius:4px;">
                       Hasta que ${esc(cl.contactEmail)} inicie sesión o abra su correo y presione <strong>«Sí, soy yo»</strong>, este perfil permanece protegido y no permite subir ni programar contenido.
                     </div>
-                  `}
+                  ` : ''}
                 </div>
               `;
             }).join('')}
           </section>
         </div>
-        ${state.platModalOpen ? renderPlatformOAuthModal() : ''}
-      `;
-    }
-
-    function renderPlatformOAuthModal() {
-      const cl = state.clients.find(c => c.id === state.platModalClientId);
-      const plat = state.platModalPlatform;
-      if (!cl || !plat) return '';
-      const lim = PLATFORM_LIMITS[plat];
-      const conn = cl.connections[plat] || {};
-      const isYoutube = plat === 'YOUTUBE';
-      const isInstagram = plat === 'INSTAGRAM';
-
-      return `
-        <div class="modal-backdrop" onclick="if(event.target===this && !state.platModalBusy){state.platModalOpen=false;render();}">
-          <div class="modal-panel" style="max-width:560px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
-              <div>
-                <div class="eyebrow">VINCULACIÓN OAUTH 2.0 REAL (${lim.code})</div>
-                <h3 style="font-size:19px;font-weight:700;">Conectar ${lim.name} · ${esc(cl.companyName)}</h3>
-              </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" ${state.platModalBusy ? 'disabled' : ''} onclick="state.platModalOpen=false;render();">✕</button>
-            </div>
-
-            ${conn.connected ? `
-              <div style="border:1px solid var(--tally-live);background:var(--signal-subtle-bg);padding:12px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <div>
-                  <div style="font-weight:700;font-size:13px;color:var(--tally-live);">✓ Cuenta actualmente vinculada: ${esc(conn.handle)}</div>
-                  <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Podés reconectar con otra cuenta o revocar el permiso OAuth.</div>
-                </div>
-                <button class="btn btn-fault" style="padding:6px 10px;" ${state.platModalBusy ? 'disabled' : ''} onclick="revokePlatformOAuthNow()">
-                  Desconectar cuenta
-                </button>
-              </div>
-            ` : ''}
-
-            ${(isYoutube || isInstagram) ? `
-              <div style="border:1px solid var(--border-strong);background:var(--canvas);padding:14px;border-radius:5px;display:flex;flex-direction:column;gap:10px;">
-                <div style="font-weight:700;font-size:13.5px;">Opción 1 (Recomendada): Autorizar directamente con ${isYoutube ? 'Google / YouTube' : 'Meta / Instagram'}</div>
-                <p style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">
-                  ${isYoutube
-                    ? 'Iniciá sesión en Google y autorizá el permiso oficial youtube.upload para que ContentSync suba los videos directamente como YouTube Shorts a tu canal.'
-                    : 'Iniciá sesión con tu cuenta de Meta vinculada a tu cuenta de Instagram Profesional / Creator para obtener el token OAuth real.'}
-                </p>
-                <button class="btn btn-signal" style="width:100%;height:42px;" ${state.platModalBusy ? 'disabled' : ''} onclick="startRealPlatformOAuthRedirect()">
-                  ${state.platModalBusy ? 'Redirigiendo a OAuth oficial…' : (isYoutube ? '▶ Autorizar canal de YouTube con Google OAuth →' : '◉ Autorizar cuenta con Meta / Facebook OAuth →')}
-                </button>
-              </div>
-            ` : ''}
-
-            <div style="border:1px solid var(--hairline);background:var(--canvas);padding:14px;border-radius:5px;display:flex;flex-direction:column;gap:10px;">
-              <div style="font-weight:700;font-size:13.5px;">
-                ${(isYoutube || isInstagram) ? 'Opción 2: Vincular con Token de API OAuth 2.0 manual' : 'Vincular con credenciales OAuth 2.0 de TikTok Content Posting API'}
-              </div>
-              <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">
-                Si tenés un Access Token generado desde ${isYoutube ? 'Google OAuth Playground' : isInstagram ? 'Meta Graph API Explorer (con instagram_content_publish)' : 'TikTok Developer Portal (video.publish)'}, ingresalo acá. Se guarda cifrado con AES-256-GCM en MySQL.
-              </p>
-
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                <div class="field">
-                  <label>Usuario / Handle de la cuenta</label>
-                  <input class="input" placeholder="@mimarca" value="${esc(state.platModalHandle)}"
-                    oninput="state.platModalHandle=this.value" />
-                </div>
-                <div class="field">
-                  <label>${isYoutube ? 'ID del Canal (Channel ID)' : isInstagram ? 'Instagram Business User ID' : 'TikTok Open ID / Usuario'}</label>
-                  <input class="input mono" placeholder="${isYoutube ? 'UCxxxxxxxxxxxx' : isInstagram ? '17841400000000000' : 'open_id_xxxx'}"
-                    value="${esc(state.platModalExternalId)}" oninput="state.platModalExternalId=this.value" />
-                </div>
-              </div>
-
-              <div class="field">
-                <label>Access Token OAuth 2.0 (${lim.name})</label>
-                <input class="input mono" type="password" placeholder="Pegá aquí el Access Token real (ya29... / EAA... / act...)"
-                  value="${esc(state.platModalAccessToken)}" oninput="state.platModalAccessToken=this.value" />
-              </div>
-
-              <div class="field">
-                <label>Refresh Token (opcional, para renovación automática)</label>
-                <input class="input mono" type="password" placeholder="1//0g..."
-                  value="${esc(state.platModalRefreshToken)}" oninput="state.platModalRefreshToken=this.value" />
-              </div>
-
-              <button class="btn btn-outline" style="width:100%;height:40px;" ${state.platModalBusy ? 'disabled' : ''} onclick="saveManualPlatformConnection()">
-                ${state.platModalBusy ? 'Guardando…' : 'Guardar credenciales OAuth cifradas'}
-              </button>
-            </div>
-
-            ${state.platModalError ? `
-              <div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">
-                ${esc(state.platModalError)}
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      `;
+              `;
     }
 
     // =========================================================================
     // PANTALLA 4: HISTORIAL Y NOTIFICACIONES INTERACTIVAS
     // =========================================================================
     function renderHistoryScreen() {
-      const q = state.histQuery.trim().toLowerCase();
-      const vids = state.videos.filter(v => {
-        const plats = (v.platformTargets || []).map(pt => pt.platform);
-        const matchQ = !q || v.title.toLowerCase().includes(q) || (v.client?.companyName || '').toLowerCase().includes(q);
-        const matchP = !state.histPlatform || plats.includes(state.histPlatform);
-        return matchQ && matchP;
-      });
-
       return `
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
             <div class="eyebrow">CENTRO DE ACTIVIDAD</div>
-            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Notificaciones e historial</h2>
+            <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Avisos</h2>
           </div>
 
-          <!-- Centro de Notificaciones (Incluye confirmación interactiva "Sí, soy yo") -->
           <div style="display:flex;flex-direction:column;gap:8px;">
-            <div class="eyebrow">AVISOS Y NOTIFICACIONES</div>
             ${state.notifications.length === 0 ? `
               <div style="border:1px solid var(--hairline);background:var(--stage);padding:16px;border-radius:4px;color:var(--text-muted);font-size:13px;">
-                No tenés notificaciones nuevas.
+                No tenés avisos.
               </div>
             ` : state.notifications.map(n => {
               const isConfirmReq = n.type === 'CLIENT_CONFIRMATION_REQUEST' && !n.isRead && state.pendingConfirmation;
+              const hasTarget = n.referenceId && findNotificationTarget(n);
               return `
-                <div style="border:1px solid ${n.isRead ? 'var(--hairline)' : 'var(--signal-subtle-fg)'};background:${n.isRead ? 'var(--stage)' : 'var(--inspector)'};padding:13px 15px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-                  <div style="max-width:680px;">
-                    <div style="font-weight:600;font-size:14px;">${esc(n.title)}</div>
-                    <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;">${esc(n.body)}</div>
+                <div style="border:1px solid ${n.isRead ? 'var(--hairline)' : 'var(--signal-subtle-fg)'};background:${n.isRead ? 'var(--stage)' : 'var(--signal-subtle-bg)'};padding:14px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <div style="max-width:680px;min-width:0;">
+                    <div style="font-weight:600;font-size:14px;overflow-wrap:anywhere;">${esc(n.title)}</div>
+                    <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;overflow-wrap:anywhere;">${esc(n.body)}</div>
                     <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtDateTimeHuman(n.createdAt)}</div>
                   </div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${isConfirmReq ? `
-                      <button class="btn btn-signal" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'ACCEPT')">
-                        ✓ Sí, soy yo
-                      </button>
-                      <button class="btn btn-fault" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'REJECT')">
-                        ✕ No soy yo
-                      </button>
-                    ` : (!n.isRead ? `
-                      <button class="btn btn-outline" style="padding:5px 10px;" onclick="markNotificationRead('${n.id}')">Marcar leída</button>
-                    ` : '')}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-
-          <div style="border-top:1px solid var(--hairline);padding-top:14px;display:flex;flex-direction:column;gap:12px;">
-            <div class="eyebrow">VIDEOS CARGADOS Y PUBLICACIONES</div>
-            <input class="input" placeholder="Buscar por título o marca..." value="${esc(state.histQuery)}" oninput="state.histQuery=this.value;render();" />
-
-            <div class="filter-row">
-              <button class="filter-tab ${!state.histPlatform ? 'active' : ''}" onclick="state.histPlatform=null;render();">Todas las redes</button>
-              ${['INSTAGRAM','TIKTOK','YOUTUBE'].map(p => `
-                <button class="filter-tab ${state.histPlatform === p ? 'active' : ''}" onclick="state.histPlatform='${p}';render();">
-                  ${PLATFORM_LIMITS[p].code} · ${PLATFORM_LIMITS[p].name}
-                </button>
-              `).join('')}
-            </div>
-
-            ${vids.length === 0 ? `
-              <div style="border:1px solid var(--hairline);background:var(--stage);padding:18px;border-radius:4px;color:var(--text-secondary);">
-                Sin videos registrados para este filtro.
-              </div>
-            ` : vids.map(v => {
-              const wf = workflowMeta(v.workflowStatus);
-              const plats = (v.platformTargets || []).map(pt => pt.platform);
-              return `
-                <div style="border:1px solid var(--hairline);background:var(--stage);padding:14px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-                  <div>
-                    <div class="mono" style="font-size:11px;color:var(--text-muted);">${esc(v.client?.companyName || '')} · ${fmtDateTimeHuman(v.createdAt)}</div>
-                    <div style="font-weight:600;margin-top:2px;">${esc(v.title)}</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <span class="badge ${wf.cls}">${wf.label}</span>
-                    ${renderTriConduit(plats, v.workflowStatus, v.publications)}
+                      <button class="btn btn-signal" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'ACCEPT')">✓ Sí, soy yo</button>
+                      <button class="btn btn-fault" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'REJECT')">✕ No soy yo</button>
+                    ` : `
+                      ${hasTarget ? `<button class="btn btn-outline" style="padding:5px 10px;" onclick="openNotificationTarget('${n.id}')">Ver</button>` : ''}
+                      ${!n.isRead ? `<button class="btn btn-outline" style="padding:5px 10px;" onclick="markNotificationRead('${n.id}')">Marcar leído</button>` : ''}
+                    `}
                   </div>
                 </div>
               `;
@@ -4458,6 +3432,31 @@
           </div>
         </div>
       `;
+    }
+
+    /** El aviso apunta a un bloque o a una semana: se busca en lo que este usuario puede ver. */
+    function findNotificationTarget(n) {
+      for (const sched of state.schedules) {
+        if (sched.id === n.referenceId) return { sched, block: null };
+        const block = (sched.items || []).find(item => item.id === n.referenceId);
+        if (block) return { sched, block };
+      }
+      return null;
+    }
+
+    async function openNotificationTarget(id) {
+      const n = state.notifications.find(x => x.id === id);
+      const target = n && findNotificationTarget(n);
+      if (!target) return;
+      state.selectedClientId = target.sched.clientId;
+      state.selectedScheduleId = target.sched.id;
+      state.inspectBlockId = target.block ? target.block.id : null;
+      state.activeTab = 'schedules';
+      if (!n.isRead) {
+        n.isRead = true;
+        apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
+      }
+      render();
     }
 
     function timeZoneOptions() {
@@ -4491,11 +3490,8 @@
         ...APP_CONFIG,
         appName: data.settings.appName,
         registrationEnabled: data.settings.registrationEnabled,
-        requireClientApproval: data.settings.requireClientApproval,
-        defaultTimezone: data.settings.defaultTimezone,
-        platformLimits: data.settings.platformLimits
+        defaultTimezone: data.settings.defaultTimezone
       };
-      applyPlatformLimits(data.settings.platformLimits);
     }
 
     function settingNumber(id) {
@@ -4503,27 +3499,16 @@
     }
 
     async function savePlatformSettings() {
-      const platformLimits = {};
-      ['INSTAGRAM', 'TIKTOK', 'YOUTUBE'].forEach((platform) => {
-        platformLimits[platform] = {
-          maxDurationSeconds: settingNumber('set-sec-' + platform),
-          maxSizeMb: settingNumber('set-mb-' + platform)
-        };
-      });
       const r = await apiFetch('/settings', {
         method: 'PATCH',
         body: JSON.stringify({
           appName: (document.getElementById('set-name')?.value || '').trim(),
           registrationEnabled: Boolean(document.getElementById('set-reg')?.checked),
-          requireClientApproval: Boolean(document.getElementById('set-approval')?.checked),
           defaultTimezone: (document.getElementById('set-tz')?.value || '').trim(),
           otpTtlMinutes: settingNumber('set-otp-ttl'),
           otpMaxAttempts: settingNumber('set-otp-max'),
           otpResendCooldownSeconds: settingNumber('set-otp-wait'),
-          clientInviteTtlHours: settingNumber('set-invite'),
-          publishMaxAttempts: settingNumber('set-pub-max'),
-          publishRetryDelaySeconds: settingNumber('set-pub-wait'),
-          platformLimits
+          clientInviteTtlHours: settingNumber('set-invite')
         })
       });
       if (!r.ok) { setBanner(friendlyError(r.data, r.status), true); return; }
@@ -4575,7 +3560,6 @@
             <div class="field"><label>Nombre de la aplicación</label><input id="set-name" class="input" maxlength="60" value="${esc(c.appName)}" /></div>
             <div class="field"><label>Zona horaria predeterminada</label><input id="set-tz" class="input" list="tz-options" maxlength="80" value="${esc(c.defaultTimezone)}" /></div>
           </div>
-          ${toggle('set-approval', 'Exigir aprobación del cliente antes de publicar', c.requireClientApproval)}
           ${toggle('set-reg', 'Permitir el registro de nuevas agencias', c.registrationEnabled)}
           <div class="eyebrow">SEGURIDAD</div>
           <div style="${grid}">
@@ -4584,17 +3568,6 @@
             ${numberField('set-otp-wait', 'Espera para reenviar (segundos)', c.otpResendCooldownSeconds, 0, 3600)}
             ${numberField('set-invite', 'Vigencia de invitaciones (horas)', c.clientInviteTtlHours, 1, 2160)}
           </div>
-          <div class="eyebrow">PUBLICACIÓN</div>
-          <div style="${grid}">
-            ${numberField('set-pub-max', 'Intentos automáticos', c.publishMaxAttempts, 1, 10)}
-            ${numberField('set-pub-wait', 'Espera entre intentos (segundos)', c.publishRetryDelaySeconds, 0, 300)}
-          </div>
-          <div class="eyebrow">LÍMITES POR RED</div>
-          ${['INSTAGRAM', 'TIKTOK', 'YOUTUBE'].map(platform => `
-            <div style="${grid}">
-              ${numberField('set-sec-' + platform, PLATFORM_LIMITS[platform].name + ': duración máx. (s)', c.platformLimits[platform].maxDurationSeconds, 1, 86400)}
-              ${numberField('set-mb-' + platform, PLATFORM_LIMITS[platform].name + ': tamaño máx. (MB)', c.platformLimits[platform].maxSizeMb, 1, 102400)}
-            </div>`).join('')}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-signal" onclick="savePlatformSettings()">Guardar ajustes</button>
             ${state.confirmResetSettings
@@ -4608,8 +3581,7 @@
             <div style="font-size:12px;display:flex;justify-content:space-between;gap:12px;"><span style="color:var(--text-muted);">REMITENTE</span><span>${esc(i.mail.senderAddress || 'sin definir')}</span></div>
             ${status('CORREO · N8N', i.mail.n8n)}${status('CORREO · RELAY HTTPS', i.mail.httpsRelay)}${status('CORREO · SMTP', i.mail.smtp)}
             ${status('ACCESO · GOOGLE', i.login.google)}${status('ACCESO · FACEBOOK', i.login.facebook)}${status('ACCESO · GITHUB', i.login.github)}
-            ${status('PUBLICAR · YOUTUBE', i.publishing.youtube)}${status('PUBLICAR · INSTAGRAM', i.publishing.instagram)}${status('PUBLICAR · TIKTOK', i.publishing.tiktok)}
-            ${i.mockPlatforms ? '<div style="font-size:12px;color:var(--tally-fault);">MODO SIMULADO ACTIVO: las cuentas de prueba no publican de verdad.</div>' : ''}
+            ${status('ARCHIVOS · ALMACENAMIENTO EXTERNO', i.storage === 'S3')}
           </div>
         </div>
       `;
@@ -4645,7 +3617,7 @@
       state.inviteBusy = false;
       state.inviteToken = null;
       if (!r.ok) {
-        setBanner('Ese enlace de confirmación ya fue utilizado o expiró.', true);
+        setBanner('Este enlace ya no es válido: puede que ya lo hayas usado o que haya vencido. Si todavía no confirmaste, pedile a tu agencia que te reenvíe el correo.', true);
         return;
       }
       setBanner(
@@ -4681,7 +3653,7 @@
               <input id="pf-name" class="input" value="${esc(s.fullName)}" maxlength="150" />
             </div>
             <div class="field">
-              <label>Zona horaria (define a qué hora se publica lo programado en el Plan)</label>
+              <label>Zona horaria</label>
               <input id="pf-tz" class="input" list="tz-options" value="${esc(s.timezone || '')}" maxlength="80" />
               <datalist id="tz-options">${timeZoneOptions()}</datalist>
             </div>
@@ -4733,9 +3705,9 @@
       const clients = isAgency ? state.clients.length : 0;
       const consequence = isAgency
         ? (clients === 1
-            ? 'Se eliminan tu agencia, tu cliente con su acceso, sus videos y sus redes conectadas.'
-            : `Se eliminan tu agencia, tus ${clients} clientes con sus accesos, sus videos y sus redes conectadas.`)
-        : 'Se eliminan tu acceso, tus videos y tus redes conectadas.';
+            ? 'Se eliminan tu agencia, tu cliente con su acceso, sus cronogramas, fotos y videos.'
+            : `Se eliminan tu agencia, tus ${clients} clientes con sus accesos, sus cronogramas, fotos y videos.`)
+        : 'Se eliminan tu acceso, tus cronogramas, fotos y videos.';
       return `
         <div class="modal-backdrop" onclick="if(event.target===this){closeDeleteAccount();}">
           <div class="modal-panel" style="max-width:480px;">
@@ -4743,7 +3715,7 @@
               <div class="eyebrow">ELIMINAR CUENTA</div>
               <h3 style="font-size:18px;font-weight:700;">¿Eliminar tu cuenta definitivamente?</h3>
             </div>
-            <div style="font-size:13px;">${esc(consequence)} Lo que ya esté publicado en las redes sociales no se borra.</div>
+            <div style="font-size:13px;">${esc(consequence)}</div>
             ${d.hasPassword ? `
               <div class="field">
                 <label>Tu contraseña</label>
@@ -4817,7 +3789,6 @@
 
       let activeView = '';
       if (state.activeTab === 'schedules') activeView = renderSchedulesScreen();
-      else if (state.activeTab === 'upload') activeView = renderUploadScreen();
       else if (state.activeTab === 'ideas') activeView = renderIdeasScreen();
       else if (state.activeTab === 'accounts') activeView = renderAccountsScreen();
       else if (state.activeTab === 'history') activeView = renderHistoryScreen();
@@ -4862,7 +3833,7 @@
         document.documentElement.setAttribute('data-theme', theme);
       }
 
-      // Al volver del navegador tras autorizar una red, la app Android avisa para traer el estado nuevo.
+      // Al volver a la app de Android se trae lo último: el cliente o la agencia pudo haber respondido.
       window.__onAppResume = () => {
         if (state.session && !isEditingField()) hydrateFromApi();
       };
@@ -4897,26 +3868,6 @@
       if (socialError) {
         window.history.replaceState({}, '', window.location.pathname);
         authUi.error = socialError;
-      }
-
-      const platConnected = q.get('platform_connected');
-      const platHandle = q.get('handle') || '';
-      const platError = q.get('platform_error');
-      if (platConnected) {
-        state.activeTab = 'accounts';
-        const backToApp = hasSessionHint() ? '' : ' Ya podés volver a la app.';
-        state.banner = {
-          msg: `✓ Cuenta oficial ${platHandle} vinculada con éxito en ${PLATFORM_LIMITS[platConnected]?.name || platConnected}.${backToApp}`,
-          isErr: false
-        };
-        window.history.replaceState({}, '', window.location.pathname);
-      } else if (platError) {
-        state.activeTab = 'accounts';
-        state.banner = {
-          msg: platError,
-          isErr: true
-        };
-        window.history.replaceState({}, '', window.location.pathname);
       }
 
       if (hasSessionHint() && !state.inviteToken && (await refreshSession())) {

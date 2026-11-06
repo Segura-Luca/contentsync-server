@@ -205,18 +205,15 @@ class MainActivity : ComponentActivity() {
                                     filePathCallback?.onReceiveValue(null)
                                     filePathCallback = filePathCallbackParam
 
-                                    val acceptTypes = fileChooserParams?.acceptTypes
-                                        ?.filter { it.isNotBlank() }
-                                        ?: emptyList()
-                                    val mime = if (acceptTypes.any { it.contains("video") }) "video/*" else "*/*"
-
                                     val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
                                         addCategory(Intent.CATEGORY_OPENABLE)
-                                        type = mime
+                                        type = "*/*"
+                                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
                                     }
                                     return try {
                                         fileChooserLauncher.launch(
-                                            Intent.createChooser(intent, "Elegí el archivo de video")
+                                            Intent.createChooser(intent, "Elegí fotos o videos")
                                         )
                                         true
                                     } catch (_: Exception) {
@@ -336,22 +333,6 @@ class MainActivity : ComponentActivity() {
     }
 
     inner class AndroidWebBridge {
-        /** Abre la autorización de una red en el navegador. Solo la acepta desde nuestra propia web. */
-        @JavascriptInterface
-        fun openExternal(url: String) {
-            val target = Uri.parse(url)
-            if (target.scheme?.lowercase() != "https") return
-            runOnUiThread {
-                val currentHost = webViewRef?.url?.let { Uri.parse(it).host?.lowercase() }
-                if (currentHost != Uri.parse(BuildConfig.WEB_APP_URL).host?.lowercase()) return@runOnUiThread
-                try {
-                    startActivity(Intent(Intent.ACTION_VIEW, target))
-                } catch (_: Exception) {
-                    webViewRef?.loadUrl(url)
-                }
-            }
-        }
-
         @JavascriptInterface
         fun signInWithGoogle() {
             lifecycleScope.launch(Dispatchers.Main) {

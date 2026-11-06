@@ -1,200 +1,323 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   ApprovalDecision,
-  PublicationStatus,
+  BlockReviewStatus,
+  ContentType,
+  MediaKind,
+  NotificationType,
   RoleCode,
-  SocialPlatform,
-  VideoWorkflowStatus,
+  ScheduleStatus,
 } from '@prisma/client';
-import { cloneDefaultSettings } from '../settings/settings.defaults';
 import { SchedulesService } from './schedules.service';
 
-describe('SchedulesService (plan semanal y visado del cliente)', () => {
-  const mockPrisma: any = {
-    approval: { create: jest.fn() },
-    video: { update: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
-    videoComment: { create: jest.fn() },
-    schedule: { findUnique: jest.fn() },
-    scheduleItem: { count: jest.fn().mockResolvedValue(0), create: jest.fn() },
-    publication: { deleteMany: jest.fn(), findMany: jest.fn(), upsert: jest.fn() },
-    $transaction: jest.fn(async (ops: any[]) => Promise.all(ops)),
+describe('SchedulesService (cronogramas, revisión y confirmación)', () => {
+  const tx: any = {
+    scheduleItemMedia: { deleteMany: jest.fn(), createMany: jest.fn() },
+    schedule: { update: jest.fn() },
+    scheduleItem: { update: jest.fn(async ({ data }: any) => ({ id: 'b1', blockTitle: 'Título', media: [], ...data })) },
   };
-  const mockClients: any = { assertClientAccess: jest.fn() };
-  const mockVideos: any = { findOneWithAccess: jest.fn(), validateVideoSpecsForPlatforms: jest.fn() };
+  const mockPrisma: any = {
+    schedule: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
+    scheduleItem: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn(),
+      findUnique: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      delete: jest.fn(),
+    },
+    blockReview: { create: jest.fn(), createMany: jest.fn() },
+    blockComment: { create: jest.fn() },
+    $transaction: jest.fn(async (ops: any) => (typeof ops === 'function' ? ops(tx) : Promise.all(ops))),
+  };
+  const mockClients: any = { assertClientAccess: jest.fn().mockResolvedValue({ userId: 'client-user' }) };
   const mockNotifications: any = { notifyUser: jest.fn() };
   const mockAudit: any = { log: jest.fn() };
-  const mockStorage: any = { getPublicUrl: (key: string) => key, isValidStorageKey: () => true, probeDurationSeconds: async () => null };
-  let currentSettings = cloneDefaultSettings();
-  const settings: any = { current: () => currentSettings };
+  const mockStorage: any = {
+    getMediaUrl: jest.fn(async (key: string) => `https://firmado.test/${key}`),
+    isValidStorageKey: jest.fn((key: string, clientId: string) => key.startsWith(`clients/${clientId}/`)),
+    deleteIfUnused: jest.fn(),
+  };
 
-  const clientUser = { sub: 'client-user-1', email: 'c@k.com', role: RoleCode.CLIENTE, clientId: 'c-1' };
-  const agencyUser = {
-    sub: 'agency-user-1',
-    email: 'a@n.com',
-    role: RoleCode.AGENCIA,
-    agencyId: 'a-1',
-    timezone: 'America/Argentina/Buenos_Aires',
+  const clientUser = { sub: 'client-user', role: RoleCode.CLIENTE, clientId: 'c1' } as any;
+  const agencyUser = { sub: 'agency-user', role: RoleCode.AGENCIA, agencyId: 'a1' } as any;
+  const schedule = {
+    id: 's1',
+    clientId: 'c1',
+    title: 'Semana',
+    status: ScheduleStatus.IN_REVIEW,
+    client: { userId: 'client-user', companyName: 'Marca', agency: { ownerUserId: 'agency-user' } },
   };
-  const inlineVideo = {
-    storageKey: '/uploads/videos/a.mp4',
-    title: 'Reel',
-    description: 'Desc',
-    hashtags: [],
-    platforms: [SocialPlatform.INSTAGRAM],
-  };
+  const block = (overrides: any = {}) => ({
+    id: 'b1',
+    dayOfWeek: 1,
+    contentType: ContentType.REEL,
+    blockTitle: 'Título',
+    noteColor: 'AMBER',
+    notes: null,
+    caption: null,
+    plannedTime: '18:00',
+    reviewStatus: BlockReviewStatus.IN_REVIEW,
+    media: [],
+    schedule,
+    ...overrides,
+  });
 
   let service: SchedulesService;
 
-  const nextMonday = () => {
-    const date = new Date(Date.now() + 7 * 86400000);
-    date.setUTCDate(date.getUTCDate() + ((8 - date.getUTCDay()) % 7));
-    date.setUTCHours(0, 0, 0, 0);
-    return date;
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-    currentSettings = cloneDefaultSettings();
-    mockPrisma.schedule.findUnique.mockResolvedValue({
-      id: 's-1',
-      clientId: 'c-1',
-      title: 'Semana',
-      weekStartDate: nextMonday(),
-      client: { userId: 'client-user-1' },
+    service = new SchedulesService(mockPrisma, mockClients, mockNotifications, mockAudit, mockStorage);
+  });
+
+  describe('crear bloques', () => {
+    const dto = { dayOfWeek: 1, contentType: ContentType.CAROUSEL, blockTitle: ' Carrusel ' };
+
+    beforeEach(() => {
+      mockPrisma.schedule.findUnique.mockResolvedValue(schedule);
+      mockPrisma.scheduleItem.create.mockImplementation(async ({ data }: any) => ({
+        id: 'b1',
+        blockTitle: data.blockTitle,
+        media: data.media.create.map((row: any) => ({ ...row })),
+      }));
     });
-    mockPrisma.scheduleItem.create.mockResolvedValue({ id: 'b-1', video: null });
-    mockPrisma.video.create.mockResolvedValue({ id: 'v-new' });
-    mockPrisma.publication.findMany.mockResolvedValue([]);
-    service = new SchedulesService(
-      mockPrisma,
-      mockClients,
-      mockVideos,
-      mockNotifications,
-      mockAudit,
-      mockStorage,
-      settings,
-    );
-  });
 
-  it('exige una nota al pedir cambios o rechazar', async () => {
-    mockVideos.findOneWithAccess.mockResolvedValueOnce({
-      id: 'v-1',
-      title: 'Video',
-      workflowStatus: VideoWorkflowStatus.IN_REVIEW,
-      uploadedByUserId: 'agency-user-1',
-    });
-    await expect(
-      service.reviewVideo('v-1', { decision: ApprovalDecision.CHANGES_REQUESTED, feedbackNotes: '' }, clientUser),
-    ).rejects.toThrow(BadRequestException);
-  });
-
-  it('pasa a APROBADO y avisa a quien subió el video', async () => {
-    mockVideos.findOneWithAccess.mockResolvedValueOnce({
-      id: 'v-1',
-      title: 'Receta',
-      workflowStatus: VideoWorkflowStatus.IN_REVIEW,
-      uploadedByUserId: 'agency-user-1',
-    });
-    mockPrisma.approval.create.mockResolvedValueOnce({ id: 'app-1' });
-    mockPrisma.video.update.mockResolvedValueOnce({ id: 'v-1', workflowStatus: VideoWorkflowStatus.APPROVED });
-
-    const result = await service.reviewVideo(
-      'v-1',
-      { decision: ApprovalDecision.APPROVED, feedbackNotes: 'OK' },
-      clientUser,
-    );
-
-    expect(result.workflowStatus).toBe(VideoWorkflowStatus.APPROVED);
-    expect(mockNotifications.notifyUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'agency-user-1' }));
-  });
-
-  it('impide que una agencia apruebe sus propios videos', async () => {
-    await expect(
-      service.reviewVideo('v-1', { decision: ApprovalDecision.APPROVED }, agencyUser),
-    ).rejects.toThrow(ForbiddenException);
-    expect(mockPrisma.video.update).not.toHaveBeenCalled();
-  });
-
-  it('un bloque con publicación automática espera la aprobación del cliente', async () => {
-    await service.createBlock(
-      's-1',
-      { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '18:00', autoPublish: true, inlineVideo },
-      agencyUser,
-    );
-    expect(mockPrisma.video.create.mock.calls[0][0].data.workflowStatus).toBe(VideoWorkflowStatus.IN_REVIEW);
-    expect(mockPrisma.publication.upsert).toHaveBeenCalledTimes(1);
-  });
-
-  it('sin exigencia de aprobación, el bloque queda programado', async () => {
-    currentSettings.requireClientApproval = false;
-    await service.createBlock(
-      's-1',
-      { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '18:00', autoPublish: true, inlineVideo },
-      agencyUser,
-    );
-    expect(mockPrisma.video.create.mock.calls[0][0].data.workflowStatus).toBe(VideoWorkflowStatus.SCHEDULED);
-  });
-
-  it('programa a la hora de la zona horaria del usuario, sin importar la del servidor', async () => {
-    const monday = nextMonday();
-    await service.createBlock(
-      's-1',
-      { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '18:00', autoPublish: true, inlineVideo },
-      agencyUser,
-    );
-    const scheduledFor: Date = mockPrisma.publication.upsert.mock.calls[0][0].create.scheduledFor;
-    // 18:00 en Buenos Aires (UTC-3) son las 21:00 UTC.
-    expect(scheduledFor.toISOString()).toBe(
-      new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate(), 21, 0)).toISOString(),
-    );
-  });
-
-  it('interpreta la medianoche como 00:00, no como las 18:00', async () => {
-    const monday = nextMonday();
-    await service.createBlock(
-      's-1',
-      { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '00:30', autoPublish: true, inlineVideo },
-      agencyUser,
-    );
-    const scheduledFor: Date = mockPrisma.publication.upsert.mock.calls[0][0].create.scheduledFor;
-    expect(scheduledFor.toISOString()).toBe(
-      new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate(), 3, 30)).toISOString(),
-    );
-  });
-
-  it('no vuelve a programar en una red donde el video ya está publicado', async () => {
-    mockPrisma.publication.findMany.mockResolvedValue([
-      { platform: SocialPlatform.INSTAGRAM, status: PublicationStatus.PUBLISHED },
-    ]);
-    await service.createBlock(
-      's-1',
-      { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '18:00', autoPublish: true, inlineVideo },
-      agencyUser,
-    );
-    expect(mockPrisma.publication.upsert).not.toHaveBeenCalled();
-  });
-
-  it('rechaza programar un bloque en el pasado', async () => {
-    mockPrisma.schedule.findUnique.mockResolvedValue({
-      id: 's-1',
-      clientId: 'c-1',
-      title: 'Semana',
-      weekStartDate: new Date('2020-01-06T00:00:00Z'),
-      client: { userId: 'client-user-1' },
-    });
-    await expect(
-      service.createBlock(
-        's-1',
-        { dayOfWeek: 1, blockTitle: 'Bloque', plannedTime: '18:00', autoPublish: true, inlineVideo },
+    it('guarda cada foto o video con su descripción y orden, y devuelve el enlace para verlo', async () => {
+      const created: any = await service.createBlock(
+        's1',
+        {
+          ...dto,
+          media: [
+            { storageKey: 'clients/c1/a.jpg', description: ' Portada ' },
+            { storageKey: 'clients/c1/b.mp4', description: 'Segundo' },
+          ],
+        },
         agencyUser,
-      ),
-    ).rejects.toThrow('ya pasaron');
+      );
+
+      expect(mockPrisma.scheduleItem.create.mock.calls[0][0].data).toMatchObject({
+        contentType: ContentType.CAROUSEL,
+        blockTitle: 'Carrusel',
+        media: {
+          create: [
+            { kind: MediaKind.IMAGE, mimeType: 'image/jpeg', description: 'Portada', position: 0 },
+            { kind: MediaKind.VIDEO, mimeType: 'video/mp4', description: 'Segundo', position: 1 },
+          ],
+        },
+      });
+      expect(created.media[0].url).toBe('https://firmado.test/clients/c1/a.jpg');
+    });
+
+    it('rechaza un archivo de otro cliente', async () => {
+      await expect(
+        service.createBlock('s1', { ...dto, media: [{ storageKey: 'clients/otro/a.jpg' }] }, agencyUser),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.scheduleItem.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un formato que no se puede mostrar', async () => {
+      await expect(
+        service.createBlock('s1', { ...dto, media: [{ storageKey: 'clients/c1/a.exe' }] }, agencyUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('un bloque nuevo sobre una semana confirmada vuelve a pedir confirmación', async () => {
+      mockPrisma.schedule.findUnique.mockResolvedValue({ ...schedule, status: ScheduleStatus.APPROVED });
+      await service.createBlock('s1', dto, agencyUser);
+      expect(mockPrisma.schedule.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { status: ScheduleStatus.IN_REVIEW, confirmedAt: null, confirmedByUserId: null },
+      });
+    });
+
+    it('el cliente no puede agregar bloques', async () => {
+      await expect(service.createBlock('s1', dto, clientUser)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('editar bloques', () => {
+    it('si cambia el contenido, vuelve a revisión y avisa al cliente', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.APPROVED }));
+
+      await service.updateBlock('b1', { notes: 'Otro texto' }, agencyUser);
+
+      expect(tx.scheduleItem.update.mock.calls[0][0].data.reviewStatus).toBe(BlockReviewStatus.IN_REVIEW);
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'client-user', type: NotificationType.BLOCK_IN_REVIEW }),
+      );
+    });
+
+    it('cambiar solo el color no pide otra revisión', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block({ reviewStatus: BlockReviewStatus.APPROVED }));
+
+      await service.updateBlock('b1', { noteColor: 'rose' }, agencyUser);
+
+      expect(tx.scheduleItem.update.mock.calls[0][0].data.reviewStatus).toBeUndefined();
+      expect(tx.scheduleItem.update.mock.calls[0][0].data.noteColor).toBe('ROSE');
+      expect(mockNotifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('cambiar algo de una semana confirmada la vuelve a abrir', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(
+        block({ schedule: { ...schedule, status: ScheduleStatus.APPROVED } }),
+      );
+
+      await service.updateBlock('b1', { plannedTime: '20:00' }, agencyUser);
+
+      expect(tx.schedule.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { status: ScheduleStatus.IN_REVIEW, confirmedAt: null, confirmedByUserId: null },
+      });
+    });
+
+    it('borra solo los archivos que se quitaron del bloque', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(
+        block({
+          media: [
+            { storageKey: 'clients/c1/queda.jpg', description: null },
+            { storageKey: 'clients/c1/sale.jpg', description: null },
+          ],
+        }),
+      );
+
+      await service.updateBlock('b1', { media: [{ storageKey: 'clients/c1/queda.jpg' }] }, agencyUser);
+
+      expect(mockStorage.deleteIfUnused).toHaveBeenCalledWith(['clients/c1/sale.jpg']);
+    });
+
+    it('cambiar la descripción de una foto también vuelve a revisión', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(
+        block({
+          reviewStatus: BlockReviewStatus.APPROVED,
+          media: [{ storageKey: 'clients/c1/a.jpg', description: 'Vieja' }],
+        }),
+      );
+
+      await service.updateBlock('b1', { media: [{ storageKey: 'clients/c1/a.jpg', description: 'Nueva' }] }, agencyUser);
+
+      expect(tx.scheduleItem.update.mock.calls[0][0].data.reviewStatus).toBe(BlockReviewStatus.IN_REVIEW);
+    });
+  });
+
+  describe('revisión del cliente', () => {
+    beforeEach(() => mockPrisma.scheduleItem.findUnique.mockResolvedValue(block()));
+
+    it('exige un comentario al pedir cambios o rechazar', async () => {
+      await expect(
+        service.reviewBlock('b1', { decision: ApprovalDecision.CHANGES_REQUESTED, feedbackNotes: ' ' }, clientUser),
+      ).rejects.toThrow(BadRequestException);
+      await expect(service.reviewBlock('b1', { decision: ApprovalDecision.REJECTED }, clientUser)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('aprobar actualiza el bloque y avisa a la agencia', async () => {
+      const res = await service.reviewBlock('b1', { decision: ApprovalDecision.APPROVED }, clientUser);
+
+      expect(res.reviewStatus).toBe(BlockReviewStatus.APPROVED);
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'agency-user', type: NotificationType.BLOCK_APPROVED }),
+      );
+    });
+
+    it('el pedido de cambios queda también como comentario', async () => {
+      await service.reviewBlock('b1', { decision: ApprovalDecision.CHANGES_REQUESTED, feedbackNotes: 'Otra portada' }, clientUser);
+
+      expect(mockPrisma.blockComment.create).toHaveBeenCalledWith({
+        data: { scheduleItemId: 'b1', authorUserId: 'client-user', message: 'Otra portada' },
+      });
+    });
+
+    it('pedir cambios sobre una semana confirmada la vuelve a abrir', async () => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(
+        block({ schedule: { ...schedule, status: ScheduleStatus.APPROVED } }),
+      );
+
+      await service.reviewBlock('b1', { decision: ApprovalDecision.CHANGES_REQUESTED, feedbackNotes: 'Cambiar' }, clientUser);
+
+      expect(mockPrisma.schedule.update).toHaveBeenCalled();
+    });
+
+    it('la agencia no puede aprobar su propio contenido', async () => {
+      await expect(service.reviewBlock('b1', { decision: ApprovalDecision.APPROVED }, agencyUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('confirmar el cronograma', () => {
+    const withItems = (items: any[], status: ScheduleStatus = ScheduleStatus.IN_REVIEW) => ({ ...schedule, status, items });
+
+    it('aprueba lo que estaba en revisión y avisa a la agencia', async () => {
+      mockPrisma.schedule.findUnique.mockResolvedValue(
+        withItems([
+          { id: 'b1', reviewStatus: BlockReviewStatus.APPROVED },
+          { id: 'b2', reviewStatus: BlockReviewStatus.IN_REVIEW },
+        ]),
+      );
+
+      const res = await service.confirmSchedule('s1', clientUser);
+
+      expect(res.status).toBe(ScheduleStatus.APPROVED);
+      expect(mockPrisma.scheduleItem.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ['b2'] } },
+        data: { reviewStatus: BlockReviewStatus.APPROVED },
+      });
+      expect(mockPrisma.schedule.update.mock.calls[0][0].data).toMatchObject({
+        status: ScheduleStatus.APPROVED,
+        confirmedByUserId: 'client-user',
+      });
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'agency-user', type: NotificationType.SCHEDULE_CONFIRMED }),
+      );
+    });
+
+    it('no se puede confirmar con cambios pendientes', async () => {
+      mockPrisma.schedule.findUnique.mockResolvedValue(
+        withItems([{ id: 'b1', reviewStatus: BlockReviewStatus.CHANGES_REQUESTED }]),
+      );
+      await expect(service.confirmSchedule('s1', clientUser)).rejects.toThrow('cambios pendientes');
+    });
+
+    it('no se puede confirmar un cronograma vacío', async () => {
+      mockPrisma.schedule.findUnique.mockResolvedValue(withItems([]));
+      await expect(service.confirmSchedule('s1', clientUser)).rejects.toThrow('todavía no tiene contenido');
+    });
+
+    it('confirmar dos veces no repite el aviso', async () => {
+      mockPrisma.schedule.findUnique.mockResolvedValue(withItems([], ScheduleStatus.APPROVED));
+      await service.confirmSchedule('s1', clientUser);
+      expect(mockNotifications.notifyUser).not.toHaveBeenCalled();
+    });
+
+    it('la agencia no puede confirmar por el cliente', async () => {
+      await expect(service.confirmSchedule('s1', agencyUser)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('comentarios', () => {
+    beforeEach(() => {
+      mockPrisma.scheduleItem.findUnique.mockResolvedValue(block());
+      mockPrisma.blockComment.create.mockResolvedValue({ id: 'c', authorUser: { fullName: 'Ana' } });
+    });
+
+    it('el comentario del cliente avisa a la agencia', async () => {
+      await service.addComment('b1', { message: 'Hola' }, clientUser);
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'agency-user', type: NotificationType.BLOCK_COMMENT }),
+      );
+    });
+
+    it('el comentario de la agencia avisa al cliente', async () => {
+      await service.addComment('b1', { message: 'Hola' }, agencyUser);
+      expect(mockNotifications.notifyUser).toHaveBeenCalledWith(expect.objectContaining({ userId: 'client-user' }));
+    });
   });
 
   it('exige que la semana comience un lunes', async () => {
     await expect(
       service.createSchedule(
-        { clientId: 'c-1', weekStartDate: '2026-11-03', weekEndDate: '2026-11-07', title: 'Martes' },
+        { clientId: 'c1', weekStartDate: '2026-11-03', weekEndDate: '2026-11-07', title: 'x' },
         agencyUser,
       ),
     ).rejects.toThrow('lunes');

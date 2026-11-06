@@ -3,7 +3,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { isValidTimeZone } from '../../common/utils/timezone';
 import { AppConfigService } from '../../config/app-config.service';
-import { cloneDefaultSettings, PlatformKey, RuntimeSettings } from './settings.defaults';
+import { cloneDefaultSettings, RuntimeSettings } from './settings.defaults';
 import { UpdateSettingsDto } from './settings.dto';
 
 /**
@@ -41,16 +41,7 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     const target = merged as unknown as Record<string, unknown>;
     for (const [key, value] of Object.entries(overrides)) {
       if (!(key in target)) continue;
-      if (key !== 'platformLimits') {
-        target[key] = value;
-        continue;
-      }
-      for (const [platform, limit] of Object.entries(value as object)) {
-        if (platform in merged.platformLimits) {
-          const name = platform as PlatformKey;
-          merged.platformLimits[name] = { ...merged.platformLimits[name], ...(limit as object) };
-        }
-      }
+      target[key] = value;
     }
     return merged;
   }
@@ -78,17 +69,6 @@ export class SettingsService implements OnModuleInit, OnModuleDestroy {
     }
     const values: Record<string, unknown> = { ...dto };
     if (dto.appName !== undefined) values.appName = dto.appName.trim();
-    if (dto.platformLimits) {
-      // Se guarda el resultado completo para que una edición parcial no borre lo ya configurado.
-      const limits = this.merge({ platformLimits: this.snapshot.platformLimits }).platformLimits;
-      for (const [platform, limit] of Object.entries(dto.platformLimits)) {
-        if (limit) {
-          const name = platform as PlatformKey;
-          limits[name] = { ...limits[name], ...limit };
-        }
-      }
-      values.platformLimits = limits;
-    }
     const entries = Object.entries(values).filter(([, value]) => value !== undefined);
     await this.prisma.$transaction(
       entries.map(([key, value]) =>

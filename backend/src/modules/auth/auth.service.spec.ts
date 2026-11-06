@@ -10,7 +10,6 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { RoleCode, SocialProvider } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { CryptoService } from '../../common/crypto/crypto.service';
 import { RolesGuard } from '../../common/guards/auth-rbac.guards';
 import { OAuthStateService } from '../../common/utils/oauth-state.service';
 import { AppConfigService } from '../../config/app-config.service';
@@ -19,7 +18,7 @@ import { AuthService } from './auth.service';
 
 const REFRESH_SECRET = 'test_refresh_secret_0123456789abcdef0123456789abcdef';
 
-describe('AuthService, CryptoService & RolesGuard', () => {
+describe('AuthService & RolesGuard', () => {
   const tx = {
     user: { create: jest.fn().mockResolvedValue({ id: 'user-new' }), update: jest.fn(), findUniqueOrThrow: jest.fn() },
     agency: { create: jest.fn(), update: jest.fn() },
@@ -57,7 +56,6 @@ describe('AuthService, CryptoService & RolesGuard', () => {
 
   let authService: AuthService;
   let jwtService: JwtService;
-  let cryptoService: CryptoService;
   let config: AppConfigService;
 
   /** Reproduce el código tal como lo guarda el servicio, sin exponer el método privado en producción. */
@@ -74,7 +72,6 @@ describe('AuthService, CryptoService & RolesGuard', () => {
       NODE_ENV: 'test',
       JWT_ACCESS_SECRET: 'test_access_secret_0123456789abcdef0123456789abcdef',
       JWT_REFRESH_SECRET: REFRESH_SECRET,
-      OAUTH_ENCRYPTION_KEY: 'ab'.repeat(32),
     });
     config = new AppConfigService(configService);
     authService = new AuthService(
@@ -87,7 +84,6 @@ describe('AuthService, CryptoService & RolesGuard', () => {
       settings,
       new OAuthStateService(config),
     );
-    cryptoService = new CryptoService(configService);
   });
 
   describe('registro', () => {
@@ -292,13 +288,6 @@ describe('AuthService, CryptoService & RolesGuard', () => {
       where: { tokenFamily: 'family-abc' },
       data: { isRevoked: true },
     });
-  });
-
-  it('cifra y descifra tokens con AES-256-GCM', () => {
-    const rawToken = 'ya29.a0AfH6SMBx_youtube_oauth_secret_token';
-    const cipherText = cryptoService.encrypt(rawToken);
-    expect(cipherText).not.toContain(rawToken);
-    expect(cryptoService.decrypt(cipherText)).toBe(rawToken);
   });
 
   it('aplica los roles en RolesGuard', () => {

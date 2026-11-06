@@ -8,7 +8,7 @@ import { AppModule } from './app.module';
 import { AppConfigService } from './config/app-config.service';
 import { SettingsService } from './modules/settings/settings.service';
 
-// Soporte para serializar BigInt (ej. size_bytes de videos) en JSON
+// Soporte para serializar BigInt (ej. size_bytes de los archivos) en JSON
 (BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () {
   return this.toString();
 };
@@ -35,7 +35,8 @@ async function bootstrap() {
 
   // Helmet va antes que los estáticos: de lo contrario index.html se sirve sin CSP ni cabeceras.
   const isHttps = config.publicBaseUrl().startsWith('https://');
-  const storageOrigins = originOf(config.get('S3_PUBLIC_URL'));
+  // Los enlaces firmados de fotos y videos apuntan al servicio de almacenamiento.
+  const storageOrigins = originOf(config.get('S3_ENDPOINT'));
   app.use(
     helmet({
       // Necesario para las ventanas emergentes de Google / Facebook al iniciar sesión.
@@ -94,10 +95,8 @@ async function bootstrap() {
       appName: current.appName,
       senderEmail: config.mailSenderAddress ?? null,
       registrationEnabled: current.registrationEnabled,
-      requireClientApproval: current.requireClientApproval,
       defaultTimezone: current.defaultTimezone,
       uploadMaxMb: Math.round(config.uploadMaxBytes / (1024 * 1024)),
-      platformLimits: current.platformLimits,
     };
     res
       .status(200)
@@ -106,7 +105,7 @@ async function bootstrap() {
       .send(`window.__CS_CONFIG__=${JSON.stringify(payload).replace(/</g, '\\u003c')};`);
   });
 
-  // Los videos se sirven desde UPLOAD_DIR, que puede ser un disco persistente fuera de /public.
+  // Las fotos y los videos se sirven desde UPLOAD_DIR, que puede ser un disco persistente fuera de /public.
   fs.mkdirSync(config.uploadDir, { recursive: true });
   app.useStaticAssets(config.uploadDir, { prefix: '/uploads/videos' });
   app.useStaticAssets(config.publicDir);
@@ -125,7 +124,7 @@ async function bootstrap() {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('ContentSync API')
       .setDescription(
-        'API RESTful para gestión de agencias de marketing, cronogramas semanales, flujo de aprobación de clientes y publicación multiplataforma (Instagram Reels, TikTok, YouTube Shorts).',
+        'API de ContentSync: comunicación entre agencias y clientes, cronogramas, revisiones y confirmaciones.',
       )
       .setVersion('1.0.0')
       .addBearerAuth(

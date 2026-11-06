@@ -2,6 +2,31 @@
 
 Todos los cambios relevantes de este proyecto se documentan en este archivo siguiendo [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y [Semantic Versioning (SemVer)](https://semver.org/lang/es/).
 
+## [2.0.0] - 2026-11-06
+
+ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunicación, revisiones y cronogramas. Ya no publica en redes.
+
+### Added
+- **Tipo de contenido por bloque:** reel, carrusel, historia, publicación, video u otro, con contenido y texto de la publicación.
+- **Varias fotos y videos por bloque,** cada uno con su descripción y en el orden elegido, para que el cliente los vea desde la plataforma.
+- **Confirmación del cronograma:** el cliente confirma la semana y queda registrado quién y cuándo. Si después cambia algo, vuelve a revisión.
+- **Comentarios con aviso a la otra parte,** y botón **Ver** en los avisos para ir directo al bloque.
+
+### Changed
+- **Mensaje de la web y la app:** el producto se presenta como comunicación entre agencias y clientes.
+- **Revisión:** ahora se hace por bloque, no por video.
+- **Archivos privados:** se ven con enlaces firmados que vencen a las 12 horas, así que el bucket puede ser privado.
+- **Avisos** reemplaza a **Historial**.
+- **Android:** el selector admite fotos y videos, y varios a la vez.
+
+### Fixed
+- Reenviar la invitación dejaba inservibles los correos anteriores. Ahora se conserva el enlace mientras siga vigente.
+
+### Removed
+- Conexión con YouTube, Instagram y TikTok, publicación automática, programador, reintentos y límites por red.
+- Pantalla **Subir video**, hashtags y destinos por red.
+- Cifrado de tokens de redes y la variable `OAUTH_ENCRYPTION_KEY`.
+
 ## [1.1.0] - 2026-11-04
 
 Detalle completo en [docs/auditoria.md](docs/auditoria.md).

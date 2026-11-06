@@ -13,12 +13,10 @@ import { AgenciesModule } from './modules/agencies/agencies.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClientsModule } from './modules/clients/clients.module';
 import { IdeasModule } from './modules/ideas/ideas.module';
+import { MediaModule } from './modules/media/media.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { PlatformsModule } from './modules/platforms/platforms.module';
-import { PublicationsModule } from './modules/publications/publications.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { SettingsModule } from './modules/settings/settings.module';
-import { VideosModule } from './modules/videos/videos.module';
 
 @Module({
   imports: [
@@ -46,10 +44,8 @@ import { VideosModule } from './modules/videos/videos.module';
     AgenciesModule,
     ClientsModule,
     IdeasModule,
-    VideosModule,
+    MediaModule,
     SchedulesModule,
-    PlatformsModule,
-    PublicationsModule,
     NotificationsModule,
   ],
   providers: [

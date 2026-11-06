@@ -4,27 +4,24 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { basename, join } from 'path';
-import { readVideoDurationSeconds } from '../../common/utils/video-duration';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { AppConfigService } from '../../config/app-config.service';
-
-export interface PresignedUploadResult {
-  uploadUrl: string;
-  publicUrl: string;
-  storageKey: string;
-  expiresInSeconds: number;
-  resumableHeaders: Record<string, string>;
-}
 
 const LOCAL_KEY_PREFIX = '/uploads/videos/';
 const UPLOAD_ATTEMPTS = 3;
 const UPLOAD_RETRY_DELAY_MS = 1000;
+/** Los archivos solo se ven desde la plataforma: el enlace firmado vence y la app pide otro al cargar. */
+const SIGNED_URL_SECONDS = 12 * 60 * 60;
 
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private s3Client: S3Client | null = null;
 
-  constructor(private readonly config: AppConfigService) {}
+  constructor(
+    private readonly config: AppConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   private get bucket(): string {
     return this.config.get('S3_BUCKET') || 'contentsync-videos';
@@ -52,7 +49,7 @@ export class StorageService {
     return this.s3Client;
   }
 
-  /** Con S3 configurado los videos sobreviven a los reinicios; sin él quedan en el disco del servidor. */
+  /** Con S3 configurado los archivos sobreviven a los reinicios; sin él quedan en el disco del servidor. */
   get usesS3(): boolean {
     return ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'].every((key) => Boolean(this.config.get(key)));
   }
@@ -85,13 +82,13 @@ export class StorageService {
       } catch (error: any) {
         const status = error?.$metadata?.httpStatusCode;
         if (error?.name === 'EntityTooLarge' || status === 413) {
-          throw new PayloadTooLargeException('El video supera el tamaño máximo que admite el almacenamiento.');
+          throw new PayloadTooLargeException('El archivo supera el tamaño máximo que admite el almacenamiento.');
         }
-        this.logger.error(`No se pudo guardar el video en S3 (intento ${attempt}): ${error?.name}: ${error?.message}`);
+        this.logger.error(`No se pudo guardar el archivo en S3 (intento ${attempt}): ${error?.name}: ${error?.message}`);
         // Un 4xx no cambia al reintentar. Repetir es seguro: la misma clave se sobrescribe.
         const transient = !(status >= 400 && status < 500);
         if (!transient || attempt >= UPLOAD_ATTEMPTS) {
-          throw new ServiceUnavailableException('No se pudo guardar el video en el almacenamiento. Probá de nuevo en unos minutos.');
+          throw new ServiceUnavailableException('No se pudo guardar el archivo en el almacenamiento. Probá de nuevo en unos minutos.');
         }
         await new Promise((resolve) => setTimeout(resolve, UPLOAD_RETRY_DELAY_MS * attempt));
       } finally {
@@ -110,6 +107,21 @@ export class StorageService {
     await this.s3().send(new DeleteObjectCommand({ Bucket: this.bucket, Key: storageKey }));
   }
 
+  /**
+   * Borra los archivos que ya ningún bloque usa: duplicar una semana comparte el archivo entre bloques.
+   * Un fallo acá solo deja un archivo huérfano, así que no debe interrumpir a quien llama.
+   */
+  async deleteIfUnused(storageKeys: string[]): Promise<void> {
+    for (const storageKey of new Set(storageKeys)) {
+      try {
+        const stillUsed = await this.prisma.scheduleItemMedia.count({ where: { storageKey } });
+        if (!stillUsed) await this.deleteObject(storageKey);
+      } catch (error: any) {
+        this.logger.error(`No se pudo borrar un archivo sin uso: ${error?.name}: ${error?.message}`);
+      }
+    }
+  }
+
   /** Una clave solo puede apuntar a una subida local o a la carpeta S3 de ese cliente. */
   isValidStorageKey(storageKey: string, clientId: string): boolean {
     if (storageKey.startsWith(LOCAL_KEY_PREFIX)) {
@@ -118,92 +130,12 @@ export class StorageService {
     return /^clients\/[\w-]+\/[\w.-]+$/.test(storageKey) && storageKey.startsWith(`clients/${clientId}/`);
   }
 
-  async createPresignedUploadUrl(params: {
-    clientId: string;
-    fileName: string;
-    mimeType: string;
-    sizeBytes: number;
-  }): Promise<PresignedUploadResult> {
-    const safeFileName = params.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
-    const storageKey = `clients/${params.clientId}/${Date.now()}_${uniqueSuffix}_${safeFileName}`;
-    const expiresInSeconds = 3600;
-
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: storageKey,
-      ContentType: params.mimeType,
-      ContentLength: params.sizeBytes,
-    });
-    const uploadUrl = await getSignedUrl(this.s3(), command, { expiresIn: expiresInSeconds });
-
-    return {
-      uploadUrl,
-      publicUrl: this.getPublicUrl(storageKey),
-      storageKey,
-      expiresInSeconds,
-      resumableHeaders: {
-        'Content-Type': params.mimeType,
-        'x-amz-Constrained-Size': String(params.sizeBytes),
-      },
-    };
-  }
-
-  /** Duración real leída del archivo guardado. Devuelve null si no se puede determinar. */
-  async probeDurationSeconds(storageKey: string): Promise<number | null> {
-    try {
-      if (storageKey.startsWith(LOCAL_KEY_PREFIX)) {
-        const path = join(this.config.uploadDir, basename(storageKey));
-        const size = fs.statSync(path).size;
-        const descriptor = fs.openSync(path, 'r');
-        try {
-          return await readVideoDurationSeconds(async (offset, length) => {
-            const chunk = Buffer.alloc(length);
-            const read = fs.readSync(descriptor, chunk, 0, length, offset);
-            return chunk.subarray(0, read);
-          }, size);
-        } finally {
-          fs.closeSync(descriptor);
-        }
-      }
-      const readRange = async (offset: number, length: number) => {
-        const res = await this.s3().send(
-          new GetObjectCommand({ Bucket: this.bucket, Key: storageKey, Range: `bytes=${offset}-${offset + length - 1}` }),
-        );
-        return { bytes: Buffer.from(await res.Body!.transformToByteArray()), total: res.ContentRange };
-      };
-      const first = await readRange(0, 16);
-      const total = Number(first.total?.split('/')[1]);
-      if (!Number.isFinite(total)) return null;
-      return await readVideoDurationSeconds(async (offset, length) => (await readRange(offset, length)).bytes, total);
-    } catch {
-      return null;
-    }
-  }
-
-  async createPresignedDownloadUrl(storageKey: string): Promise<string> {
-    if (storageKey.startsWith(LOCAL_KEY_PREFIX)) return storageKey;
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: storageKey });
-    return getSignedUrl(this.s3(), command, { expiresIn: 3600 });
-  }
-
-  private s3PublicUrl(storageKey: string): string {
-    const endpoint = this.config.get('S3_ENDPOINT');
-    const base = this.config.get('S3_PUBLIC_URL') || (endpoint ? `${endpoint}/${this.bucket}` : '');
-    return `${base.replace(/\/+$/, '')}/${storageKey}`;
-  }
-
-  /** URL para reproducir en la app. Las subidas locales son relativas: siempre coinciden con el origen y la CSP. */
-  getPublicUrl(storageKey: string): string {
+  /** Enlace para ver el archivo dentro de la plataforma. Los de S3 son temporales: el bucket puede ser privado. */
+  async getMediaUrl(storageKey: string): Promise<string> {
     if (!storageKey) return '';
     if (/^https?:\/\//i.test(storageKey) || storageKey.startsWith(LOCAL_KEY_PREFIX)) return storageKey;
-    if (storageKey.startsWith('uploads/')) return `/${storageKey}`;
-    return this.s3PublicUrl(storageKey);
-  }
-
-  /** URL absoluta para las redes sociales, que descargan el archivo desde sus propios servidores. */
-  getPublishUrl(storageKey: string): string {
-    const url = this.getPublicUrl(storageKey);
-    return url.startsWith('/') ? `${this.config.publicBaseUrl()}${url}` : url;
+    if (!this.usesS3) return '';
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: storageKey });
+    return getSignedUrl(this.s3(), command, { expiresIn: SIGNED_URL_SECONDS });
   }
 }

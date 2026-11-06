@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { AppConfigService } from '../../config/app-config.service';
 
-export type OAuthStatePurpose = 'social-login' | 'platform-connect';
+export type OAuthStatePurpose = 'social-login';
 
 export const OAUTH_NONCE_COOKIE = 'cs_oauth_nonce';
 const STATE_TTL_SECONDS = 600;

@@ -6,7 +6,7 @@ import { AccountDeletionService } from './account-deletion.service';
 describe('AccountDeletionService', () => {
   const op = () => jest.fn().mockResolvedValue({});
   let prisma: any;
-  let storage: { deleteObject: jest.Mock };
+  let storage: { deleteIfUnused: jest.Mock };
   let service: AccountDeletionService;
 
   const agencyUser = { sub: 'owner', role: RoleCode.AGENCIA } as any;
@@ -15,12 +15,10 @@ describe('AccountDeletionService', () => {
   beforeEach(() => {
     prisma = {
       user: { findUniqueOrThrow: jest.fn(), update: op() },
-      video: {
-        findMany: jest.fn().mockResolvedValue([{ storageKey: 'clients/c1/a.mp4', thumbnailKey: null }]),
-        updateMany: op(),
-        count: jest.fn().mockResolvedValue(0),
+      scheduleItemMedia: {
+        findMany: jest.fn().mockResolvedValue([{ storageKey: 'clients/c1/a.mp4' }]),
+        deleteMany: op(),
       },
-      platformConnection: { deleteMany: op() },
       client: { updateMany: op() },
       agency: { update: op() },
       authSession: { deleteMany: op() },
@@ -28,7 +26,7 @@ describe('AccountDeletionService', () => {
       notification: { deleteMany: op() },
       $transaction: jest.fn().mockResolvedValue([]),
     };
-    storage = { deleteObject: jest.fn().mockResolvedValue(undefined) };
+    storage = { deleteIfUnused: jest.fn().mockResolvedValue(undefined) };
     service = new AccountDeletionService(prisma, { log: jest.fn() } as any, storage as any);
   });
 
@@ -61,8 +59,10 @@ describe('AccountDeletionService', () => {
     expect(updated.map((call: any) => call.where.id).sort()).toEqual(['client-user', 'owner']);
     expect(updated[0].data).toMatchObject({ email: 'deleted_owner@deleted.invalid', passwordHash: null, isActive: false });
     expect(prisma.agency.update.mock.calls[0][0].data).toMatchObject({ taxId: 'DEL-agency', isSuspended: true });
-    expect(prisma.platformConnection.deleteMany).toHaveBeenCalledWith({ where: { clientId: { in: ['c1'] } } });
-    expect(storage.deleteObject).toHaveBeenCalledWith('clients/c1/a.mp4');
+    expect(prisma.scheduleItemMedia.deleteMany).toHaveBeenCalledWith({
+      where: { scheduleItem: { schedule: { clientId: { in: ['c1'] } } } },
+    });
+    expect(storage.deleteIfUnused).toHaveBeenCalledWith(['clients/c1/a.mp4']);
   });
 
   it('un cliente solo se elimina a sí mismo', async () => {
@@ -79,19 +79,4 @@ describe('AccountDeletionService', () => {
     expect(prisma.agency.update).not.toHaveBeenCalled();
   });
 
-  it('no borra un archivo que otro video activo sigue usando', async () => {
-    asAgency(null);
-    prisma.video.count.mockResolvedValue(1);
-
-    await service.deleteOwnAccount(agencyUser, undefined);
-
-    expect(storage.deleteObject).not.toHaveBeenCalled();
-  });
-
-  it('un fallo al borrar archivos no revierte la eliminación', async () => {
-    asAgency(null);
-    storage.deleteObject.mockRejectedValue(new Error('s3 caído'));
-
-    await expect(service.deleteOwnAccount(agencyUser, undefined)).resolves.toMatchObject({ message: expect.any(String) });
-  });
 });
