@@ -87,6 +87,26 @@ export class UpdateProfileDto {
   agencyName?: string;
 }
 
+export class CompleteProfileDto {
+  @ApiProperty({ example: 'Ana' })
+  @IsString()
+  @MinLength(2, { message: 'Ingresá tu nombre.' })
+  @MaxLength(70)
+  firstName!: string;
+
+  @ApiProperty({ example: 'Gómez' })
+  @IsString()
+  @MinLength(2, { message: 'Ingresá tu apellido.' })
+  @MaxLength(70)
+  lastName!: string;
+
+  @ApiProperty({ example: 'Nova Digital' })
+  @IsString()
+  @MinLength(2, { message: 'Ingresá el nombre de tu agencia.' })
+  @MaxLength(150)
+  agencyName!: string;
+}
+
 export class VerifyRegistrationCodeDto {
   @ApiProperty({ example: 'usuario@agencia.com' })
   @IsEmail({}, { message: 'Ingresá un correo electrónico válido.' })

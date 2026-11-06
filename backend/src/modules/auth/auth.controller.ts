@@ -21,6 +21,7 @@ import {
   ResetPasswordDto,
   SocialLoginDto,
   UpdateProfileDto,
+  CompleteProfileDto,
   VerifyOtpCodeDto,
   VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
@@ -185,6 +186,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Obtener perfil y permisos del usuario autenticado' })
   me(@CurrentUser() user: AuthenticatedUser) {
     return user;
+  }
+
+  @ApiBearerAuth('jwt-auth')
+  @Post('me/complete-profile')
+  @ApiOperation({ summary: 'Completar los datos básicos de una cuenta creada con Google, Facebook o GitHub' })
+  completeProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: CompleteProfileDto) {
+    return this.authService.completeProfile(user.sub, dto);
   }
 
   @ApiBearerAuth('jwt-auth')

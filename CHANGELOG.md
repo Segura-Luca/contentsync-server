@@ -20,7 +20,7 @@ ContentSync pasa a ser un espacio de trabajo entre agencias y clientes: comunica
 - **Archivos privados:** se ven con enlaces firmados que vencen a las 12 horas, así que el bucket puede ser privado.
 - **Avisos** reemplaza a **Historial**, y se marcan como leídos al abrir la pantalla.
 - **Semanas de lunes a domingo.**
-- **Acceso en dos pestañas:** Iniciar sesión y Crear cuenta. Google, Facebook y GitHub ya no piden datos: el nombre viene de la cuenta y la agencia se puede renombrar en Ajustes.
+- **Acceso en dos pestañas:** Iniciar sesión y Crear cuenta. Google, Facebook y GitHub entran sin pedir datos antes, y una cuenta nueva los completa una sola vez en un pop up obligatorio. La agencia se puede renombrar en Ajustes.
 - **Propuestas de ideas:** el cliente le propone ideas a su agencia, y la agencia las acepta, las edita y acepta, o las rechaza desde Ideas.
 - **Duplicar semana:** ahora se elige qué semana copiar.
 - **Etiquetas en los bloques:** el bloque muestra los colores con nombre creados en Ideas, y cada etiqueta usa un color distinto.

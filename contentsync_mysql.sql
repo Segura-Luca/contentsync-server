@@ -24,6 +24,7 @@ CREATE TABLE `users` (
     `full_name` VARCHAR(150) NOT NULL,
     `timezone` VARCHAR(80) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
     `email_verified` BOOLEAN NOT NULL DEFAULT false,
+    `needs_profile_setup` BOOLEAN NOT NULL DEFAULT false,
     `verification_token` VARCHAR(128) NULL,
     `verification_expires` DATETIME(3) NULL,
     `password_reset_token` VARCHAR(128) NULL,
@@ -396,9 +397,10 @@ CREATE TABLE `_prisma_migrations` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 INSERT INTO `_prisma_migrations` (`id`, `checksum`, `finished_at`, `migration_name`, `logs`, `rolled_back_at`, `started_at`, `applied_steps_count`) VALUES
-('801f0bde-3e9f-411f-9841-11cc3ad8b72e','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
-('21a2991b-0637-469a-8fb2-5cc392d3deec','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
-('526aaf80-3694-4c9f-ad82-5b255538ab6f','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
-('235fe371-ead1-44b1-a7dc-69e8cb0e5636','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1),
-('fd14e615-28a7-4800-a457-d072f98231d7','b3ae151566a1c050394465b3efa02ed58ac4e1fa30a92a18d6d8ce1db2be158a',NOW(3),'20261106120000_week_status_and_cleanup',NULL,NULL,NOW(3),1),
-('92c93f52-8c8d-4490-bda7-9172d65375ea','83814d3e868c3ca3f176a54617cfc99bccc1b5122d3bdc5881a66460fa8c887d',NOW(3),'20261106180000_client_idea_proposals',NULL,NULL,NOW(3),1);
+('a585320f-61eb-485f-bede-53ef2e34050f','2a1028f7426c71610d7f3b95cec8aca1591b14a16f9d5aa179b7287513bbd3ed',NOW(3),'20261022000000_init_3nf_schema',NULL,NULL,NOW(3),1),
+('6bb90795-a64e-4c91-9bd2-7c9a94809038','e8ba394ed446fcf1033b6b6f8ccb6559cc4804f752ad857dd09ba538fbb10ca1',NOW(3),'20261104000000_audit_hardening',NULL,NULL,NOW(3),1),
+('a1af9a92-3e17-4900-ac21-ffb86f586696','5357021936c2c607189ae30940d484384b4b9d0a4b0c21e9961f4348c34e1d67',NOW(3),'20261104010000_drop_bull_job_id',NULL,NULL,NOW(3),1),
+('0c30dfdb-0900-4b8d-8d23-9ca2a512d553','b2e611d26b0331ca193fbf42ca3e624c0e6399d49d8511e12b5ddb49cbc32073',NOW(3),'20261106000000_collaboration_workspace',NULL,NULL,NOW(3),1),
+('3eaa90fb-5ef9-4aac-a51c-783684c183af','b3ae151566a1c050394465b3efa02ed58ac4e1fa30a92a18d6d8ce1db2be158a',NOW(3),'20261106120000_week_status_and_cleanup',NULL,NULL,NOW(3),1),
+('f6522310-725a-4433-b6b9-60b6c45fd4a3','83814d3e868c3ca3f176a54617cfc99bccc1b5122d3bdc5881a66460fa8c887d',NOW(3),'20261106180000_client_idea_proposals',NULL,NULL,NOW(3),1),
+('010f5572-9689-499d-bb6a-4a8273865518','771fb6f3a8f5e7fc456a9ca818814d45f828d859c3498636d9060823acb198b3',NOW(3),'20261106190000_profile_setup',NULL,NULL,NOW(3),1);

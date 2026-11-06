@@ -807,6 +807,8 @@
       ideaNewSectionColor: '#38BDF8',
       ideaNewSectionError: '',
 
+      setupDraft: null,
+
       showDuplicateModal: false,
       dupSourceId: null,
       dupTargetStart: '',
@@ -981,6 +983,7 @@
         role: u.role,
         agencyId: u.agencyId || null,
         agencyName: u.agencyName || '',
+        needsProfileSetup: Boolean(u.needsProfileSetup),
         clientId: u.clientId || null
       };
     }
@@ -1271,11 +1274,6 @@
       setAuthError(friendlyError(r.data, r.status));
     }
 
-    /** Lo único que el proveedor no sabe. Solo se usa si la persona lo escribió al crear la cuenta. */
-    function socialAgencyName() {
-      return isRegisterTab() ? String(state.authAgencyName || '').trim() : '';
-    }
-
     function isRegisterTab() {
       return Boolean(state.authRegister) && APP_CONFIG.registrationEnabled !== false;
     }
@@ -1293,7 +1291,6 @@
         body: JSON.stringify({
           provider,
           idToken: token,
-          agencyName: socialAgencyName() || undefined,
           deviceInfo: 'Web'
         })
       });
@@ -1303,8 +1300,7 @@
 
     function startOAuthRedirect(provider) {
       if (authUi.busy) return;
-      const q = new URLSearchParams({ agencyName: socialAgencyName() });
-      window.location.href = `${API_BASE}/auth/oauth/${provider}?${q.toString()}`;
+      window.location.href = `${API_BASE}/auth/oauth/${provider}`;
     }
 
     function loadExternalScript(src) {
@@ -4253,12 +4249,95 @@
             </button>
           `).join('')}
         </nav>
+        ${state.session.needsProfileSetup ? renderProfileSetupModal() : ''}
       `;
       restoreScroll(scroll);
     }
 
+    /** Lo escrito vive en el estado: redibujar mientras cargan los datos no debe borrarlo. */
+    function profileSetupDraft() {
+      const session = state.session;
+      if (state.setupDraft?.userId !== session.id) {
+        const [first, ...rest] = String(session.fullName || '').trim().split(/\s+/);
+        state.setupDraft = {
+          userId: session.id,
+          firstName: first || '',
+          lastName: rest.join(' '),
+          agencyName: '',
+          error: '',
+          busy: false
+        };
+      }
+      return state.setupDraft;
+    }
+
+    async function submitProfileSetup() {
+      const draft = profileSetupDraft();
+      if (draft.busy) return;
+      const firstName = draft.firstName.trim();
+      const lastName = draft.lastName.trim();
+      const agencyName = draft.agencyName.trim();
+      draft.error =
+        firstName.length < 2 ? 'Ingresá tu nombre.' :
+        lastName.length < 2 ? 'Ingresá tu apellido.' :
+        agencyName.length < 2 ? 'Ingresá el nombre de tu agencia.' : '';
+      if (draft.error) { render(); return; }
+
+      draft.busy = true;
+      render();
+      const r = await apiFetch('/auth/me/complete-profile', {
+        method: 'POST',
+        body: JSON.stringify({ firstName, lastName, agencyName })
+      });
+      draft.busy = false;
+      if (!r.ok) {
+        draft.error = friendlyError(r.data, r.status);
+        render();
+        return;
+      }
+      state.session.fullName = r.data.fullName;
+      state.session.agencyName = r.data.agencyName;
+      state.session.needsProfileSetup = false;
+      await hydrateFromApi();
+      setBanner('¡Listo! Tus datos quedaron guardados.');
+    }
+
+    function renderProfileSetupModal() {
+      const draft = profileSetupDraft();
+      const field = (id, label, key, max) => `
+        <div class="field">
+          <label for="${id}">${label}</label>
+          <input id="${id}" class="input" maxlength="${max}" value="${esc(draft[key])}"
+            oninput="state.setupDraft.${key}=this.value"
+            onkeydown="if(event.key==='Enter'){ submitProfileSetup(); }" />
+        </div>
+      `;
+      return `
+        <div class="modal-backdrop modal-centered">
+          <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="setup-title" style="max-width:460px;">
+            <div>
+              <div class="eyebrow">ÚLTIMO PASO</div>
+              <h3 id="setup-title" style="font-size:19px;font-weight:700;margin-top:3px;">Completá tus datos</h3>
+              <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Los necesitamos para crear tu espacio. Te los pedimos una sola vez.</p>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              ${field('setup-first-name', 'Nombre', 'firstName', 70)}
+              ${field('setup-last-name', 'Apellido', 'lastName', 70)}
+            </div>
+            ${field('setup-agency-name', 'Nombre de la agencia', 'agencyName', 150)}
+            ${draft.error ? `<div role="alert" style="font-size:13px;color:var(--tally-fault);">${esc(draft.error)}</div>` : ''}
+            <button class="btn btn-signal" style="height:44px;" ${draft.busy ? 'disabled' : ''} onclick="submitProfileSetup()">
+              ${draft.busy ? 'Guardando…' : 'Guardar y entrar'}
+            </button>
+            <button style="font-size:12px;color:var(--text-secondary);" onclick="logoutSession()">Cerrar sesión</button>
+          </div>
+        </div>
+      `;
+    }
+
     /** Volver a dibujar reemplaza los elementos: sin esto, cualquier cambio dentro de una ventana la llevaría arriba. */
     function currentModalKey() {
+      if (state.session?.needsProfileSetup) return 'profile-setup';
       if (state.blockModalOpen) return 'block:' + (state.editingBlockId || 'new');
       if (state.inspectBlockId) return 'inspect:' + state.inspectBlockId;
       if (state.showNewWeekModal) return 'new-week';

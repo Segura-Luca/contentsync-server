@@ -28,6 +28,7 @@ import {
   ResetPasswordDto,
   SocialLoginDto,
   UpdateProfileDto,
+  CompleteProfileDto,
   VerifyOtpCodeDto,
   VerifyRegistrationCodeDto,
 } from './dto/auth.dto';
@@ -45,6 +46,7 @@ export interface AuthTokensResponse {
     emailVerified: boolean;
     agencyId: string | null;
     agencyName: string | null;
+    needsProfileSetup: boolean;
     clientId: string | null;
   };
 }
@@ -487,7 +489,7 @@ export class AuthService {
       if (!settings.registrationEnabled) {
         throw new ForbiddenException('El registro de nuevas agencias está deshabilitado.');
       }
-      // El proveedor ya sabe cómo se llama: no se le vuelve a preguntar. La agencia se puede renombrar en Ajustes.
+      // Valores provisorios: al entrar, el pop up obligatorio le pide que confirme sus datos.
       const customFullName =
         params.firstName?.trim() && params.lastName?.trim()
           ? `${params.firstName.trim()} ${params.lastName.trim()}`
@@ -505,6 +507,7 @@ export class AuthService {
             roleId: defaultRole.id,
             timezone: settings.defaultTimezone,
             emailVerified: true,
+            needsProfileSetup: true,
           },
         });
         await tx.agency.create({
@@ -743,6 +746,22 @@ export class AuthService {
     return { message: 'Sesión cerrada.' };
   }
 
+  /** Se completa una sola vez: después, estos datos se editan en Ajustes. */
+  async completeProfile(userId: string, dto: CompleteProfileDto) {
+    const firstName = dto.firstName.trim();
+    const lastName = dto.lastName.trim();
+    const agencyName = dto.agencyName.trim();
+    if (firstName.length < 2 || lastName.length < 2 || agencyName.length < 2) {
+      throw new BadRequestException('Completá tu nombre, tu apellido y el nombre de tu agencia.');
+    }
+    const fullName = `${firstName} ${lastName}`;
+    await this.prisma.$transaction([
+      this.prisma.agency.updateMany({ where: { ownerUserId: userId }, data: { name: agencyName } }),
+      this.prisma.user.update({ where: { id: userId }, data: { fullName, needsProfileSetup: false } }),
+    ]);
+    return { fullName, agencyName, needsProfileSetup: false };
+  }
+
   /** Perfil propio editable: nombre visible, zona horaria y el nombre de la agencia de la que es dueño. */
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     if (dto.timezone && !isValidTimeZone(dto.timezone)) {
@@ -859,6 +878,7 @@ export class AuthService {
       fullName: string;
       timezone: string;
       emailVerified: boolean;
+      needsProfileSetup?: boolean;
       role: { code: RoleCode };
       ownedAgency?: { id: string; name?: string } | null;
       clientProfile?: { id: string; agencyId: string } | null;
@@ -917,6 +937,7 @@ export class AuthService {
         emailVerified: user.emailVerified,
         agencyId,
         agencyName: user.ownedAgency?.name ?? null,
+        needsProfileSetup: Boolean(user.needsProfileSetup),
         clientId,
       },
     };

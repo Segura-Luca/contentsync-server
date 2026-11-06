@@ -24,11 +24,12 @@ describe('AuthService & RolesGuard', () => {
     agency: { create: jest.fn(), update: jest.fn() },
   };
   const mockPrisma: any = {
+    agency: { updateMany: jest.fn() },
     role: { upsert: jest.fn().mockResolvedValue({ id: 'role-agency-uuid', code: RoleCode.AGENCIA }) },
     user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
     authSession: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     socialAuthAccount: { findUnique: jest.fn(), create: jest.fn() },
-    $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
+    $transaction: jest.fn(async (arg: any) => (typeof arg === 'function' ? arg(tx) : Promise.all(arg))),
   };
   const mockAudit: any = { log: jest.fn().mockResolvedValue(undefined) };
   const mockVerifier: any = { verify: jest.fn() };
@@ -230,6 +231,36 @@ describe('AuthService & RolesGuard', () => {
 
       expect(tx.user.create.mock.calls[0][0].data.fullName).toBe('Ana Gómez');
       expect(tx.agency.create.mock.calls[0][0].data.name).toBe('Agencia de Ana');
+      expect(tx.user.create.mock.calls[0][0].data.needsProfileSetup).toBe(true);
+    });
+
+    it('una cuenta que ya existía no vuelve a pedir datos', async () => {
+      mockVerifier.verify.mockResolvedValueOnce(verifiedIdentity);
+      mockPrisma.socialAuthAccount.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.user.findUnique.mockResolvedValueOnce(baseUser);
+      mockPrisma.user.update.mockResolvedValueOnce(baseUser);
+      mockPrisma.socialAuthAccount.create.mockResolvedValueOnce({ id: 'link-1' });
+
+      const res = await authService.socialLogin({ provider: SocialProvider.GOOGLE, idToken: 'valid_google_id_token_123456789' });
+
+      expect(res.user.needsProfileSetup).toBe(false);
+    });
+
+    it('completar los datos los guarda y no los vuelve a pedir', async () => {
+      const res = await authService.completeProfile('user-1', { firstName: ' Ana ', lastName: 'Gómez', agencyName: ' Nova ' });
+
+      expect(mockPrisma.agency.updateMany).toHaveBeenCalledWith({ where: { ownerUserId: 'user-1' }, data: { name: 'Nova' } });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { fullName: 'Ana Gómez', needsProfileSetup: false },
+      });
+      expect(res.needsProfileSetup).toBe(false);
+    });
+
+    it('no acepta datos solo con espacios', async () => {
+      await expect(
+        authService.completeProfile('user-1', { firstName: '   ', lastName: 'Gómez', agencyName: 'Nova' }),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('vincula por correo sin duplicar al usuario', async () => {

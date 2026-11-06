@@ -120,6 +120,7 @@ model User {
   fullName             String    @map("full_name") @db.VarChar(150)
   timezone             String    @default("America/Argentina/Buenos_Aires") @db.VarChar(80)
   emailVerified        Boolean   @default(false) @map("email_verified")
+  needsProfileSetup    Boolean   @default(false) @map("needs_profile_setup")
   verificationToken    String?   @map("verification_token") @db.VarChar(128)
   verificationExpires  DateTime? @map("verification_expires")
   passwordResetToken   String?   @map("password_reset_token") @db.VarChar(128)
