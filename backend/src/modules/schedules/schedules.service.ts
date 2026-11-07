@@ -29,7 +29,6 @@ import {
   BlockMediaInputDto,
   CreateScheduleBlockDto,
   CreateScheduleDto,
-  DuplicateScheduleDto,
   ReviewBlockDto,
   UpdateScheduleBlockDto,
 } from './dto/schedule-approval.dto';
@@ -72,9 +71,6 @@ const scheduleInclude = {
       userId: true,
       confirmationStatus: true,
     },
-  },
-  duplicatedFrom: {
-    select: { id: true, title: true, weekStartDate: true, weekEndDate: true },
   },
   confirmedByUser: { select: { id: true, fullName: true } },
   items: {
@@ -376,113 +372,6 @@ export class SchedulesService {
     });
 
     return { message: 'Bloque eliminado del cronograma.', id: blockId };
-  }
-
-  /**
-   * Duplica una semana completa. Los bloques copiados vuelven a revisión y a estado pendiente:
-   * el cliente no aprobó esta semana ni se produjo todavía.
-   */
-  async duplicateSchedule(sourceScheduleId: string, dto: DuplicateScheduleDto, user: AuthenticatedUser) {
-    this.assertCanEdit(user);
-
-    const source = await this.prisma.schedule.findUnique({
-      where: { id: sourceScheduleId },
-      include: {
-        client: true,
-        items: {
-          orderBy: [{ dayOfWeek: 'asc' }, { sortOrder: 'asc' }],
-          include: { media: { orderBy: { position: 'asc' } } },
-        },
-      },
-    });
-    if (!source) {
-      throw new NotFoundException('Semana de origen no encontrada.');
-    }
-    await this.clientsService.assertClientAccess(source.clientId, user, true);
-
-    const targetStart = new Date(dto.targetWeekStartDate);
-    this.assertMonday(targetStart);
-    const targetEnd = new Date(targetStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-
-    const clash = await this.prisma.schedule.findUnique({
-      where: { clientId_weekStartDate: { clientId: source.clientId, weekStartDate: targetStart } },
-    });
-    if (clash) {
-      throw new ConflictException('Ya existe un cronograma en esa fecha para este cliente. Elegí otra semana.');
-    }
-
-    const includeMedia = dto.includeMedia ?? false;
-    const newTitle = dto.title?.trim() || `${source.title} (Duplicada)`;
-
-    // Todo o nada: una falla a mitad de camino no debe dejar una semana copiada a medias.
-    const createdTarget = await this.prisma.$transaction(async (tx) => {
-      const createdTarget = await tx.schedule.create({
-        data: {
-          clientId: source.clientId,
-          createdByUserId: user.sub,
-          duplicatedFromId: source.id,
-          weekStartDate: targetStart,
-          weekEndDate: targetEnd,
-          title: newTitle,
-          summaryNotes: source.summaryNotes,
-          status: ScheduleStatus.IN_REVIEW,
-        },
-      });
-
-      for (const item of source.items) {
-        await tx.scheduleItem.create({
-          data: {
-            scheduleId: createdTarget.id,
-            dayOfWeek: item.dayOfWeek,
-            contentType: item.contentType,
-            blockTitle: item.blockTitle,
-            noteColor: item.noteColor,
-            notes: item.notes,
-            caption: item.caption,
-            plannedTime: item.plannedTime,
-            sortOrder: item.sortOrder,
-            media: includeMedia
-              ? {
-                  create: item.media.map((row) => ({
-                    kind: row.kind,
-                    storageKey: row.storageKey,
-                    mimeType: row.mimeType,
-                    sizeBytes: row.sizeBytes,
-                    originalName: row.originalName,
-                    description: row.description,
-                    position: row.position,
-                  })),
-                }
-              : undefined,
-          },
-        });
-      }
-
-      return createdTarget;
-    });
-
-    await this.notificationsService.notifyUser({
-      userId: source.client.userId,
-      type: NotificationType.SCHEDULE_DUPLICATED,
-      title: 'Nuevo cronograma para revisar',
-      body: `Tu agencia compartió el cronograma "${newTitle}" con ${source.items.length} bloques.`,
-      referenceId: createdTarget.id,
-    });
-
-    await this.auditService.log({
-      userId: user.sub,
-      action: 'SCHEDULE_DUPLICATED',
-      entityType: 'Schedule',
-      entityId: createdTarget.id,
-      metadata: { sourceScheduleId: source.id, blocksCopiedCount: source.items.length, includeMedia },
-    });
-
-    const fullSchedule = await this.prisma.schedule.findUniqueOrThrow({
-      where: { id: createdTarget.id },
-      include: scheduleInclude,
-    });
-
-    return { schedule: await this.withMediaUrls(fullSchedule) };
   }
 
   /** Lista los cronogramas visibles según el rol. Un cliente sin confirmar no ve ninguno. */

@@ -4,7 +4,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -185,25 +184,6 @@ export class UpdateScheduleBlockDto {
   @ValidateNested({ each: true })
   @Type(() => BlockMediaInputDto)
   media?: BlockMediaInputDto[];
-}
-
-/** Duplicar una semana: lunes de destino, título y si se copian los archivos. */
-export class DuplicateScheduleDto {
-  @ApiProperty({ example: '2026-11-09', description: 'Lunes de la semana destino' })
-  @IsDateString()
-  targetWeekStartDate!: string;
-
-  @ApiPropertyOptional({ example: 'Semana 2' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  title?: string;
-
-  @ApiPropertyOptional({ default: false, description: 'Copiar también las fotos y los videos' })
-  @IsOptional()
-  @IsBoolean()
-  includeMedia?: boolean;
-
 }
 
 /** Decisión del cliente sobre un bloque y su comentario. */

@@ -16,7 +16,6 @@ import {
   AddBlockCommentDto,
   CreateScheduleBlockDto,
   CreateScheduleDto,
-  DuplicateScheduleDto,
   ReviewBlockDto,
   UpdateScheduleBlockDto,
 } from './dto/schedule-approval.dto';
@@ -65,16 +64,6 @@ export class SchedulesController {
   @ApiOperation({ summary: 'Eliminar un bloque y sus archivos' })
   deleteBlock(@Param('blockId', ParseUUIDPipe) blockId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.schedulesService.deleteBlock(blockId, user);
-  }
-
-  @Post(':scheduleId/duplicate')
-  @ApiOperation({ summary: 'Duplicar una semana, con o sin sus fotos y videos' })
-  duplicate(
-    @Param('scheduleId', ParseUUIDPipe) scheduleId: string,
-    @Body() dto: DuplicateScheduleDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.schedulesService.duplicateSchedule(scheduleId, dto, user);
   }
 
   @Post(':scheduleId/confirm')

@@ -109,6 +109,7 @@ Si algo falla, el recorrido se corta y se responde con un error. Los errores de 
 | `clients/` | Alta de clientes y confirmación "Sí, soy yo". | `clients.service.ts`: incluye `assertClientAccess`, la barrera entre agencias. |
 | `schedules/` | **Núcleo del producto:** semanas, bloques, revisión, comentarios y confirmación. | `schedules.service.ts` |
 | `ideas/` | Banco privado de ideas y propuestas de los clientes. | `ideas.service.ts`, `idea-proposals.service.ts` |
+| `live/` | Avisa a las pantallas abiertas que algo cambió, para que se actualicen sin refrescar. | `live.service.ts`, `live.interceptor.ts` |
 | `media/` | Subida de fotos y videos. | `media.controller.ts` |
 | `storage/` | Guarda archivos en S3 o en disco y reconoce su formato real. | `storage.service.ts`, `media-format.ts` |
 | `notifications/` | Avisos internos de la aplicación. | `notifications.service.ts` |

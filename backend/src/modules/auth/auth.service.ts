@@ -29,6 +29,7 @@ import {
   ResetPasswordDto,
   SocialLoginDto,
   UpdateProfileDto,
+  ChangePasswordDto,
   CompleteProfileDto,
   VerifyOtpCodeDto,
   VerifyRegistrationCodeDto,
@@ -904,6 +905,55 @@ export class AuthService {
       ipAddress,
     );
     return { message: 'Contraseña guardada exitosamente.', session };
+  }
+
+  /**
+   * Cambia la contraseña de quien ya inició sesión. Cierra las demás sesiones, por si el cambio
+   * se hace porque alguien más conoce la clave, y abre una nueva para este dispositivo.
+   */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ipAddress?: string,
+  ): Promise<{ message: string; session: AuthTokensResponse }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Cuenta de usuario inactiva o suspendida.');
+
+    if (user.passwordHash) {
+      if (!dto.currentPassword) throw new BadRequestException('Ingresá tu contraseña actual.');
+      if (!(await argon2.verify(user.passwordHash, dto.currentPassword))) {
+        await this.auditService.log({
+          userId,
+          action: 'AUTH_PASSWORD_CHANGE_FAILED',
+          entityType: 'User',
+          entityId: userId,
+          ipAddress,
+        });
+        throw new BadRequestException('La contraseña actual no es correcta.');
+      }
+      if (dto.currentPassword === dto.newPassword) {
+        throw new BadRequestException('La nueva contraseña debe ser distinta de la actual.');
+      }
+    }
+
+    const passwordHash = await argon2.hash(dto.newPassword);
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, passwordResetToken: null, passwordResetExpires: null, otpFailedAttempts: 0 },
+      include: USER_RELATIONS,
+    });
+
+    await this.prisma.authSession.updateMany({ where: { userId }, data: { isRevoked: true } });
+    await this.auditService.log({
+      userId,
+      action: 'AUTH_PASSWORD_CHANGED',
+      entityType: 'User',
+      entityId: userId,
+      ipAddress,
+    });
+
+    const session = await this.issueSessionTokens(updatedUser, 'Cambio de contraseña desde Ajustes', ipAddress);
+    return { message: 'Contraseña actualizada.', session };
   }
 
   /**

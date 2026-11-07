@@ -12,6 +12,7 @@ import { JwtAuthGuard, RolesGuard } from './common/guards/auth-rbac.guards';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AppConfigService } from './config/app-config.service';
+import { LiveModule } from './modules/live/live.module';
 import { validateEnv } from './config/env.validation';
 import { AgenciesModule } from './modules/agencies/agencies.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -54,6 +55,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     MediaModule,
     SchedulesModule,
     NotificationsModule,
+    LiveModule,
   ],
   // Se ejecutan en este orden: límite de peticiones, autenticación JWT y control de roles. El filtro traduce errores de Prisma.
   providers: [

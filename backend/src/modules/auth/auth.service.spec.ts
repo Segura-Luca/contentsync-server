@@ -215,6 +215,56 @@ describe('AuthService & RolesGuard', () => {
     });
   });
 
+  describe('cambio de contraseña', () => {
+    const nueva = 'ClaveNueva2026!';
+
+    it('rechaza una contraseña actual incorrecta y no guarda nada', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...baseUser,
+        passwordHash: await argon2.hash('ClaveCorrecta2026!'),
+      });
+      await expect(
+        authService.changePassword('user-1', { currentPassword: 'otra', newPassword: nueva }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('exige la contraseña actual si la cuenta tiene una', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...baseUser,
+        passwordHash: await argon2.hash('ClaveCorrecta2026!'),
+      });
+      await expect(authService.changePassword('user-1', { newPassword: nueva })).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('guarda la nueva, cierra las otras sesiones y abre una', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        ...baseUser,
+        passwordHash: await argon2.hash('ClaveCorrecta2026!'),
+      });
+      mockPrisma.user.update.mockResolvedValueOnce(baseUser);
+      const result = await authService.changePassword('user-1', {
+        currentPassword: 'ClaveCorrecta2026!',
+        newPassword: nueva,
+      });
+      const saved = mockPrisma.user.update.mock.calls.at(-1)[0].data.passwordHash;
+      expect(await argon2.verify(saved, nueva)).toBe(true);
+      expect(mockPrisma.authSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        data: { isRevoked: true },
+      });
+      expect(result.session.accessToken).toBeTruthy();
+    });
+
+    it('deja crear una contraseña a quien entró solo con una red social', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({ ...baseUser, passwordHash: null });
+      mockPrisma.user.update.mockResolvedValueOnce(baseUser);
+      await authService.changePassword('user-1', { newPassword: nueva });
+      expect(mockPrisma.user.update).toHaveBeenCalled();
+    });
+  });
+
   describe('acceso social', () => {
     const verifiedIdentity = {
       providerUserId: 'google-sub-999',

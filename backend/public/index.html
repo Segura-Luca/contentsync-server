@@ -670,6 +670,17 @@
       .clients-layout { grid-template-columns: minmax(0, 1fr); }
       .clients-pending { position: static; max-height: none; order: -1; }
       .day-column { min-height: auto; }
+      .screen-desc { display: none; }
+      /* Varios bloques en un mismo día se recorren deslizando de costado; el siguiente asoma para que se note. */
+      .day-blocks-list {
+        flex-direction: row;
+        align-items: stretch;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+      }
+      .day-blocks-list > .plan-block-card { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; }
+      .day-blocks-list > .plan-block-card:only-child { flex-basis: 100%; }
       .stats-strip { grid-template-columns: repeat(2, 1fr); }
       .page-pad { padding: 14px; width: 100%; }
       .bottom-bar {
@@ -867,12 +878,7 @@
 
       setupDraft: null,
 
-      showDuplicateModal: false,
-      dupSourceId: null,
-      dupTargetStart: '',
-      dupTitle: '',
-      dupTitleEdited: false,
-      dupIncludeMedia: true,
+      changePassword: null,
 
       // Modal de Bloque del Día: tipo de contenido, textos, fotos y videos
       blockModalOpen: false,
@@ -992,6 +998,22 @@
       render();
     }
 
+    const BANNER_DURATION_MS = 7000;
+
+    /** Cuenta los segundos de cada aviso nuevo. Lo quita sin redibujar, para no borrar lo que se esté escribiendo. */
+    function scheduleBannerDismiss() {
+      const banner = state.banner;
+      if (banner === motionState.timedBanner) return;
+      motionState.timedBanner = banner;
+      clearTimeout(motionState.bannerTimer);
+      if (!banner) return;
+      motionState.bannerTimer = setTimeout(() => {
+        if (state.banner !== banner) return;
+        state.banner = null;
+        document.querySelector('.feedback-bar')?.remove();
+      }, BANNER_DURATION_MS);
+    }
+
     /** Cambia entre tema claro y oscuro. */
     function setTheme(next) {
       state.theme = next;
@@ -1097,11 +1119,15 @@
     }
 
     /** Descarga del servidor todos los datos que corresponden al rol del usuario y redibuja. */
-    async function hydrateFromApi() {
+    async function hydrateFromApi({ silent = false } = {}) {
       if (!state.jwtToken || !state.session) return;
-      state.loadingData = true;
-      render();
+      startLiveSync();
+      if (!silent) {
+        state.loadingData = true;
+        render();
+      }
 
+      const sessionId = state.session.id;
       const role = state.session.role;
       const calls = [
         apiFetch('/clients/pending-confirmation'),
@@ -1122,7 +1148,11 @@
       const results = await Promise.all(calls);
       const [pendRes, clRes, schRes, notRes, propRes] = results;
 
-      if (role === 'ADMIN_GENERAL') loadPlatformSettings();
+      if (silent) {
+        if (state.session?.id !== sessionId) return;
+      } else if (role === 'ADMIN_GENERAL') {
+        loadPlatformSettings();
+      }
 
       if (clRes.status === 401 && schRes.status === 401) {
         state.loadingData = false;
@@ -1130,6 +1160,17 @@
         setBanner('Tu sesión expiró. Volvé a iniciar sesión.');
         return;
       }
+
+      const fingerprint = liveFingerprint(results);
+      if (silent) {
+        if (fingerprint === liveSync.fingerprint) return;
+        // Mientras se esperaba la respuesta, el usuario pudo haber empezado a escribir.
+        if (state.loadingData || !canApplyLiveSync()) {
+          liveSync.pending = true;
+          return;
+        }
+      }
+      liveSync.fingerprint = fingerprint;
 
       state.pendingConfirmation = (pendRes.ok && pendRes.data?.pendingClient) || null;
 
@@ -1258,6 +1299,7 @@
       state.session = null;
       state.jwtToken = null;
       state.pendingConfirmation = null;
+      stopLiveSync();
       clearAuthForm();
       markSessionHint(false);
       setBanner('Cerraste sesión correctamente.');
@@ -1651,68 +1693,6 @@
       await hydrateFromApi();
       state.selectedScheduleId = r.data.id;
       setBanner('Semana creada. Ya la puede ver el cliente.');
-    }
-
-    /** Abre la ventana para duplicar la semana actual. */
-    function openDuplicateWeekModal() {
-      const sched = getActiveSchedule();
-      if (!sched) return;
-      const clientScheds = state.schedules.filter(s => s.clientId === sched.clientId);
-      const latestStart = clientScheds[0]?.weekStartDate || sched.weekStartDate;
-      const nextMonday = addDaysIso(latestStart, 7);
-
-      state.dupSourceId = sched.id;
-      state.dupTargetStart = nextMonday;
-      state.dupTitleEdited = false;
-      state.dupTitle = duplicateTitleSuggestion();
-      state.dupIncludeMedia = true;
-      state.showDuplicateModal = true;
-      render();
-    }
-
-    /** "Semana 1 · 09 Nov" duplicada para el 16 sugiere "Semana 1 · 16 Nov", sin acumular fechas. */
-    function duplicateTitleSuggestion() {
-      const source = state.schedules.find(s => s.id === state.dupSourceId);
-      if (!source || !state.dupTargetStart) return state.dupTitle;
-      const baseTitle = source.title
-        .replace(/\s*\(Duplicada.*\)$/i, '')
-        .replace(/\s*·\s*\d{2} [A-Za-z]{3}$/, '');
-      const monday = getMondayOf(new Date(state.dupTargetStart + 'T12:00:00Z'));
-      return baseTitle + ' · ' + fmtShortDate(monday);
-    }
-
-    /** Guarda una opción de la ventana y actualiza el título sugerido, si el usuario no lo editó. */
-    function setDuplicateChoice(field, value) {
-      state[field] = value;
-      if (!state.dupTitleEdited) state.dupTitle = duplicateTitleSuggestion();
-      render();
-    }
-
-    /** Duplica la semana en el servidor. */
-    async function submitDuplicateWeek() {
-      const sched = state.schedules.find(s => s.id === state.dupSourceId);
-      if (!sched || !state.dupTargetStart) return;
-      const mondayIso = getMondayOf(new Date(state.dupTargetStart + 'T12:00:00Z'));
-
-      const r = await apiFetch(`/schedules/${sched.id}/duplicate`, {
-        method: 'POST',
-        body: JSON.stringify({
-          targetWeekStartDate: mondayIso,
-          title: state.dupTitle.trim() || undefined,
-          includeMedia: state.dupIncludeMedia
-        })
-      });
-
-      if (!r.ok) {
-        setBanner(friendlyError(r.data, r.status), true);
-        return;
-      }
-
-      state.showDuplicateModal = false;
-      const createdId = r.data.schedule?.id;
-      await hydrateFromApi();
-      if (createdId) state.selectedScheduleId = createdId;
-      setBanner('Semana duplicada.');
     }
 
     /** Abre el editor de bloques, vacío o con los datos de un bloque existente. */
@@ -2147,7 +2127,7 @@
     async function submitNewIdeaSection() {
       const name = state.newSectionName.trim();
       if (!name) {
-        setBanner('Escribile un nombre al color.', true);
+        setBanner('Escribile un nombre a la sección.', true);
         return;
       }
       const r = await apiFetch('/ideas/sections', {
@@ -2162,7 +2142,7 @@
       state.showNewSectionForm = false;
       await hydrateFromApi();
       state.ideaSectionFilter = r.data.id;
-      setBanner(`Color "${name}" creado.`);
+      setBanner(`Sección "${name}" creada.`);
     }
 
     /** Elimina una sección, ya confirmado por el usuario. */
@@ -2749,7 +2729,7 @@
               <h2 style="font-size:24px;font-weight:700;margin-top:3px;">
                 ${isClient ? 'Tu contenido de la semana' : 'Cronograma semanal'}
               </h2>
-              <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
+              <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
                 ${isClient
                   ? 'Mirá cada pieza, dejá tus comentarios y confirmá la semana cuando todo esté bien.'
                   : 'Armá la semana con bloques de contenido, sumá fotos y videos, y compartilo con tu cliente para que lo revise y lo confirme.'}
@@ -2758,11 +2738,6 @@
 
             ${!isClient ? `
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                ${activeSchedule ? `
-                  <button class="btn btn-outline" onclick="openDuplicateWeekModal()">
-                    ⎘ Duplicar semana
-                  </button>
-                ` : ''}
                 <button class="btn btn-signal" onclick="openNewWeekModal()">
                   + Nueva semana
                 </button>
@@ -2824,11 +2799,6 @@
                 <div>
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <span style="font-weight:700;font-size:16px;">${esc(activeSchedule.title)}</span>
-                    ${activeSchedule.duplicatedFrom ? `
-                      <span class="badge badge-review" title="Semana creada por duplicación">
-                        ⎘ Duplicada de: ${esc(activeSchedule.duplicatedFrom.title)}
-                      </span>
-                    ` : ''}
                   </div>
                   ${activeSchedule.summaryNotes ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${esc(activeSchedule.summaryNotes)}</div>` : ''}
                 </div>
@@ -2948,7 +2918,6 @@
         </div>
 
         ${state.showNewWeekModal ? renderNewWeekModal() : ''}
-        ${state.showDuplicateModal ? renderDuplicateWeekModal() : ''}
         ${state.blockModalOpen ? renderBlockEditorModal() : ''}
         ${state.inspectBlockId ? renderBlockInspectorModal() : ''}
         ${state.inspectBlockId && state.reviewConfirm ? renderReviewConfirm() : ''}
@@ -2966,11 +2935,10 @@
         `;
       }
       if (!isClient) {
+        if (blockedCount) return '';
         return `
           <div style="border:1px solid var(--hairline);background:var(--stage);padding:11px 14px;border-radius:5px;font-size:13px;color:var(--text-secondary);">
-            ${blockedCount
-              ? `El cliente pidió cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}. Al editarlos o reenviarlos, vuelven a revisión.`
-              : (hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.')}
+            ${hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.'}
           </div>
         `;
       }
@@ -3029,66 +2997,6 @@
             <div style="display:flex;justify-content:flex-end;gap:10px;">
               <button class="btn btn-outline" onclick="state.showNewWeekModal=false;render();">Cancelar</button>
               <button class="btn btn-signal" onclick="submitNewWeek()">Crear semana →</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    /** Dibuja la ventana para duplicar una semana. */
-    function renderDuplicateWeekModal() {
-      const sched = state.schedules.find(s => s.id === state.dupSourceId);
-      if (!sched) return '';
-      const clientWeeks = state.schedules.filter(s => s.clientId === sched.clientId);
-      return `
-        <div class="modal-backdrop" onclick="if(event.target===this){state.showDuplicateModal=false;render();}">
-          <div class="modal-panel" style="max-width:520px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <div>
-                <div class="eyebrow">DUPLICAR SEMANA</div>
-                <h3 style="font-size:18px;font-weight:700;">Elegí qué semana copiar</h3>
-              </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showDuplicateModal=false;render();">✕</button>
-            </div>
-
-            <div class="field">
-              <label>Semana a duplicar</label>
-              <select id="dup-source" class="input" onchange="setDuplicateChoice('dupSourceId', this.value)">
-                ${clientWeeks.map(week => `
-                  <option value="${esc(week.id)}" ${week.id === sched.id ? 'selected' : ''}>
-                    ${esc(fmtShortDate(week.weekStartDate))} al ${esc(fmtShortDate(week.weekStartDate, 6))} · ${esc(week.title)} (${(week.items || []).length} bloques)
-                  </option>
-                `).join('')}
-              </select>
-            </div>
-
-            <p style="font-size:13px;color:var(--text-secondary);">
-              Se copiarán los <strong>${(sched.items || []).length} bloques</strong> con sus colores, textos y horarios a la nueva semana.
-            </p>
-
-            <div class="field">
-              <label>Lunes de la semana destino</label>
-              <input class="input mono" type="date" value="${esc(state.dupTargetStart)}"
-                onchange="setDuplicateChoice('dupTargetStart', this.value)" />
-            </div>
-
-            <div class="field">
-              <label>Nombre para la nueva semana</label>
-              <input class="input" value="${esc(state.dupTitle)}" oninput="state.dupTitle=this.value;state.dupTitleEdited=true;" />
-            </div>
-
-            <label style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;padding:10px 12px;border:1px solid var(--hairline);background:var(--canvas);border-radius:4px;">
-              <input type="checkbox" style="margin-top:3px;" ${state.dupIncludeMedia ? 'checked' : ''}
-                onchange="state.dupIncludeMedia=this.checked;render();" />
-              <div>
-                <div style="font-weight:600;font-size:13px;">Copiar también las fotos y los videos</div>
-                <div style="font-size:12px;color:var(--text-muted);">Si lo desmarcás, se copian solo los bloques, con sus textos.</div>
-              </div>
-            </label>
-
-            <div style="display:flex;justify-content:flex-end;gap:10px;">
-              <button class="btn btn-outline" onclick="state.showDuplicateModal=false;render();">Cancelar</button>
-              <button class="btn btn-signal" onclick="submitDuplicateWeek()">⎘ Duplicar semana</button>
             </div>
           </div>
         </div>
@@ -3294,10 +3202,7 @@
             </div>
 
             ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
-              <div style="border:1px solid var(--tally-warn);background:var(--tally-warn-bg);border-radius:4px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span style="font-size:13px;">El cliente pidió cambios. Cuando estén listos, reenvialo para que lo revise.</span>
-                <button class="btn btn-warn" onclick="resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
-              </div>
+              <button class="btn btn-warn" style="align-self:flex-start;" onclick="resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
             ` : ''}
 
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3430,32 +3335,76 @@
       return isHexColor(color) ? `--note-dot:${color};--note-fg:${readableNoteColor(color)};--note-bg:${color}26;` : '';
     }
 
-    /** Contador de propuestas pendientes en la pestaña de Ideas. */
-    function tabCount(tabId) {
-      if (tabId !== 'ideas') return '';
-      const count = pendingProposals().length;
-      return count ? ` <span class="badge badge-warn" data-tab-count style="font-size:10px;padding:0 5px;">${count}</span>` : '';
-    }
-
     /** Cambia de pantalla. */
     function openTab(tabId) {
       state.activeTab = tabId;
       render();
-      if (tabId === 'ideas') refreshInbox();
     }
 
-    /** Trae lo que mandó la otra parte. Si alguien está escribiendo, espera a la próxima vuelta. */
-    async function refreshInbox() {
-      if (!state.session || document.hidden || state.loadingData) return;
-      const [notifications, proposals] = await Promise.all([apiFetch('/notifications'), apiFetch('/idea-proposals')]);
-      if (!state.session || !notifications.ok || !proposals.ok) return;
-      const fingerprint = (notes, props) => JSON.stringify([notes.map(n => n.id), props.map(p => p.id + p.status)]);
-      const changed = fingerprint(notifications.data, proposals.data) !== fingerprint(state.notifications, state.ideaProposals);
-      if (changed && !isEditingField()) await hydrateFromApi();
+    // =========================================================================
+    // TIEMPO REAL: el servidor avisa que algo cambió y la pantalla se actualiza sola, sin F5.
+    // =========================================================================
+    const liveSync = { source: null, timer: null, pending: false, running: false, fingerprint: null };
+
+    /** Se conecta al canal de cambios. EventSource se reconecta solo si se corta la conexión. */
+    function startLiveSync() {
+      if (liveSync.source || typeof EventSource === 'undefined') return;
+      let reconnecting = false;
+      const source = new EventSource(API_BASE + '/live/events');
+      // Al reconectar se trae lo último: pudo haber cambios mientras no hubo conexión.
+      source.onopen = () => {
+        if (reconnecting) requestLiveSync();
+        reconnecting = true;
+      };
+      source.onmessage = requestLiveSync;
+      liveSync.source = source;
     }
 
-    // Busca novedades cada 30 segundos.
-    setInterval(refreshInbox, 30000);
+    /** Se desconecta al cerrar sesión. */
+    function stopLiveSync() {
+      liveSync.source?.close();
+      clearTimeout(liveSync.timer);
+      Object.assign(liveSync, { source: null, timer: null, pending: false, fingerprint: null });
+    }
+
+    /** Agrupa varios cambios seguidos en una sola actualización. */
+    function requestLiveSync() {
+      clearTimeout(liveSync.timer);
+      liveSync.timer = setTimeout(runLiveSync, 400);
+    }
+
+    /** Redibujar reemplaza los campos: no se actualiza si eso borraría algo escrito o cortaría un video o una subida. */
+    function canApplyLiveSync() {
+      if (document.hidden || isEditingField() || state.blkUploadProgress > 0) return false;
+      if ([...document.querySelectorAll('video')].some(video => !video.paused)) return false;
+      return ![...document.querySelectorAll('#app input, #app textarea')].some(field => field.value !== field.defaultValue);
+    }
+
+    /** Actualiza la pantalla, o lo deja pendiente hasta que se pueda. */
+    async function runLiveSync() {
+      if (!state.session) return;
+      if (liveSync.running || state.loadingData || !canApplyLiveSync()) {
+        liveSync.pending = true;
+        return;
+      }
+      liveSync.pending = false;
+      liveSync.running = true;
+      try {
+        await hydrateFromApi({ silent: true });
+      } finally {
+        liveSync.running = false;
+      }
+    }
+
+    /** Resume los datos para saber si cambiaron. Los enlaces firmados se ignoran: son distintos en cada carga. */
+    function liveFingerprint(results) {
+      return JSON.stringify(results.map(r => (r.ok ? r.data : null)), (key, value) => (/url/i.test(key) ? undefined : value));
+    }
+
+    setInterval(() => { if (liveSync.pending) runLiveSync(); }, 2000);
+    // Por si el canal no está disponible.
+    setInterval(runLiveSync, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) requestLiveSync(); });
 
     /** Propuestas sin responder. */
     function pendingProposals() {
@@ -3597,7 +3546,7 @@
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
             <div class="eyebrow">TUS IDEAS</div>
             <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Proponé ideas a tu agencia</h2>
-            <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.</p>
+            <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.</p>
           </div>
 
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
@@ -3664,13 +3613,13 @@
                 <span class="badge badge-review">🔒 PRIVADO DE TU AGENCIA</span>
               </div>
               <h2 style="font-size:24px;font-weight:700;margin-top:4px;">Ideas de contenido</h2>
-              <p style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
+              <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
                 Guardá guiones, ganchos y formatos divididos en tus propias secciones (Entretenimiento, Educativo, Venta y más). Tus clientes nunca ven este espacio.
               </p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-outline" onclick="state.showNewSectionForm=!state.showNewSectionForm;state.newSectionColor=nextSectionColor();render();">
-                ${state.showNewSectionForm ? 'Cerrar' : '+ Nuevo color'}
+                ${state.showNewSectionForm ? 'Cerrar' : '+ Crear sección'}
               </button>
               <button class="btn btn-signal" onclick="openIdeaModal(null)">
                 + Nueva idea
@@ -3692,7 +3641,7 @@
                 <input id="new-section-name" class="input" maxlength="100"
                   value="${esc(state.newSectionName)}" oninput="state.newSectionName=this.value" />
               </div>
-              <button class="btn btn-signal" onclick="submitNewIdeaSection()">Guardar color</button>
+              <button class="btn btn-signal" onclick="submitNewIdeaSection()">Guardar sección</button>
             </div>
           ` : ''}
 
@@ -4142,6 +4091,74 @@
       setBanner('Perfil actualizado.');
     }
 
+    /** Abre la ventana de contraseña. Quien entró solo con una red social todavía no tiene una y la crea. */
+    async function openChangePassword() {
+      const me = await apiFetch('/auth/me');
+      if (!me.ok) { setBanner(friendlyError(me.data, me.status), true); return; }
+      state.changePassword = { hasPassword: Boolean(me.data.hasPassword), current: '', next: '', repeat: '', busy: false, error: '' };
+      render();
+    }
+
+    /** Cierra la ventana de contraseña y olvida lo escrito. */
+    function closeChangePassword() {
+      if (state.changePassword?.busy) return;
+      state.changePassword = null;
+      render();
+    }
+
+    /** Dibuja la ventana para cambiar o crear la contraseña. */
+    function renderChangePasswordModal() {
+      const c = state.changePassword;
+      const field = (key, label, autocomplete) => `
+        <div class="field">
+          <label for="cp-${key}">${label}</label>
+          <input id="cp-${key}" class="input" type="password" autocomplete="${autocomplete}" maxlength="128"
+            value="${esc(c[key])}" oninput="state.changePassword.${key}=this.value" />
+        </div>
+      `;
+      return `
+        <div class="modal-backdrop" onclick="if(event.target===this){closeChangePassword();}">
+          <div class="modal-panel" style="max-width:480px;">
+            <div>
+              <div class="eyebrow">SEGURIDAD</div>
+              <h3 style="font-size:18px;font-weight:700;">${c.hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'}</h3>
+            </div>
+            ${c.hasPassword ? field('current', 'Contraseña actual', 'current-password') : ''}
+            ${field('next', 'Nueva contraseña', 'new-password')}
+            ${field('repeat', 'Repetí la nueva contraseña', 'new-password')}
+            <div style="font-size:12px;color:var(--text-muted);">Entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo. Se cierra la sesión en tus otros dispositivos.</div>
+            ${c.error ? `<div style="font-size:13px;color:var(--tally-fault);">${esc(c.error)}</div>` : ''}
+            <div style="display:flex;justify-content:flex-end;gap:8px;">
+              <button class="btn btn-outline" onclick="closeChangePassword()" ${c.busy ? 'disabled' : ''}>Cancelar</button>
+              <button class="btn btn-signal" onclick="submitChangePassword()" ${c.busy ? 'disabled' : ''}>${c.busy ? 'Guardando…' : 'Guardar contraseña'}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /** Guarda la contraseña. El servidor renueva la sesión, así que este dispositivo sigue conectado. */
+    async function submitChangePassword() {
+      const c = state.changePassword;
+      if (!c || c.busy) return;
+      const fail = (msg) => { c.busy = false; c.error = msg; render(); };
+      if (c.hasPassword && !c.current) return fail('Ingresá tu contraseña actual.');
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,64}$/.test(c.next)) {
+        return fail('La nueva contraseña debe tener entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo.');
+      }
+      if (c.next !== c.repeat) return fail('Las contraseñas nuevas no coinciden.');
+      c.busy = true;
+      c.error = '';
+      render();
+      const r = await apiFetch('/auth/me/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ ...(c.hasPassword ? { currentPassword: c.current } : {}), newPassword: c.next })
+      });
+      if (!r.ok) return fail(friendlyError(r.data, r.status));
+      state.changePassword = null;
+      await applyServerSession(r.data.session, r.data.message);
+    }
+
     /** Administrador: carga los ajustes y el estado de las integraciones. */
     async function loadPlatformSettings() {
       const r = await apiFetch('/settings');
@@ -4335,6 +4352,11 @@
             <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar perfil</button>
           </div>
 
+          <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+            <div class="eyebrow">SEGURIDAD</div>
+            <button class="btn btn-outline" style="align-self:flex-start;" onclick="openChangePassword()">Cambiar contraseña</button>
+          </div>
+
           ${s.role === 'ADMIN_GENERAL' ? renderPlatformSettingsPanel() : ''}
 
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
@@ -4358,6 +4380,7 @@
           ` : ''}
         </div>
         ${state.deleteAccount ? renderDeleteAccountModal() : ''}
+        ${state.changePassword ? renderChangePasswordModal() : ''}
       `;
     }
 
@@ -4445,6 +4468,7 @@
      */
     function render() {
       syncAppHeight();
+      scheduleBannerDismiss();
       const root = document.getElementById('app');
       const bannerKey = state.banner ? state.banner.msg : null;
       motionState.animateBanner = Boolean(bannerKey && bannerKey !== motionState.lastBanner);
@@ -4491,7 +4515,7 @@
               ${dests.map(d => `
                 <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
                   <span class="mono" style="font-size:11px;opacity:0.7;">${d.code}</span>
-                  <span>${d.label}${tabCount(d.id)}</span>
+                  <span>${d.label}</span>
                 </button>
               `).join('')}
             </div>
@@ -4506,7 +4530,7 @@
           ${dests.map(d => `
             <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
               <span>${d.code}</span>
-              <span>${d.label}${tabCount(d.id)}</span>
+              <span>${d.label}</span>
             </button>
           `).join('')}
         </nav>
@@ -4604,9 +4628,9 @@
       if (state.blockModalOpen) return 'block:' + (state.editingBlockId || 'new');
       if (state.inspectBlockId) return 'inspect:' + state.inspectBlockId;
       if (state.showNewWeekModal) return 'new-week';
-      if (state.showDuplicateModal) return 'duplicate';
       if (state.ideaModalOpen) return 'idea:' + (state.editingIdeaId || 'new');
       if (state.deleteAccount) return 'delete-account';
+      if (state.changePassword) return 'change-password';
       return '';
     }
 
@@ -4616,6 +4640,7 @@
         modalKey: motionState.modalKey,
         modal: document.querySelector('.modal-panel')?.scrollTop || 0,
         grid: document.querySelector('.week-grid')?.scrollLeft || 0,
+        days: [...document.querySelectorAll('.day-blocks-list')].map(el => el.scrollLeft),
         slots: [...document.querySelectorAll('.modal-panel [data-media-slot]')].map(el => [el.dataset.mediaSlot, el.offsetHeight])
       };
     }
@@ -4626,6 +4651,7 @@
       motionState.modalKey = key;
       const grid = document.querySelector('.week-grid');
       if (grid) grid.scrollLeft = saved.grid;
+      document.querySelectorAll('.day-blocks-list').forEach((el, i) => { el.scrollLeft = saved.days[i] || 0; });
       const panel = document.querySelector('.modal-panel');
       if (!panel || !key || key !== saved.modalKey) return;
       // La animación de entrada es solo para cuando se abre: redibujando, haría saltar el pop up.
@@ -4650,7 +4676,7 @@
 
       // Al volver a la app de Android se trae lo último: el cliente o la agencia pudo haber respondido.
       window.__onAppResume = () => {
-        if (state.session && !isEditingField()) hydrateFromApi();
+        requestLiveSync();
       };
 
       // Vuelta del acceso social: la sesión llega en el fragmento (#) de la URL y los errores, en la consulta.

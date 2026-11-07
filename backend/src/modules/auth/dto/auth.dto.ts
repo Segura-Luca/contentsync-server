@@ -234,6 +234,23 @@ export class ResetPasswordDto {
   newPassword!: string;
 }
 
+/** Cambio de contraseña desde Ajustes. La actual se omite solo si la cuenta todavía no tiene una. */
+export class ChangePasswordDto {
+  @ApiPropertyOptional({ description: 'Obligatoria si la cuenta tiene contraseña' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  currentPassword?: string;
+
+  @ApiProperty({ example: 'NuevaClaveSegura2026!' })
+  @IsString()
+  @Matches(STRONG_PASSWORD_REGEX, {
+    message:
+      'La nueva contraseña debe tener entre 8 y 64 caracteres e incluir mayúscula, minúscula, número y carácter especial.',
+  })
+  newPassword!: string;
+}
+
 /** Confirmación escrita para eliminar la cuenta. */
 export class DeleteAccountDto {
   @ApiProperty({ example: 'ELIMINAR' })

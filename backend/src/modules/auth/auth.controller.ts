@@ -18,6 +18,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { AccountDeletionService } from './account-deletion.service';
 import { AuthService } from './auth.service';
 import {
+  ChangePasswordDto,
   DeleteAccountDto,
   ForgotPasswordDto,
   LoginDto,
@@ -217,6 +218,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Actualizar nombre y zona horaria del usuario autenticado' })
   updateMe(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
     return this.authService.updateProfile(user.sub, dto);
+  }
+
+  /** Cambia la contraseña desde Ajustes y renueva la sesión de este dispositivo. */
+  @ApiBearerAuth('jwt-auth')
+  @AuthThrottle()
+  @Post('me/change-password')
+  @ApiOperation({ summary: 'Cambiar la contraseña propia, o crearla si la cuenta entró solo con una red social' })
+  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto, @Ip() ip: string) {
+    return this.authService.changePassword(user.sub, dto, ip);
   }
 
   /** Elimina la cuenta propia y borra la cookie de sesión. */

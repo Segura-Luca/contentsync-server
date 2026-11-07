@@ -4,6 +4,19 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 
 ## [Sin publicar]
 
+### Added
+- **Actualización en tiempo real:** los cambios de otros usuarios aparecen sin refrescar la página (Server-Sent Events).
+- **Cambiar contraseña en Ajustes.** Quien entró solo con una red social puede crear una.
+
+### Changed
+- **En formato vertical:** las pantallas no muestran su descripción y los bloques de un mismo día se deslizan de costado.
+- **Ideas:** el botón "Nuevo color" ahora dice "Crear sección".
+- **Los avisos de actividad quedan solo en la sección Avisos.**
+- **Las notificaciones de arriba desaparecen a los 7 segundos.**
+
+### Removed
+- **Duplicar semana,** en la pantalla y en la API.
+
 ### Fixed
 - **Pop ups en la app Android:** quedaban con menos de 1 cm de alto. Ahora ocupan casi toda la pantalla en el teléfono.
 
