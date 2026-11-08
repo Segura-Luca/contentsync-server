@@ -25,7 +25,7 @@
       --border-strong: #373E4E;
       --text-primary: #F2F3F5;
       --text-secondary: #9DA4B3;
-      --text-muted: #6E7687;
+      --text-muted: #8C94A6;
       --signal: #D4F238;
       --on-signal: #0B0C0E;
       --signal-subtle-bg: #20250F;
@@ -69,7 +69,7 @@
       --tally-fault-bg: #FDE6E3;
       --scrim: rgba(28, 36, 54, 0.45);
 
-      --note-amber-fg: #B45309; --note-amber-bg: #FDF1D3;
+      --note-amber-fg: #94480A; --note-amber-bg: #FDF1D3;
       --note-emerald-fg: #047857; --note-emerald-bg: #DBF6EA;
       --note-sky-fg: #0369A1; --note-sky-bg: #DDF1FD;
       --note-rose-fg: #BE123C; --note-rose-bg: #FFE6EA;
@@ -84,11 +84,26 @@
       background: var(--canvas);
       color: var(--text-primary);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-      font-size: 14px;
-      line-height: 1.45;
+      font-size: 15px;
+      line-height: 1.5;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      accent-color: var(--signal);
+      scrollbar-color: var(--border-strong) transparent;
     }
+
+    /* Las partes que dibuja el navegador también siguen la paleta. */
+    ::selection { background: var(--signal-subtle-bg); color: var(--signal-subtle-fg); }
+    input, textarea { caret-color: var(--signal-subtle-fg); }
+    html[data-theme="light"] input, html[data-theme="light"] textarea { caret-color: var(--signal); }
+
+    /* Foco visible solo al navegar con teclado: con mouse o dedo no aparece. */
+    :focus-visible { outline: 2px solid var(--signal-subtle-fg); outline-offset: 2px; border-radius: 4px; }
+    html[data-theme="light"] :focus-visible { outline-color: var(--signal); }
+
+    /* Íconos dibujados, del mismo trazo en toda la interfaz. */
+    .ic { width: 16px; height: 16px; flex-shrink: 0; vertical-align: -3px; }
 
     .mono {
       font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
@@ -97,10 +112,10 @@
     }
 
     .eyebrow {
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 11px;
+      font-size: 12px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
     }
 
@@ -128,11 +143,9 @@
     }
 
     .field label {
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 11px;
+      font-size: 13px;
+      font-weight: 500;
       color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
     .input {
@@ -142,14 +155,18 @@
       border: 1px solid var(--border-strong);
       border-radius: 4px;
       padding: 9px 11px;
-      font-size: 14px;
-      transition: border-color 120ms ease;
+      font-size: 15px;
+      min-height: 40px;
+      transition: border-color 120ms ease, box-shadow 120ms ease;
     }
+    .input::placeholder { color: var(--text-muted); }
 
     .input:focus {
       outline: none;
       border-color: var(--signal-subtle-fg);
+      box-shadow: 0 0 0 3px var(--signal-subtle-bg);
     }
+    html[data-theme="light"] .input:focus { border-color: var(--signal); }
 
     /* Botones. */
     .btn {
@@ -157,13 +174,12 @@
       align-items: center;
       justify-content: center;
       gap: 7px;
-      padding: 8px 13px;
-      border-radius: 4px;
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 12px;
+      min-height: 38px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 14px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+      line-height: 1.2;
       border: 1px solid transparent;
       transition: opacity 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms ease;
       white-space: nowrap;
@@ -182,6 +198,10 @@
 
     .btn-warn { background: var(--tally-warn-bg); color: var(--tally-warn); border-color: var(--tally-warn); }
     .btn-fault { background: var(--tally-fault-bg); color: var(--tally-fault); border-color: var(--tally-fault); }
+    .btn-icon { padding: 0; width: 38px; min-width: 38px; }
+    .link-btn { min-height: 32px; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
+    .link-btn:hover { color: var(--text-primary); text-decoration-color: currentColor; }
+    .btn-icon-sm { padding: 0; width: 30px; min-width: 30px; min-height: 30px; }
 
     .brand-mark { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 18px; }
     .brand-mark span {
@@ -216,10 +236,10 @@
       align-items: center;
       gap: 5px;
       padding: 2px 7px;
-      border-radius: 3px;
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+      border-radius: 4px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: 0.03em;
       text-transform: uppercase;
       border: 1px solid var(--border-strong);
       background: var(--elevated);
@@ -291,24 +311,21 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 11px 16px;
+      padding: 10px 14px;
+      margin: 1px 8px;
+      width: calc(100% - 16px);
+      border-radius: 6px;
       text-align: left;
-      color: var(--text-muted);
-      border-left: 3px solid transparent;
-      font-size: 13px;
+      color: var(--text-secondary);
+      font-size: 14px;
       transition: background 120ms ease, color 120ms ease;
     }
     .rail-item:hover { background: var(--inspector); color: var(--text-primary); }
+    .rail-item .ic { width: 18px; height: 18px; }
     .rail-item.active {
-      background: var(--inspector);
-      color: var(--text-primary);
-      font-weight: 600;
-      border-left-color: var(--signal-subtle-fg);
-    }
-    html[data-theme="light"] .rail-item.active {
       background: var(--signal-subtle-bg);
       color: var(--signal-subtle-fg);
-      border-left-color: var(--signal);
+      font-weight: 600;
     }
     html[data-theme="light"] .topbar { box-shadow: 0 1px 3px rgba(28, 36, 54, 0.06); }
     html[data-theme="light"] .plan-block-card,
@@ -407,9 +424,10 @@
       position: relative;
       border-radius: 4px;
       border: 1px solid var(--hairline);
-      border-left: 4px solid var(--note-fg, var(--signal-subtle-fg));
+      border-color: color-mix(in srgb, var(--note-fg, var(--border-strong)) 42%, transparent);
       background: var(--note-bg, var(--elevated));
-      padding: 10px 11px;
+      border-radius: 6px;
+      padding: 11px 12px;
       display: flex;
       flex-direction: column;
       gap: 7px;
@@ -417,9 +435,10 @@
       text-align: left;
       transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease;
     }
-    .plan-block-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--note-fg, var(--border-strong));
+    .plan-block-card:hover { border-color: var(--note-fg, var(--border-strong)); }
+    .plan-block-card:active { transform: scale(0.99); }
+    @media (hover: hover) {
+      .plan-block-card:hover { transform: translateY(-2px); }
     }
 
     .color-AMBER   { --note-fg: var(--note-amber-fg);   --note-bg: var(--note-amber-bg); }
@@ -478,10 +497,7 @@
       gap: 12px;
       transition: border-color 150ms ease, transform 160ms ease;
     }
-    .idea-card:hover {
-      border-color: var(--border-strong);
-      transform: translateY(-1px);
-    }
+    .idea-card:hover { border-color: var(--border-strong); }
 
     /* ==========================================================================
        MODALES DEL ESTUDIO (CERO ALERTS DEL NAVEGADOR)
@@ -621,14 +637,13 @@
       align-items: center;
     }
     .filter-tab {
-      padding: 6px 11px;
-      border-radius: 3px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border-radius: 999px;
       border: 1px solid var(--hairline);
       background: var(--stage);
       color: var(--text-secondary);
-      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-      font-size: 11px;
-      text-transform: uppercase;
+      font-size: 13px;
       transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
     }
     .filter-tab:hover { border-color: var(--border-strong); color: var(--text-primary); }
@@ -660,7 +675,18 @@
     /* Adaptación a teléfonos y pantallas angostas. */
     @media (max-width: 959px) {
       .side-rail { display: none; }
-      .studio-shell { display: block; width: 100%; padding-bottom: 70px; }
+      .studio-shell { display: block; width: 100%; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+      .topbar { padding: 8px 14px; }
+      .topbar-sub, .hide-sm { display: none; }
+      .btn { min-height: 44px; }
+      .btn-icon { width: 44px; min-width: 44px; }
+      .btn-icon-sm { width: 36px; min-width: 36px; min-height: 36px; }
+      .filter-tab { min-height: 40px; }
+      .swatch-btn { min-height: 40px; }
+      .link-btn { min-height: 40px; }
+      .input { min-height: 44px; font-size: 16px; }
+      .topbar-alerts { min-height: 36px; padding: 0 10px; }
+      .day-empty { padding: 10px 8px !important; font-size: 13px !important; }
       .auth-split { grid-template-columns: minmax(0, 1fr); }
       .auth-manifesto { padding: 22px 14px; border-right: none; border-bottom: 1px solid var(--hairline); }
       .auth-console-wrap { padding: 22px 14px; }
@@ -692,25 +718,36 @@
         display: flex;
         background: var(--stage);
         border-top: 1px solid var(--hairline);
+        padding-bottom: env(safe-area-inset-bottom);
       }
       .bottom-item {
         flex: 1;
         min-width: 0;
-        padding: 7px 2px 9px;
+        min-height: 58px;
+        padding: 8px 2px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 2px;
+        justify-content: center;
+        gap: 4px;
         color: var(--text-muted);
-        border-top: 2px solid transparent;
-        font-family: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
-        font-size: 11px;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.15;
+        text-align: center;
       }
-      .bottom-item.active {
-        color: var(--text-primary);
-        font-weight: 700;
-        border-top-color: var(--signal-subtle-fg);
+      .bottom-item .ic { width: 22px; height: 22px; }
+      .bottom-item .nav-ic {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 28px;
+        border-radius: 999px;
+        transition: background 150ms ease;
       }
+      .bottom-item.active { color: var(--text-primary); font-weight: 700; }
+      .bottom-item.active .nav-ic { background: var(--signal-subtle-bg); color: var(--signal-subtle-fg); }
       /* En el teléfono los pop ups ocupan casi toda la pantalla. Los avisos breves (modal-centered) miden lo que su contenido. */
       .modal-backdrop { padding: 12px; }
       .modal-panel { max-height: calc(var(--app-height, 100vh) - 24px); }
@@ -990,6 +1027,29 @@
         case 'REJECTED':          return { label: 'RECHAZADO',       cls: 'badge-fault' };
         default:                  return { label: 'EN REVISIÓN',     cls: 'badge-review' };
       }
+    }
+
+    /** Trazos de los íconos (24 × 24, línea de 2 px). */
+    const ICONS = {
+      x: '<path d="M18 6 6 18M6 6l12 12"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>',
+      refresh: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/>',
+      sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+      moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+      shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+      lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+      external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+      calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      bulb: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>',
+      users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+      bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+      pin: '<path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V17h14v-1.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+      sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>'
+    };
+
+    /** Devuelve un ícono en línea; toma el color del texto que lo rodea. */
+    function icon(name) {
+      return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
     }
 
     /** Muestra un mensaje en la barra de avisos. */
@@ -1523,7 +1583,9 @@
         const light = document.documentElement.getAttribute('data-theme') === 'light';
         window.google.accounts.id.renderButton(slot, {
           type: 'standard', theme: light ? 'outline' : 'filled_black', size: 'large',
-          text: 'continue_with', shape: 'rectangular', locale: 'es', width: 376
+          text: 'continue_with', shape: 'rectangular', locale: 'es',
+          // Google lo dibuja con un ancho fijo: se ajusta al lugar disponible para no desbordar en el teléfono.
+          width: Math.max(200, Math.min(400, Math.floor(slot.clientWidth || 376)))
         });
       }
     }
@@ -1623,18 +1685,18 @@
       const role = state.session.role;
       if (role === 'CLIENTE') {
         return [
-          { id: 'schedules', code: '01', label: 'Cronograma' },
-          { id: 'proposals', code: '02', label: 'Proponer ideas' },
-          { id: 'history',   code: '03', label: 'Avisos' },
-          { id: 'settings',  code: '04', label: 'Ajustes' }
+          { id: 'schedules', icon: 'calendar', label: 'Cronograma' },
+          { id: 'proposals', icon: 'bulb',     label: 'Proponer ideas' },
+          { id: 'history',   icon: 'bell',     label: 'Avisos' },
+          { id: 'settings',  icon: 'sliders',  label: 'Ajustes' }
         ];
       }
       return [
-        { id: 'schedules', code: '01', label: 'Cronogramas' },
-        { id: 'ideas',     code: '02', label: 'Ideas de contenido' },
-        { id: 'accounts',  code: '03', label: 'Clientes' },
-        { id: 'history',   code: '04', label: 'Avisos' },
-        { id: 'settings',  code: '05', label: 'Ajustes' }
+        { id: 'schedules', icon: 'calendar', label: 'Cronogramas' },
+        { id: 'ideas',     icon: 'bulb',     label: 'Ideas' },
+        { id: 'accounts',  icon: 'users',    label: 'Clientes' },
+        { id: 'history',   icon: 'bell',     label: 'Avisos' },
+        { id: 'settings',  icon: 'sliders',  label: 'Ajustes' }
       ];
     }
 
@@ -2404,7 +2466,7 @@
                 <span class="display-tight" style="font-weight:700;font-size:16px;">${esc(appName())}</span>
                 <span class="badge badge-review">${esc(roleLabel)}</span>
               </div>
-              <div class="mono" style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <div class="mono topbar-sub" style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 ${state.session ? esc(state.session.fullName) : 'Agencias y clientes, en un solo lugar'}
               </div>
             </div>
@@ -2412,12 +2474,12 @@
 
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
             ${state.session ? `
-              <button class="badge ${unread > 0 ? 'badge-warn' : ''}" onclick="state.activeTab='history';render();">
+              <button class="badge topbar-alerts ${unread > 0 ? 'badge-warn' : ''}" onclick="state.activeTab='history';render();">
                 ${unread > 0 ? '<span class="tally-dot"></span>' : ''} ${unread} ${unread === 1 ? 'aviso' : 'avisos'}
               </button>
             ` : ''}
-            <button class="btn btn-outline" onclick="setTheme(state.theme === 'dark' ? 'light' : 'dark')" title="Cambiar apariencia">
-              ◐ <span>${state.theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
+            <button class="btn btn-outline" onclick="setTheme(state.theme === 'dark' ? 'light' : 'dark')" title="Cambiar apariencia" aria-label="Cambiar apariencia">
+              ${icon(state.theme === 'dark' ? 'moon' : 'sun')} <span class="hide-sm">${state.theme === 'dark' ? 'Oscuro' : 'Claro'}</span>
             </button>
           </div>
         </header>
@@ -2425,8 +2487,8 @@
         ${pc ? `
           <div class="security-confirm-banner feedback-enter">
             <div style="max-width:680px;">
-              <div class="mono" style="font-size:11px;font-weight:700;color:var(--tally-warn);letter-spacing:0.06em;">
-                🛡️ VERIFICACIÓN DE SEGURIDAD REQUERIDA
+              <div class="mono" style="font-size:12px;font-weight:700;color:var(--tally-warn);letter-spacing:0.06em;">
+                ${icon('shield')} VERIFICACIÓN DE SEGURIDAD REQUERIDA
               </div>
               <div style="font-size:14px;font-weight:600;margin-top:3px;color:var(--text-primary);">
                 La agencia «${esc(pc.agency?.name || 'Agencia')}» quiere vincular tu correo (${esc(pc.user?.email || state.session?.email)}) como cliente de la marca «${esc(pc.companyName)}».
@@ -2437,10 +2499,10 @@
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-signal" onclick="respondClientIdentity('${pc.id}', 'ACCEPT')">
-                ✓ Sí, soy yo
+                ${icon('check')} Sí, soy yo
               </button>
               <button class="btn btn-fault" onclick="respondClientIdentity('${pc.id}', 'REJECT')">
-                ✕ No soy yo, rechazar
+                ${icon('x')} No soy yo, rechazar
               </button>
             </div>
           </div>
@@ -2466,7 +2528,7 @@
         <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;max-width:50ch;">
           ${steps.map(([n, title, text]) => `
             <li style="display:flex;gap:10px;align-items:flex-start;">
-              <span class="mono" style="flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--signal-subtle-bg);color:var(--signal-subtle-fg);">${n}</span>
+              <span class="mono" style="flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--signal-subtle-bg);color:var(--signal-subtle-fg);">${n}</span>
               <div>
                 <div style="font-weight:600;font-size:14px;">${title}</div>
                 <div style="font-size:13px;color:var(--text-secondary);">${text}</div>
@@ -2482,7 +2544,7 @@
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span class="mono" style="font-weight:700;font-size:13px;">Verificá tu correo (6 dígitos)</span>
-          <span class="mono" style="font-size:11px;color:var(--tally-live);">CÓDIGO ENVIADO</span>
+          <span class="mono" style="font-size:12px;color:var(--tally-live);">CÓDIGO ENVIADO</span>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
           Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong> para comprobar que ese correo te pertenece.
@@ -2512,7 +2574,7 @@
         return `
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span class="mono" style="font-weight:700;font-size:13px;">${titleText}</span>
-            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 1 DE 3</span>
+            <span class="mono" style="font-size:12px;color:var(--text-muted);">PASO 1 DE 3</span>
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
             ${isGoogleCreate
@@ -2537,7 +2599,7 @@
         return `
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <span class="mono" style="font-weight:700;font-size:13px;">Comprobar identidad (6 dígitos)</span>
-            <span class="mono" style="font-size:11px;color:var(--text-muted);">PASO 2 DE 3</span>
+            <span class="mono" style="font-size:12px;color:var(--text-muted);">PASO 2 DE 3</span>
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
             Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong>. Comprobá tu identidad para habilitar el campo de contraseña.
@@ -2561,10 +2623,10 @@
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span class="mono" style="font-weight:700;font-size:13px;">Identidad verificada · Creá tu contraseña</span>
-          <span class="mono" style="font-size:11px;color:var(--tally-live);">PASO 3 DE 3</span>
+          <span class="mono" style="font-size:12px;color:var(--tally-live);">PASO 3 DE 3</span>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-          ✓ Identidad comprobada para <strong>${esc(state.authEmail)}</strong>. Ingresá la contraseña que quedará guardada en tu cuenta para iniciar sesión por el campo común cuando quieras.
+          ${icon('check')} Identidad comprobada para <strong>${esc(state.authEmail)}</strong>. Ingresá la contraseña que quedará guardada en tu cuenta para iniciar sesión por el campo común cuando quieras.
         </p>
         <div class="field">
           <label>Nueva contraseña</label>
@@ -2631,9 +2693,9 @@
         </button>
 
         ${registering ? '' : `
-          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary);">
-            <button onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
-            <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();">Olvidé mi clave</button>
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:13px;color:var(--text-secondary);">
+            <button class="link-btn" onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
+            <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();" class="link-btn">Olvidé mi clave</button>
           </div>
         `}
 
@@ -2645,7 +2707,7 @@
 
         <div id="google-btn-slot" style="display:flex;justify-content:center;min-height:42px;"></div>
 
-        <button id="facebook-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#1877F2;border:1px solid #1877F2;color:#ffffff;font-weight:600;font-size:13px;border-radius:4px;"
+        <button id="facebook-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#0866FF;border:1px solid #0866FF;color:#ffffff;font-weight:600;font-size:14px;border-radius:4px;"
           onclick="startOAuthRedirect('facebook')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
           <span>Continuar con Facebook</span>
@@ -2665,7 +2727,6 @@
         <div class="auth-split stage-enter">
           <section class="auth-manifesto">
             <div style="display:flex;flex-direction:column;gap:16px;">
-              <div class="eyebrow">CONTENTSYNC</div>
               <h1 style="font-size:clamp(28px, 3.3vw, 42px);font-weight:700;">
                 Tu agencia y tus clientes,<br/>en un solo lugar.
               </h1>
@@ -2697,14 +2758,13 @@
         return `
           <div class="page-pad">
             <div style="border:1px solid var(--tally-warn);background:var(--stage);border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px;">
-              <div class="eyebrow" style="color:var(--tally-warn);">CONFIRMACIÓN PENDIENTE</div>
               <h2 style="font-size:22px;font-weight:700;">Confirmá tu identidad para ver tu cronograma</h2>
               <p style="color:var(--text-secondary);max-width:60ch;">
                 Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con <strong>${esc(state.pendingConfirmation.agency?.name || 'la agencia')}</strong>, necesitamos que presiones <strong>"Sí, soy yo"</strong> arriba o acá mismo.
               </p>
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-                <button class="btn btn-signal" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'ACCEPT')">✓ Sí, soy yo — Activar mi cuenta</button>
-                <button class="btn btn-fault" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'REJECT')">✕ No soy yo — Rechazar</button>
+                <button class="btn btn-signal" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'ACCEPT')">${icon('check')} Sí, soy yo — Activar mi cuenta</button>
+                <button class="btn btn-fault" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'REJECT')">${icon('x')} No soy yo — Rechazar</button>
               </div>
             </div>
           </div>
@@ -2725,7 +2785,6 @@
           <!-- Cabecera Principal -->
           <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--hairline);">
             <div>
-              <div class="eyebrow">${isClient ? 'CRONOGRAMA DE TU MARCA' : 'CRONOGRAMAS DE TUS CLIENTES'}</div>
               <h2 style="font-size:24px;font-weight:700;margin-top:3px;">
                 ${isClient ? 'Tu contenido de la semana' : 'Cronograma semanal'}
               </h2>
@@ -2761,7 +2820,6 @@
 
           ${confirmedClients.length === 0 && !isClient ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
-              <div class="eyebrow">SIN CLIENTES CONFIRMADOS</div>
               <h3 style="font-size:18px;font-weight:600;margin-top:6px;">Agregá y confirmá un cliente para armar su cronograma</h3>
               <p style="color:var(--text-secondary);margin-top:6px;max-width:56ch;">
                 Dirigite a la sección Clientes para dar de alta una marca. Una vez que el cliente confirme «Sí, soy yo», podrás crearle sus semanas de Lunes a Viernes.
@@ -2770,7 +2828,6 @@
             </div>
           ` : !activeSchedule ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
-              <div class="eyebrow" style="color:var(--signal-subtle-fg);">CRONOGRAMA</div>
               <h3 style="font-size:18px;font-weight:600;margin-top:6px;">
                 ${isClient ? 'Tu agencia todavía no compartió un cronograma' : 'Todavía no hay semanas creadas para este cliente'}
               </h3>
@@ -2842,14 +2899,14 @@
                     <div class="day-col-header">
                       <div>
                         <div class="mono" style="font-weight:700;font-size:13px;color:var(--signal-subtle-fg);">${day.full}</div>
-                        <div class="mono" style="font-size:11px;color:var(--text-muted);">${dateLabel}</div>
+                        <div class="mono" style="font-size:12px;color:var(--text-muted);">${dateLabel}</div>
                       </div>
                       <span class="badge">${dayBlocks.length}</span>
                     </div>
 
                     <div class="day-blocks-list">
                       ${dayBlocks.length === 0 ? `
-                        <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 8px;color:var(--text-muted);font-size:12px;border:1px dashed var(--hairline);border-radius:4px;">
+                        <div class="day-empty" style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:18px 8px;color:var(--text-muted);font-size:13px;border:1px dashed var(--hairline);border-radius:6px;">
                           Sin bloques cargados para el ${day.full.toLowerCase()}
                         </div>
                       ` : dayBlocks.map(blk => {
@@ -2862,10 +2919,10 @@
                           <article class="plan-block-card ${sectionColorClass(blk.noteColor || 'AMBER')}" style="${sectionColorStyle(blk.noteColor)}"
                             onclick="state.inspectBlockId='${blk.id}';state.confirmDeleteBlockId=null;render();">
                             <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-                              <span class="mono" style="font-size:11px;font-weight:700;color:var(--note-fg);">
+                              <span class="mono" style="font-size:12px;font-weight:700;color:var(--note-fg);">
                                 ${esc(contentTypeLabel(blk.contentType)).toUpperCase()}
                               </span>
-                              <span class="mono" style="font-size:11px;color:var(--text-muted);">
+                              <span class="mono" style="font-size:12px;color:var(--text-muted);">
                                 ${esc(blk.plannedTime || '18:00')} hs
                               </span>
                             </div>
@@ -2881,7 +2938,7 @@
                             ` : ''}
 
                             <div style="margin-top:4px;padding-top:7px;border-top:1px solid var(--hairline);display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
-                              <span class="mono" style="font-size:11px;color:var(--text-secondary);">
+                              <span class="mono" style="font-size:12px;color:var(--text-secondary);">
                                 ${[
                                   photos ? photos + (photos === 1 ? ' foto' : ' fotos') : '',
                                   videos ? videos + (videos === 1 ? ' video' : ' videos') : '',
@@ -2889,13 +2946,13 @@
                                 ].filter(Boolean).join(' · ') || 'Sin archivos todavía'}
                               </span>
                               <span style="display:flex;gap:4px;flex-wrap:wrap;">
-                                <span class="badge ${blk.productionStatus === 'UPLOADED' ? 'badge-live' : ''}" style="font-size:10px;padding:1px 5px;">${productionLabel(blk.productionStatus).toUpperCase()}</span>
-                                <span class="badge ${wf.cls}" style="font-size:10px;padding:1px 5px;">${wf.label}</span>
+                                <span class="badge ${blk.productionStatus === 'UPLOADED' ? 'badge-live' : ''}" style="font-size:11px;padding:1px 6px;">${productionLabel(blk.productionStatus).toUpperCase()}</span>
+                                <span class="badge ${wf.cls}" style="font-size:11px;padding:1px 6px;">${wf.label}</span>
                               </span>
                             </div>
                             ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
-                              <button class="btn btn-warn" style="width:100%;padding:6px 8px;font-size:11px;"
-                                onclick="event.stopPropagation();resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
+                              <button class="btn btn-warn" style="width:100%;padding:6px 8px;font-size:12px;"
+                                onclick="event.stopPropagation();resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar a revisión</button>
                             ` : ''}
                           </article>
                         `;
@@ -2904,7 +2961,7 @@
 
                     ${!isClient ? `
                       <div class="day-col-footer">
-                        <button class="btn btn-outline" style="width:100%;padding:7px 8px;font-size:11px;"
+                        <button class="btn btn-outline" style="width:100%;padding:7px 8px;font-size:12px;"
                           onclick="openBlockModal(${day.num}, null)">
                           + Agregar bloque
                         </button>
@@ -2930,7 +2987,7 @@
       if (sched.status === 'APPROVED') {
         return `
           <div style="border:1px solid var(--tally-live);background:var(--tally-live-bg);padding:11px 14px;border-radius:5px;font-size:13.5px;font-weight:600;color:var(--tally-live);">
-            ✓ Cronograma confirmado${sched.confirmedByUser ? ' por ' + esc(sched.confirmedByUser.fullName) : ''}${sched.confirmedAt ? ' · ' + fmtDateTimeHuman(sched.confirmedAt) : ''}
+            ${icon('check')} Cronograma confirmado${sched.confirmedByUser ? ' por ' + esc(sched.confirmedByUser.fullName) : ''}${sched.confirmedAt ? ' · ' + fmtDateTimeHuman(sched.confirmedAt) : ''}
           </div>
         `;
       }
@@ -2957,7 +3014,7 @@
               <button class="btn btn-outline" onclick="state.confirmScheduleAsk=false;render();">Cancelar</button>
             </div>
           ` : `
-            <button class="btn btn-signal" onclick="state.confirmScheduleAsk=true;render();">✓ Confirmar cronograma</button>
+            <button class="btn btn-signal" onclick="state.confirmScheduleAsk=true;render();">${icon('check')} Confirmar cronograma</button>
           `)}
         </div>
       `;
@@ -2970,10 +3027,9 @@
           <div class="modal-panel" style="max-width:480px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <div class="eyebrow">NUEVO CRONOGRAMA</div>
                 <h3 style="font-size:18px;font-weight:700;">Crear semana de lunes a domingo</h3>
               </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.showNewWeekModal=false;render();">✕</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.showNewWeekModal=false;render();">${icon('x')}</button>
             </div>
 
             <div class="field">
@@ -3029,12 +3085,11 @@
           <div class="modal-panel">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
               <div>
-                <div class="eyebrow">${state.editingBlockId ? 'EDITAR BLOQUE' : 'NUEVO BLOQUE'}</div>
                 <h3 style="font-size:19px;font-weight:700;">
                   ${state.editingBlockId ? 'Editar contenido del día' : 'Agregar contenido al día'}
                 </h3>
               </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">✕</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">${icon('x')}</button>
             </div>
 
             <div class="field">
@@ -3102,7 +3157,7 @@
                     <div style="flex:none;display:flex;flex-direction:column;gap:4px;">
                       <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Subir" aria-label="Subir" ${i === 0 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, -1)">↑</button>
                       <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Bajar" aria-label="Bajar" ${i === state.blkMedia.length - 1 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, 1)">↓</button>
-                      <button type="button" class="btn btn-outline" style="padding:2px 8px;" title="Quitar" aria-label="Quitar" onclick="removeBlockMedia(${i})">✕</button>
+                      <button type="button" class="btn btn-outline btn-icon-sm" title="Quitar" aria-label="Quitar" onclick="removeBlockMedia(${i})">${icon('x')}</button>
                     </div>
                   </div>
                 `).join('')}
@@ -3132,7 +3187,7 @@
 
             ${state.blkSaving && state.blkUploadProgress > 0 ? `
               <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:10px 12px;border-radius:4px;">
-                <div class="mono" style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--signal-subtle-fg);">
+                <div class="mono" style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--signal-subtle-fg);">
                   <span>SUBIENDO ARCHIVOS...</span>
                   <span id="blk-upload-pct">${state.blkUploadProgress}%</span>
                 </div>
@@ -3197,12 +3252,12 @@
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex:none;">
                 <span class="badge ${wf.cls}">${wf.label}</span>
-                <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.inspectBlockId=null;render();">✕</button>
+                <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.inspectBlockId=null;render();">${icon('x')}</button>
               </div>
             </div>
 
             ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
-              <button class="btn btn-warn" style="align-self:flex-start;" onclick="resubmitBlock('${blk.id}')">↻ Reenviar a revisión</button>
+              <button class="btn btn-warn" style="align-self:flex-start;" onclick="resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar a revisión</button>
             ` : ''}
 
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3216,7 +3271,7 @@
             </div>
 
             ${blk.notes ? `
-              <div class="${sectionColorClass(blk.noteColor || 'AMBER')}" style="${sectionColorStyle(blk.noteColor)}border-left:4px solid var(--note-fg);background:var(--note-bg);padding:11px 13px;border-radius:3px;">
+              <div class="${sectionColorClass(blk.noteColor || 'AMBER')}" style="${sectionColorStyle(blk.noteColor)}border:1px solid color-mix(in srgb, var(--note-fg) 42%, transparent);background:var(--note-bg);padding:11px 13px;border-radius:6px;">
                 <div class="eyebrow" style="color:var(--note-fg);margin-bottom:4px;">CONTENIDO</div>
                 <div style="font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(blk.notes)}</div>
               </div>
@@ -3237,7 +3292,7 @@
                       ${renderMediaPreview(m, 'max-width:100%;max-height:440px;display:block;', true)}
                     </div>
                     <figcaption style="padding:9px 12px;">
-                      <div class="mono" style="font-size:11px;color:var(--text-muted);">${m.kind === 'VIDEO' ? 'VIDEO' : 'FOTO'} ${i + 1} DE ${media.length}</div>
+                      <div class="mono" style="font-size:12px;color:var(--text-muted);">${m.kind === 'VIDEO' ? 'VIDEO' : 'FOTO'} ${i + 1} DE ${media.length}</div>
                       ${m.description ? `<div style="font-size:13.5px;line-height:1.45;margin-top:3px;white-space:pre-wrap;overflow-wrap:anywhere;">${esc(m.description)}</div>` : ''}
                     </figcaption>
                   </figure>
@@ -3252,8 +3307,8 @@
             <div style="border-top:1px solid var(--hairline);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
               <div class="eyebrow">COMENTARIOS</div>
               ${comments.length ? comments.map(c => `
-                <div style="border-left:2px solid var(--signal-subtle-fg);padding-left:9px;font-size:13px;">
-                  <span class="mono" style="font-size:11px;color:var(--text-muted);">${esc(c.authorUser?.fullName || 'Usuario')} · ${fmtDateTimeHuman(c.createdAt)}</span>
+                <div style="background:var(--inspector);border:1px solid var(--hairline);border-radius:6px;padding:8px 11px;font-size:14px;">
+                  <span class="mono" style="font-size:12px;color:var(--text-muted);">${esc(c.authorUser?.fullName || 'Usuario')} · ${fmtDateTimeHuman(c.createdAt)}</span>
                   <div style="white-space:pre-wrap;overflow-wrap:anywhere;">${esc(c.message)}</div>
                 </div>
               `).join('') : `<div style="font-size:13px;color:var(--text-muted);">Todavía no hay comentarios.</div>`}
@@ -3268,7 +3323,7 @@
 
               ${role !== 'AGENCIA' ? `
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
-                  <button class="btn btn-signal" onclick="submitBlockReview('${blk.id}','APPROVED')">✓ Aprobar</button>
+                  <button class="btn btn-signal" onclick="submitBlockReview('${blk.id}','APPROVED')">${icon('check')} Aprobar</button>
                   <button class="btn btn-warn" onclick="submitBlockReview('${blk.id}','CHANGES_REQUESTED')">Pedir cambios</button>
                   <button class="btn btn-fault" onclick="submitBlockReview('${blk.id}','REJECTED')">Rechazar</button>
                 </div>
@@ -3459,7 +3514,7 @@
     /** Dibuja el enlace de referencia de una propuesta, si tiene. */
     function renderProposalLink(url) {
       return url
-        ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12.5px;color:var(--signal-subtle-fg);overflow-wrap:anywhere;">Ver referencia ↗</a>`
+        ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12.5px;color:var(--signal-subtle-fg);overflow-wrap:anywhere;">Ver referencia ${icon('external')}</a>`
         : '';
     }
 
@@ -3500,7 +3555,7 @@
                 </div>
               ` : `
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button class="btn btn-signal" style="padding:6px 10px;" onclick="acceptProposal('${p.id}')">✓ Aceptar</button>
+                  <button class="btn btn-signal" style="padding:6px 10px;" onclick="acceptProposal('${p.id}')">${icon('check')} Aceptar</button>
                   <button class="btn btn-outline" style="padding:6px 10px;" onclick="openProposalEditor('${p.id}')">Editar y aceptar</button>
                   <button class="btn btn-fault" style="padding:6px 10px;" onclick="state.confirmRejectProposalId='${p.id}';render();">Rechazar</button>
                 </div>
@@ -3544,7 +3599,6 @@
       return `
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
-            <div class="eyebrow">TUS IDEAS</div>
             <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Proponé ideas a tu agencia</h2>
             <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.</p>
           </div>
@@ -3575,7 +3629,7 @@
                 </div>
                 <div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;overflow-wrap:anywhere;">${esc(p.content)}</div>
                 ${renderProposalLink(p.referenceUrl)}
-                <div class="mono" style="font-size:11px;color:var(--text-muted);">${fmtDateTimeHuman(p.createdAt)}</div>
+                <div class="mono" style="font-size:12px;color:var(--text-muted);">${fmtDateTimeHuman(p.createdAt)}</div>
               </div>
             `).join('') : `<div style="font-size:13px;color:var(--text-muted);">Todavía no enviaste ideas.</div>`}
           </div>
@@ -3609,8 +3663,7 @@
           <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--hairline);">
             <div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <span class="eyebrow">BANCO CREATIVO</span>
-                <span class="badge badge-review">🔒 PRIVADO DE TU AGENCIA</span>
+                <span class="badge badge-review">${icon('lock')} PRIVADO DE TU AGENCIA</span>
               </div>
               <h2 style="font-size:24px;font-weight:700;margin-top:4px;">Ideas de contenido</h2>
               <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
@@ -3675,7 +3728,7 @@
                   <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.confirmDeleteSectionId=null;render();">No</button>
                 </div>
               ` : `
-                <button class="btn btn-outline" style="padding:5px 10px;font-size:11px;"
+                <button class="btn btn-outline" style="padding:5px 10px;font-size:12px;"
                   onclick="state.confirmDeleteSectionId='${activeSectionObj.id}';render();">
                   Eliminar sección «${esc(activeSectionObj.name)}»
                 </button>
@@ -3727,10 +3780,10 @@
                         <span class="badge" style="color:var(--note-fg);border-color:var(--note-fg);background:var(--note-bg);">
                           ${esc(idea.section?.name || 'Sección')}
                         </span>
-                        <button class="btn btn-outline" style="padding:3px 7px;font-size:11px;"
+                        <button class="btn btn-outline" style="padding:3px 7px;font-size:12px;"
                           title="${idea.isPinned ? 'Quitar fijado' : 'Fijar arriba'}"
                           onclick="togglePinIdea('${idea.id}', ${Boolean(idea.isPinned)})">
-                          ${idea.isPinned ? '📌 Fijada' : '☆ Fijar'}
+                          ${icon('pin')} ${idea.isPinned ? 'Fijada' : 'Fijar'}
                         </button>
                       </div>
 
@@ -3740,13 +3793,13 @@
                       ${idea.referenceUrl ? `
                         <a href="${esc(idea.referenceUrl)}" target="_blank" rel="noopener noreferrer"
                            style="font-size:12px;color:var(--signal-subtle-fg);text-decoration:underline;word-break:break-all;">
-                          🔗 Ver referencia
+                          ${icon('external')} Ver referencia
                         </a>
                       ` : ''}
                     </div>
 
                     <div style="padding-top:10px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:8px;">
-                      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted);" class="mono">
+                      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);" class="mono">
                         <span>${idea.client ? esc(idea.client.companyName) : 'General Agencia'}</span>
                       </div>
 
@@ -3760,16 +3813,16 @@
                         </div>
                       ` : `
                         <div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-                          <button class="btn btn-signal" style="padding:5px 9px;font-size:11px;"
+                          <button class="btn btn-signal" style="padding:5px 9px;font-size:12px;"
                             onclick="sendIdeaToPlan('${idea.id}')">
                             Llevar al cronograma →
                           </button>
                           <div style="display:flex;gap:6px;">
-                            <button class="btn btn-outline" style="padding:5px 9px;font-size:11px;"
+                            <button class="btn btn-outline" style="padding:5px 9px;font-size:12px;"
                               onclick='openIdeaModal(${JSON.stringify(idea).replace(/'/g, "&#39;")})'>
                               Editar
                             </button>
-                            <button class="btn btn-fault" style="padding:5px 9px;font-size:11px;"
+                            <button class="btn btn-fault" style="padding:5px 9px;font-size:12px;"
                               onclick="state.confirmDeleteIdeaId='${idea.id}';render();">
                               Eliminar
                             </button>
@@ -3797,10 +3850,9 @@
           <div class="modal-panel" style="max-width:560px;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--hairline);">
               <div>
-                <div class="eyebrow">${state.acceptingProposalId ? 'PROPUESTA DE UN CLIENTE' : 'IDEA PRIVADA DE AGENCIA'}</div>
                 <h3 style="font-size:19px;font-weight:700;">${state.acceptingProposalId ? 'Editar y aceptar' : state.editingIdeaId ? 'Editar idea de contenido' : 'Nueva idea de contenido'}</h3>
               </div>
-              <button class="btn btn-outline" style="padding:4px 9px;" onclick="state.ideaModalOpen=false;render();">✕</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.ideaModalOpen=false;render();">${icon('x')}</button>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -3864,7 +3916,7 @@
             <div style="display:${state.acceptingProposalId ? 'none' : 'flex'};justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
               <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
                 <input type="checkbox" ${state.ideaFormPinned ? 'checked' : ''} onchange="state.ideaFormPinned=this.checked" />
-                📌 Fijar como destacada
+                Fijar como destacada
               </label>
             </div>
 
@@ -3920,7 +3972,6 @@
           <section style="display:flex;flex-direction:column;gap:14px;">
             <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid var(--hairline);flex-wrap:wrap;gap:10px;">
               <div>
-                <div class="eyebrow">CARTERA DE CLIENTES</div>
                 <h2 style="font-size:24px;font-weight:700;margin-top:2px;">
                   Clientes y verificación de identidad
                 </h2>
@@ -3934,7 +3985,7 @@
               <div class="feedback-enter" style="border:1px solid var(--border-strong);background:var(--stage);padding:18px;border-radius:5px;display:flex;flex-direction:column;gap:12px;">
                 <div style="font-weight:700;font-size:15px;">Invitar y registrar un nuevo Cliente</div>
                 <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;padding:10px 12px;border-radius:4px;background:var(--inspector);border-left:3px solid var(--signal-subtle-fg);">
-                  🛡️ <strong>Medida de seguridad activa:</strong> Al guardar este formulario, enviaremos una notificación interna y un correo electrónico a la dirección indicada. El perfil permanecerá pendiente hasta que el titular presione <strong>«Sí, soy yo»</strong>, evitando que se creen perfiles con correos ajenos.
+                  <strong>Medida de seguridad activa:</strong> Al guardar este formulario, enviaremos una notificación interna y un correo electrónico a la dirección indicada. El perfil permanecerá pendiente hasta que el titular presione <strong>«Sí, soy yo»</strong>, evitando que se creen perfiles con correos ajenos.
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
                   <div class="field">
@@ -4006,7 +4057,6 @@
       return `
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
-            <div class="eyebrow">CENTRO DE ACTIVIDAD</div>
             <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Avisos</h2>
           </div>
 
@@ -4023,12 +4073,12 @@
                   <div style="max-width:680px;min-width:0;">
                     <div style="font-weight:600;font-size:14px;overflow-wrap:anywhere;">${esc(n.title)}</div>
                     <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;overflow-wrap:anywhere;">${esc(n.body)}</div>
-                    <div class="mono" style="font-size:11px;color:var(--text-muted);margin-top:4px;">${fmtDateTimeHuman(n.createdAt)}</div>
+                    <div class="mono" style="font-size:12px;color:var(--text-muted);margin-top:4px;">${fmtDateTimeHuman(n.createdAt)}</div>
                   </div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     ${isConfirmReq ? `
-                      <button class="btn btn-signal" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'ACCEPT')">✓ Sí, soy yo</button>
-                      <button class="btn btn-fault" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'REJECT')">✕ No soy yo</button>
+                      <button class="btn btn-signal" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'ACCEPT')">${icon('check')} Sí, soy yo</button>
+                      <button class="btn btn-fault" onclick="respondClientIdentity('${n.referenceId || state.pendingConfirmation.id}', 'REJECT')">${icon('x')} No soy yo</button>
                     ` : `
                       ${hasTarget ? `<button class="btn btn-outline" style="padding:5px 10px;" onclick="openNotificationTarget('${n.id}')">Ver</button>` : ''}
                     `}
@@ -4120,7 +4170,6 @@
         <div class="modal-backdrop" onclick="if(event.target===this){closeChangePassword();}">
           <div class="modal-panel" style="max-width:480px;">
             <div>
-              <div class="eyebrow">SEGURIDAD</div>
               <h3 style="font-size:18px;font-weight:700;">${c.hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'}</h3>
             </div>
             ${c.hasPassword ? field('current', 'Contraseña actual', 'current-password') : ''}
@@ -4281,14 +4330,13 @@
       return `
         <div class="page-pad" style="display:flex;justify-content:center;">
           <div style="max-width:480px;width:100%;border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:24px;display:flex;flex-direction:column;gap:14px;">
-            <div class="eyebrow">VERIFICACIÓN DE IDENTIDAD</div>
             <h2 style="font-size:22px;font-weight:700;">${rejecting ? '¿Rechazar esta vinculación?' : '¿Reconocés esta solicitud?'}</h2>
             <p style="font-size:14px;color:var(--text-secondary);line-height:1.5;">
               Una agencia indicó tu correo para asociarte como cliente en ${esc(appName())}. El perfil solo se activa si confirmás que sos vos.
             </p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn btn-signal" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('ACCEPT')">✓ Sí, soy yo</button>
-              <button class="btn btn-fault" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('REJECT')">✕ No soy yo</button>
+              <button class="btn btn-signal" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('ACCEPT')">${icon('check')} Sí, soy yo</button>
+              <button class="btn btn-fault" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('REJECT')">${icon('x')} No soy yo</button>
             </div>
           </div>
         </div>
@@ -4312,7 +4360,7 @@
       }
       setBanner(
         r.data?.status === 'CONFIRMED'
-          ? `✓ ¡Confirmaste «Sí, soy yo»! Tu cuenta de cliente para ${r.data.companyName} ya está activa. Iniciá sesión con tu correo: te enviaremos un código para crear tu contraseña.`
+          ? `¡Confirmaste «Sí, soy yo»! Tu cuenta de cliente para ${r.data.companyName} ya está activa. Iniciá sesión con tu correo: te enviaremos un código para crear tu contraseña.`
           : `Rechazaste la solicitud de vinculación para ${r.data?.companyName || 'la marca'}. Tu correo fue desvinculado por seguridad.`,
         r.data?.status !== 'CONFIRMED'
       );
@@ -4324,7 +4372,6 @@
       return `
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
-            <div class="eyebrow">TU CUENTA</div>
             <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Ajustes</h2>
           </div>
 
@@ -4413,7 +4460,6 @@
         <div class="modal-backdrop" onclick="if(event.target===this){closeDeleteAccount();}">
           <div class="modal-panel" style="max-width:480px;">
             <div>
-              <div class="eyebrow">ELIMINAR CUENTA</div>
               <h3 style="font-size:18px;font-weight:700;">¿Eliminar tu cuenta definitivamente?</h3>
             </div>
             <div style="font-size:13px;">${esc(consequence)}</div>
@@ -4513,8 +4559,8 @@
           <nav class="side-rail" aria-label="Navegación Principal">
             <div>
               ${dests.map(d => `
-                <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
-                  <span class="mono" style="font-size:11px;opacity:0.7;">${d.code}</span>
+                <button class="rail-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')" ${state.activeTab === d.id ? 'aria-current="page"' : ''}>
+                  ${icon(d.icon)}
                   <span>${d.label}</span>
                 </button>
               `).join('')}
@@ -4528,8 +4574,8 @@
 
         <nav class="bottom-bar" aria-label="Navegación Móvil">
           ${dests.map(d => `
-            <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')">
-              <span>${d.code}</span>
+            <button class="bottom-item ${state.activeTab === d.id ? 'active' : ''}" onclick="openTab('${d.id}')" ${state.activeTab === d.id ? 'aria-current="page"' : ''}>
+              <span class="nav-ic">${icon(d.icon)}</span>
               <span>${d.label}</span>
             </button>
           `).join('')}
@@ -4603,7 +4649,6 @@
         <div class="modal-backdrop modal-centered">
           <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="setup-title" style="max-width:460px;">
             <div>
-              <div class="eyebrow">ÚLTIMO PASO</div>
               <h3 id="setup-title" style="font-size:19px;font-weight:700;margin-top:3px;">Completá tus datos</h3>
               <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Los necesitamos para crear tu espacio. Te los pedimos una sola vez.</p>
             </div>
