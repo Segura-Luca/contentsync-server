@@ -8,18 +8,18 @@
     "prebuild": "rimraf dist",
     "build": "nest build",
     "build:cloud": "prisma generate && nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.tsx\" \"test/**/*.tsx\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.tsx\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "node prisma/deploy.js",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "ts-node prisma/seed.tsx",
     "prisma:check": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"$SHADOW_DATABASE_URL\" --exit-code"
   },
   "dependencies": {
@@ -76,15 +76,15 @@
     "moduleFileExtensions": [
       "js",
       "json",
-      "ts"
+      "tsx"
     ],
     "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
+    "testRegex": ".*\\.spec\\.tsx$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(tsx|js)$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.{tsx,js}"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"

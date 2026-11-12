@@ -47,7 +47,7 @@ ContentSync organiza la revisión y aprobación del contenido entre agencia y cl
 
 ## Evidence on Hand
 
-- Datos de demostración en `backend/prisma/seed.ts`: agencias Nova y Pulso, y clientes como Kafecito Roasters y UrbanFit. Son ficticios.
+- Datos de demostración en `backend/prisma/seed.tsx`: agencias Nova y Pulso, y clientes como Kafecito Roasters y UrbanFit. Son ficticios.
 - Documentación de entrega en `docs/entrega/`: manual de usuario, guía de instalación y documentación de la API.
 - No hay testimonios, clientes reales, métricas de uso ni casos de éxito; no deben inventarse.
 

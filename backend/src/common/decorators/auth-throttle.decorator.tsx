@@ -1,4 +1,4 @@
-/** Decorador @AuthThrottle(): marca una ruta para que use el límite de peticiones estricto (ver app.module.ts). */
+/** Decorador @AuthThrottle(): marca una ruta para que use el límite de peticiones estricto (ver app.module.tsx). */
 import { SetMetadata } from '@nestjs/common';
 
 /** Nombre de la marca que lee el limitador para saber si debe aplicar el límite estricto. */

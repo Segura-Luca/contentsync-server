@@ -18,11 +18,11 @@ Cada funcionalidad es un **módulo**, y casi todos repiten el mismo patrón:
 
 | Archivo | Responsabilidad |
 | :--- | :--- |
-| `*.module.ts` | Declara qué piezas forman el módulo y cuáles comparte con otros. |
-| `*.controller.ts` | Define las rutas HTTP. Recibe la petición y llama al servicio. |
-| `*.service.ts` | Contiene la lógica de negocio y las consultas a la base de datos. |
-| `dto/*.dto.ts` | Define y valida los datos que llegan en cada petición. |
-| `*.spec.ts` | Pruebas automáticas. No forman parte de la aplicación en producción. |
+| `*.module.tsx` | Declara qué piezas forman el módulo y cuáles comparte con otros. |
+| `*.controller.tsx` | Define las rutas HTTP. Recibe la petición y llama al servicio. |
+| `*.service.tsx` | Contiene la lógica de negocio y las consultas a la base de datos. |
+| `dto/*.dto.tsx` | Define y valida los datos que llegan en cada petición. |
+| `*.spec.tsx` | Pruebas automáticas. No forman parte de la aplicación en producción. |
 
 ### Recorrido de una petición
 
@@ -34,14 +34,14 @@ flowchart TD
     B --> C["JwtAuthGuard + JwtStrategy<br/>¿quién es el usuario?"]
     C --> D["RolesGuard<br/>¿su rol puede usar esta ruta?"]
     D --> E["ValidationPipe + DTO<br/>¿los datos son válidos?"]
-    E --> F["Controlador<br/>schedules.controller.ts"]
-    F --> G["Servicio<br/>schedules.service.ts"]
+    E --> F["Controlador<br/>schedules.controller.tsx"]
+    F --> G["Servicio<br/>schedules.service.tsx"]
     G --> H["ClientsService.assertClientAccess<br/>¿este cliente es suyo?"]
     H --> I[("MySQL mediante Prisma")]
     G --> J["Notificación y auditoría"]
 ```
 
-Si algo falla, el recorrido se corta y se responde con un error. Los errores de la base de datos los traduce `prisma-exception.filter.ts`.
+Si algo falla, el recorrido se corta y se responde con un error. Los errores de la base de datos los traduce `prisma-exception.filter.tsx`.
 
 ## 3. Archivos de la raíz
 
@@ -72,55 +72,55 @@ Si algo falla, el recorrido se corta y se responde con un error. Los errores de 
 | `Dockerfile` | Construye la imagen de Docker. |
 | `.dockerignore` | Archivos que no entran en la imagen. |
 | `test/jest-e2e.json` | Configuración de las pruebas de integración. |
-| `test/app.e2e-spec.ts` | Pruebas de integración de la API. |
+| `test/app.e2e-spec.tsx` | Pruebas de integración de la API. |
 
 ### Arranque y configuración: `src/`
 
 | Archivo | Qué hace |
 | :--- | :--- |
-| `main.ts` | Punto de entrada. Aplica la seguridad HTTP, sirve la web y arranca el servidor. |
-| `app.module.ts` | Módulo raíz. Reúne todos los módulos y registra las protecciones globales. |
-| `config/env.validation.ts` | Valida las variables de entorno al arrancar. |
-| `config/app-config.service.ts` | Único punto de lectura de esas variables. |
-| `config/app-config.module.ts` | Comparte configuración, correo y OAuth con toda la aplicación. |
+| `main.tsx` | Punto de entrada. Aplica la seguridad HTTP, sirve la web y arranca el servidor. |
+| `app.module.tsx` | Módulo raíz. Reúne todos los módulos y registra las protecciones globales. |
+| `config/env.validation.tsx` | Valida las variables de entorno al arrancar. |
+| `config/app-config.service.tsx` | Único punto de lectura de esas variables. |
+| `config/app-config.module.tsx` | Comparte configuración, correo y OAuth con toda la aplicación. |
 
 ### Piezas compartidas: `src/common/`
 
 | Archivo | Qué hace |
 | :--- | :--- |
-| `audit/audit.service.ts` | Registra quién hizo qué, en la tabla `audit_logs`. |
-| `decorators/auth.decorators.ts` | `@Public()`, `@Roles()` y `@CurrentUser()`. |
-| `decorators/auth-throttle.decorator.ts` | `@AuthThrottle()`: límite estricto de peticiones. |
-| `filters/prisma-exception.filter.ts` | Traduce errores de la base de datos a respuestas claras. |
-| `guards/auth-rbac.guards.ts` | `JwtAuthGuard` y `RolesGuard`: controlan el acceso a las rutas. |
-| `interceptors/refresh-cookie.interceptor.ts` | Mueve el refresh token a una cookie que JavaScript no puede leer. |
-| `mail/mail.service.ts` | Envía correos por n8n, relay HTTPS o SMTP, en cascada. |
-| `prisma/prisma.service.ts`, `prisma.module.ts` | Conexión a MySQL. |
-| `utils/html.ts` | Escapa texto de usuarios antes de insertarlo en correos HTML. |
-| `utils/oauth-state.service.ts` | Protege el flujo de acceso con Facebook y GitHub. |
-| `utils/timezone.ts` | Valida zonas horarias. |
+| `audit/audit.service.tsx` | Registra quién hizo qué, en la tabla `audit_logs`. |
+| `decorators/auth.decorators.tsx` | `@Public()`, `@Roles()` y `@CurrentUser()`. |
+| `decorators/auth-throttle.decorator.tsx` | `@AuthThrottle()`: límite estricto de peticiones. |
+| `filters/prisma-exception.filter.tsx` | Traduce errores de la base de datos a respuestas claras. |
+| `guards/auth-rbac.guards.tsx` | `JwtAuthGuard` y `RolesGuard`: controlan el acceso a las rutas. |
+| `interceptors/refresh-cookie.interceptor.tsx` | Mueve el refresh token a una cookie que JavaScript no puede leer. |
+| `mail/mail.service.tsx` | Envía correos por n8n, relay HTTPS o SMTP, en cascada. |
+| `prisma/prisma.service.tsx`, `prisma.module.tsx` | Conexión a MySQL. |
+| `utils/html.tsx` | Escapa texto de usuarios antes de insertarlo en correos HTML. |
+| `utils/oauth-state.service.tsx` | Protege el flujo de acceso con Facebook y GitHub. |
+| `utils/timezone.tsx` | Valida zonas horarias. |
 
 ### Módulos de negocio: `src/modules/`
 
 | Módulo | Qué resuelve | Archivos destacados |
 | :--- | :--- | :--- |
-| `auth/` | Registro, login, acceso social, recuperación de contraseña y sesiones. | `auth.service.ts`: lógica principal. `jwt.strategy.ts`: valida el token. `social-token-verifier.service.ts`: verifica con cada proveedor. `account-deletion.service.ts`: elimina la cuenta propia. |
-| `agencies/` | Administración de agencias. Solo para `ADMIN_GENERAL`. | `agencies.service.ts` |
-| `clients/` | Alta de clientes y confirmación "Sí, soy yo". | `clients.service.ts`: incluye `assertClientAccess`, la barrera entre agencias. |
-| `schedules/` | **Núcleo del producto:** semanas, bloques, revisión, comentarios y confirmación. | `schedules.service.ts` |
-| `ideas/` | Banco privado de ideas y propuestas de los clientes. | `ideas.service.ts`, `idea-proposals.service.ts` |
-| `live/` | Avisa a las pantallas abiertas que algo cambió, para que se actualicen sin refrescar. | `live.service.ts`, `live.interceptor.ts` |
-| `media/` | Subida de fotos y videos. | `media.controller.ts` |
-| `storage/` | Guarda archivos en S3 o en disco y reconoce su formato real. | `storage.service.ts`, `media-format.ts` |
-| `notifications/` | Avisos internos de la aplicación. | `notifications.service.ts` |
-| `settings/` | Ajustes editables sin reiniciar el servidor. | `settings.service.ts`, `settings.defaults.ts` |
+| `auth/` | Registro, login, acceso social, recuperación de contraseña y sesiones. | `auth.service.tsx`: lógica principal. `jwt.strategy.tsx`: valida el token. `social-token-verifier.service.tsx`: verifica con cada proveedor. `account-deletion.service.tsx`: elimina la cuenta propia. |
+| `agencies/` | Administración de agencias. Solo para `ADMIN_GENERAL`. | `agencies.service.tsx` |
+| `clients/` | Alta de clientes y confirmación "Sí, soy yo". | `clients.service.tsx`: incluye `assertClientAccess`, la barrera entre agencias. |
+| `schedules/` | **Núcleo del producto:** semanas, bloques, revisión, comentarios y confirmación. | `schedules.service.tsx` |
+| `ideas/` | Banco privado de ideas y propuestas de los clientes. | `ideas.service.tsx`, `idea-proposals.service.tsx` |
+| `live/` | Avisa a las pantallas abiertas que algo cambió, para que se actualicen sin refrescar. | `live.service.tsx`, `live.interceptor.tsx` |
+| `media/` | Subida de fotos y videos. | `media.controller.tsx` |
+| `storage/` | Guarda archivos en S3 o en disco y reconoce su formato real. | `storage.service.tsx`, `media-format.tsx` |
+| `notifications/` | Avisos internos de la aplicación. | `notifications.service.tsx` |
+| `settings/` | Ajustes editables sin reiniciar el servidor. | `settings.service.tsx`, `settings.defaults.tsx` |
 
 ### Base de datos: `prisma/`
 
 | Archivo | Qué hace |
 | :--- | :--- |
 | `schema.prisma` | Define todas las tablas, sus campos y sus relaciones. |
-| `seed.ts` | Carga datos de demostración. Se niega a correr en producción. |
+| `seed.tsx` | Carga datos de demostración. Se niega a correr en producción. |
 | `deploy.js` | Aplica las migraciones pendientes antes de arrancar el servidor. |
 | `migrations/` | Historial de cambios de la base. Ver la tabla siguiente. |
 
@@ -184,15 +184,15 @@ La web y la app se comunican a través del objeto `window.ContentSyncAndroid`. P
 
 | Quiero... | Mirá en |
 | :--- | :--- |
-| Agregar o cambiar una ruta de la API | `*.controller.ts` del módulo |
-| Cambiar una regla de negocio | `*.service.ts` del módulo |
+| Agregar o cambiar una ruta de la API | `*.controller.tsx` del módulo |
+| Cambiar una regla de negocio | `*.service.tsx` del módulo |
 | Cambiar qué datos acepta una ruta | `dto/` del módulo |
-| Cambiar quién puede hacer algo | `@Roles()` en el controlador y `assertClientAccess` en `clients.service.ts` |
+| Cambiar quién puede hacer algo | `@Roles()` en el controlador y `assertClientAccess` en `clients.service.tsx` |
 | Cambiar una tabla | `prisma/schema.prisma`, y luego crear una migración |
 | Cambiar lo que se ve en pantalla | la función `render...` de `index.html` |
 | Cambiar colores o estilos | el bloque de estilos de `index.html` |
-| Agregar una variable de entorno | `.env.example`, `env.validation.ts` y `app-config.service.ts` |
-| Agregar un ajuste editable | `settings.defaults.ts` y `settings.dto.ts` |
+| Agregar una variable de entorno | `.env.example`, `env.validation.tsx` y `app-config.service.tsx` |
+| Agregar un ajuste editable | `settings.defaults.tsx` y `settings.dto.tsx` |
 
 ## 8. Archivos que no llevan comentarios
 
