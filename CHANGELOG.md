@@ -7,17 +7,21 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 ### Added
 - **Actualización en tiempo real:** los cambios de otros usuarios aparecen sin refrescar la página (Server-Sent Events).
 - **Cambiar contraseña en Ajustes.** Quien entró solo con una red social puede crear una.
+- **App en React Native (`front/`):** la app para teléfonos, escrita en TypeScript (TSX) con Expo, reemplaza al WebView en Kotlin.
 
 ### Changed
 - **En formato vertical:** las pantallas no muestran su descripción y los bloques de un mismo día se deslizan de costado.
 - **Ideas:** el botón "Nuevo color" ahora dice "Crear sección".
 - **Los avisos de actividad quedan solo en la sección Avisos.**
-- **Las notificaciones de arriba desaparecen a los 7 segundos.**
+- **Mensajes de éxito y de error:** aparecen en un pop up en el medio de la pantalla, por encima de cualquier ventana. Los de éxito se cierran a los 3,5 segundos y los de error a los 7; también se cierran al tocarlos.
+- **Botones con íconos:** cerrar, cancelar, editar, eliminar, fijar, ver, comentar, aceptar, rechazar y reenviar muestran un ícono en vez de texto.
+- **Backend en TSX:** los archivos del backend pasan de `.ts` a `.tsx`, con el mismo contenido.
 
 ### Removed
 - **Duplicar semana,** en la pantalla y en la API.
 
 ### Fixed
+- **Editar y aceptar propuestas de clientes:** si algo fallaba, el error quedaba detrás del pop up y parecía que no se guardaba. Ahora el error se ve, y los enlaces escritos sin `https://` se completan solos.
 - **Pop ups en la app Android:** quedaban con menos de 1 cm de alto. Ahora ocupan casi toda la pantalla en el teléfono.
 
 ## [2.0.0] - 2026-11-06

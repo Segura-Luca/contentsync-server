@@ -1,6 +1,6 @@
 # ContentSync — Comunicación entre agencias y clientes
 
-**ContentSync** conecta a agencias de marketing con sus clientes para comunicarse, pedir revisiones, confirmar cronogramas y tener todo organizado. Incluye una **web**, una **app Android en Kotlin con WebView** y un **backend en NestJS con MySQL en 3FN**.
+**ContentSync** conecta a agencias de marketing con sus clientes para comunicarse, pedir revisiones, confirmar cronogramas y tener todo organizado. Incluye una **web**, una **app para teléfonos en React Native con TypeScript (`front/`)**, la **app Android anterior en Kotlin con WebView (`android/`)** y un **backend en NestJS con MySQL en 3FN**.
 
 La agencia arma el cronograma de la semana con bloques de contenido: cada uno dice qué es (reel, carrusel, historia, publicación, video u otro), de qué trata, en qué estado está (pendiente, grabado, editado o subido) y lleva sus fotos o videos, cada uno con su descripción. El cliente los ve dentro de la plataforma, comenta, aprueba o pide cambios, y confirma la semana.
 
@@ -12,9 +12,10 @@ ContentSync **no publica en redes sociales**: la agencia publica por su cuenta l
 
 | Capa | Tecnologías |
 | :--- | :--- |
+| **App React Native (`front/`)** | TypeScript (TSX), Expo SDK 58 y Expo Router. Pantallas propias contra la misma API: cronograma, ideas, clientes, avisos y ajustes. Ver [`front/README.md`](front/README.md). |
 | **App Android (`android/`)** | Kotlin y WebView conectado a la app web, selector de fotos y videos de la galería, acceso con Google por `CredentialManager` y sesión persistente con `CookieManager`. `minSdk = 26`, `targetSdk = 34`. |
 | **Backend (`backend/`)** | Node.js + TypeScript, NestJS 10, OpenAPI / Swagger (`/api/v1/docs`), validación estricta con `class-validator`, seguridad HTTP con `helmet`, Rate Limiting (`@nestjs/throttler`), cifrado de tokens con `AES-256-GCM` y hash de contraseñas con **Argon2id**. |
-| **Base de Datos** | **MySQL 8.0.16+** (también MySQL 9) normalizada en **3FN** con Prisma ORM, migraciones SQL versionadas (`prisma/migrations/`), restricciones `CHECK`/`UNIQUE`, borrado lógico (`deleted_at`) y script de `seed.ts`. |
+| **Base de Datos** | **MySQL 8.0.16+** (también MySQL 9) normalizada en **3FN** con Prisma ORM, migraciones SQL versionadas (`prisma/migrations/`), restricciones `CHECK`/`UNIQUE`, borrado lógico (`deleted_at`) y script de `seed.tsx`. |
 | **Almacenamiento** | Disco local (`UPLOAD_DIR`) o S3 compatible (Supabase, Cloudflare R2, MinIO), con archivos validados por su contenido y enlaces firmados de 12 horas. |
 
 ---
@@ -30,7 +31,7 @@ Se implementó **Autenticación Propia con JWT (Access Token corto de 15m + Refr
 
 ## 3. Roles y Permisos (RBAC) y Cuentas de Prueba (Seeds)
 
-El script `backend/prisma/seed.ts` carga estos usuarios **solo en entornos de desarrollo**. La contraseña de todos es la que definas en `SEED_DEFAULT_PASSWORD`; el script se niega a correr en producción.
+El script `backend/prisma/seed.tsx` carga estos usuarios **solo en entornos de desarrollo**. La contraseña de todos es la que definas en `SEED_DEFAULT_PASSWORD`; el script se niega a correr en producción.
 
 | Rol | Email | Alcance de Permisos |
 | :--- | :--- | :--- |
