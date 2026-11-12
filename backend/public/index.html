@@ -202,6 +202,10 @@
     .link-btn { min-height: 32px; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-strong); }
     .link-btn:hover { color: var(--text-primary); text-decoration-color: currentColor; }
     .btn-icon-sm { padding: 0; width: 30px; min-width: 30px; min-height: 30px; }
+    /* Botones de ícono: contorno claro e ícono relleno, para que se distingan del fondo oscuro. */
+    .btn-icon.btn-outline, .btn-icon-sm.btn-outline { background: var(--elevated); border: 1.5px solid var(--text-muted); }
+    .btn-icon.btn-outline:hover:not(:disabled), .btn-icon-sm.btn-outline:hover:not(:disabled) { border-color: var(--text-primary); }
+    .btn-icon .ic, .btn-icon-sm .ic { width: 19px; height: 19px; }
 
     .brand-mark { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 18px; }
     .brand-mark span {
@@ -265,6 +269,23 @@
       justify-content: space-between;
       gap: 12px;
     }
+
+    /* "Ver detalle": un botón ⓘ chico que muestra la explicación de una parte de la pantalla. */
+    .detail { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .detail-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      background: var(--elevated);
+      border: 1.5px solid var(--text-muted);
+    }
+    .detail-btn .ic { width: 18px; height: 18px; }
+    .detail-btn:hover, .detail-btn.open { color: var(--signal-subtle-fg); border-color: var(--signal-subtle-fg); background: var(--signal-subtle-bg); }
+    .detail-text { font-size: 13px; line-height: 1.5; color: var(--text-secondary); max-width: 60ch; }
 
     /* Avisos de éxito o error: un pop up en el medio de la pantalla, por encima de cualquier ventana. Se cierra al tocarlo. */
     .feedback-pop {
@@ -719,7 +740,6 @@
       .clients-layout { grid-template-columns: minmax(0, 1fr); }
       .clients-pending { position: static; max-height: none; order: -1; }
       .day-column { min-height: auto; }
-      .screen-desc { display: none; }
       /* Varios bloques en un mismo día se recorren deslizando de costado; el siguiente asoma para que se note. */
       .day-blocks-list {
         flex-direction: row;
@@ -1076,7 +1096,8 @@
       mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
       up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
       down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
-      alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>'
+      alert: '<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>',
+      info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'
     };
 
     /** Devuelve un ícono en línea; toma el color del texto que lo rodea. */
@@ -1089,7 +1110,48 @@
      * El nombre de la acción va en title y aria-label: aparece al dejar el cursor y lo lee el lector de pantalla.
      */
     function iconBtn(name, label, onclick, variant = 'btn-outline', attrs = '') {
-      return `<button type="button" class="btn ${variant} btn-icon" title="${label}" aria-label="${label}" ${attrs} onclick="${onclick}">${icon(name)}</button>`;
+      return `<button type="button" class="btn ${variant} btn-icon" title="${label}" aria-label="${label}" ${attrs} onclick="${onclick}">${iconSolid(name)}</button>`;
+    }
+
+    /** Versiones rellenas de los íconos de los botones (24 × 24). Los huecos se marcan con evenodd. */
+    const SOLID_ICONS = {
+      trash: '<path d="M9 2.5a1 1 0 0 0-1 1V5H4a1 1 0 0 0 0 2h16a1 1 0 1 0 0-2h-4V3.5a1 1 0 0 0-1-1H9Z"/><path d="M5.6 8.5h12.8l-.9 11.6a2 2 0 0 1-2 1.9H8.5a2 2 0 0 1-2-1.9L5.6 8.5Zm4.4 2.5a.9.9 0 0 0-.9.9v6.2a.9.9 0 1 0 1.8 0v-6.2a.9.9 0 0 0-.9-.9Zm4 0a.9.9 0 0 0-.9.9v6.2a.9.9 0 1 0 1.8 0v-6.2a.9.9 0 0 0-.9-.9Z"/>',
+      edit: '<path d="M15.6 3.6a2.3 2.3 0 0 1 3.3 0l1.5 1.5a2.3 2.3 0 0 1 0 3.3L9.2 19.6 3 21l1.4-6.2L15.6 3.6Z"/>',
+      send: '<path d="M2.6 10.4 21.2 2.8 13.6 21.4l-2.7-7.6-8.3-3.4Z"/>',
+      eye: '<path d="M12 5C5.6 5 2 12 2 12s3.6 7 10 7 10-7 10-7-3.6-7-10-7Zm0 3.6a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8Z"/>',
+      pin: '<path d="M8 2h8a1 1 0 1 1 0 2h-.6v6.1l2.9 2.2c.4.3.7.8.7 1.3V16h-6v5l-1 1.5-1-1.5v-5H5v-2.4c0-.5.3-1 .7-1.3l2.9-2.2V4H8a1 1 0 0 1 0-2Z"/>',
+      mail: '<path d="M3 4.5h18a1 1 0 0 1 1 1v.6l-10 6.3L2 6.1v-.6a1 1 0 0 1 1-1Z"/><path d="M2 8.5v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-10l-10 6.3L2 8.5Z"/>',
+      calendar: '<path d="M7 1.5a1 1 0 0 1 1 1V4h8V2.5a1 1 0 1 1 2 0V4h1a3 3 0 0 1 3 3v2H2V7a3 3 0 0 1 3-3h1V2.5a1 1 0 0 1 1-1Z"/><path d="M2 11h20v8a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3v-8Z"/>',
+      info: '<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.1 8.5h2.2V17h-2.2v-6.5Zm0-3.7h2.2V9h-2.2V6.8Z"/>',
+      refresh: '<path d="M12 3a9 9 0 0 1 7.4 3.9V4a1 1 0 1 1 2 0v6h-6a1 1 0 1 1 0-2h2.6A7 7 0 0 0 5 12a1 1 0 1 1-2 0 9 9 0 0 1 9-9Zm8 8a1 1 0 0 1 1 1 9 9 0 0 1-16.4 5.1V20a1 1 0 1 1-2 0v-6h6a1 1 0 1 1 0 2H6a7 7 0 0 0 13-4 1 1 0 0 1 1-1Z"/>'
+    };
+
+    /** Ícono relleno para botones. Los que son solo trazos (✕, ✓, +, flechas) se dibujan con línea gruesa. */
+    function iconSolid(name) {
+      if (SOLID_ICONS[name]) {
+        return '<svg class="ic" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true">' + SOLID_ICONS[name] + '</svg>';
+      }
+      return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+    }
+
+    /** Explicaciones abiertas con "Ver detalle", por clave. Empiezan cerradas para que la pantalla tenga poco texto. */
+    const openDetails = {};
+
+    /** Abre o cierra una explicación. */
+    function toggleDetail(key) {
+      openDetails[key] = !openDetails[key];
+      render();
+    }
+
+    /** Botón ⓘ "Ver detalle" y, si está abierto, el texto que explica esa parte de la pantalla. */
+    function detail(key, html) {
+      const open = Boolean(openDetails[key]);
+      return `
+        <div class="detail">
+          <button type="button" class="detail-btn ${open ? 'open' : ''}" aria-expanded="${open}" aria-label="${open ? 'Ocultar detalle' : 'Ver detalle'}" title="${open ? 'Ocultar detalle' : 'Ver detalle'}" onclick="toggleDetail('${key}')">${iconSolid('info')}</button>
+          ${open ? `<div class="detail-text">${html}</div>` : ''}
+        </div>
+      `;
     }
 
     /** Completa con https:// los enlaces escritos sin protocolo (por ejemplo "instagram.com/..."): el servidor solo acepta http o https. */
@@ -1623,7 +1685,7 @@
             <button type="button" class="btn btn-outline" style="width:100%;height:42px;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;"
               onclick="window.ContentSyncAndroid.signInWithGoogle();">
               <span style="font-weight:800;font-size:15px;color:#4285F4;">G</span>
-              <span>Continuar con Google</span>
+              <span>Google</span>
             </button>
           `;
         }
@@ -2541,9 +2603,7 @@
               <div style="font-size:14px;font-weight:600;margin-top:3px;color:var(--text-primary);">
                 La agencia «${esc(pc.agency?.name || 'Agencia')}» quiere vincular tu correo (${esc(pc.user?.email || state.session?.email)}) como cliente de la marca «${esc(pc.companyName)}».
               </div>
-              <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">
-                Confirmá si reconocés esta vinculación para ver el cronograma de tu marca. Si no sos vos, rechazala para liberar tu correo.
-              </div>
+              ${detail('pending-banner', 'Confirmá si reconocés esta vinculación para ver el cronograma de tu marca. Si no sos vos, rechazala para liberar tu correo.')}
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-signal" onclick="respondClientIdentity('${pc.id}', 'ACCEPT')">
@@ -2598,17 +2658,17 @@
           <span class="mono" style="font-size:12px;color:var(--tally-live);">CÓDIGO ENVIADO</span>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-          Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong> para comprobar que ese correo te pertenece.
+          Código enviado a <strong>${esc(state.authEmail)}</strong>.
         </p>
         <div class="field">
-          <label>Código de verificación (6 dígitos)</label>
+          <label>Código</label>
           <input class="input mono" maxlength="6" style="font-size:18px;letter-spacing:0.25em;text-align:center;"
             value="${esc(state.regVerifyCode)}" oninput="state.regVerifyCode=this.value.replace(/\\D/g,'').slice(0,6)"
             onkeydown="if(event.key==='Enter'){ submitVerifyRegistration(); }" />
         </div>
         ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
         <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="submitVerifyRegistration()">
-          ${authUi.busy ? 'Verificando código…' : 'Verificar correo y activar mi cuenta →'}
+          ${authUi.busy ? 'Verificando código…' : 'Verificar'}
         </button>
         <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
           <button onclick="performRegister()">Reenviar código</button>
@@ -2629,8 +2689,8 @@
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
             ${isGoogleCreate
-              ? `Tu cuenta todavía no tiene contraseña propia. Ingresá tu correo para enviarte un código de 6 dígitos${esc(senderHint())} y comprobar tu identidad antes de crearla.`
-              : `Ingresá tu correo electrónico para enviarte un código de verificación de 6 dígitos${esc(senderHint())}.`}
+              ? 'Te enviamos un código para crear tu contraseña.'
+              : 'Te enviamos un código para recuperarla.'}
           </p>
           <div class="field">
             <label>Correo electrónico</label>
@@ -2639,7 +2699,7 @@
           </div>
           ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
           <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="requestRecoveryCode()">
-            ${authUi.busy ? 'Enviando código…' : 'Enviar código de 6 dígitos →'}
+            ${authUi.busy ? 'Enviando código…' : 'Enviar código'}
           </button>
           <div style="text-align:center;font-size:13px;color:var(--text-secondary);margin-top:4px;">
             <button onclick="state.authRecover=false;authUi.error='';render();">← Volver a inicio de sesión</button>
@@ -2653,17 +2713,17 @@
             <span class="mono" style="font-size:12px;color:var(--text-muted);">PASO 2 DE 3</span>
           </div>
           <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-            Enviamos un código de 6 dígitos${esc(senderHint())} a <strong>${esc(state.authEmail)}</strong>. Comprobá tu identidad para habilitar el campo de contraseña.
+            Código enviado a <strong>${esc(state.authEmail)}</strong>.
           </p>
           <div class="field">
-            <label>Código recibido por email (6 dígitos)</label>
+            <label>Código</label>
             <input class="input mono" maxlength="6" style="font-size:18px;letter-spacing:0.25em;text-align:center;"
               value="${esc(state.recoveryCode)}" oninput="state.recoveryCode=this.value.replace(/\\D/g,'').slice(0,6)"
               onkeydown="if(event.key==='Enter'){ verifyRecoveryOtpStep(); }" />
           </div>
           ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
           <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="verifyRecoveryOtpStep()">
-            ${authUi.busy ? 'Comprobando…' : 'Verificar código de 6 dígitos →'}
+            ${authUi.busy ? 'Comprobando…' : 'Verificar'}
           </button>
           <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-top:4px;">
             <button onclick="requestRecoveryCode()">Reenviar código</button>
@@ -2677,7 +2737,7 @@
           <span class="mono" style="font-size:12px;color:var(--tally-live);">PASO 3 DE 3</span>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);line-height:1.45;">
-          ${icon('check')} Identidad comprobada para <strong>${esc(state.authEmail)}</strong>. Ingresá la contraseña que quedará guardada en tu cuenta para iniciar sesión por el campo común cuando quieras.
+          ${icon('check')} Identidad comprobada.
         </p>
         <div class="field">
           <label>Nueva contraseña</label>
@@ -2687,7 +2747,7 @@
         </div>
         ${authUi.error ? `<div role="alert" style="border:1px solid var(--tally-fault);background:var(--tally-fault-bg);color:var(--tally-fault);padding:10px 12px;border-radius:4px;font-size:13px;">${esc(authUi.error)}</div>` : ''}
         <button class="btn btn-signal" style="width:100%;height:44px;" ${authUi.busy ? 'disabled' : ''} onclick="submitPasswordReset()">
-          ${authUi.busy ? 'Guardando contraseña…' : 'Guardar contraseña e ingresar →'}
+          ${authUi.busy ? 'Guardando contraseña…' : 'Guardar'}
         </button>
         <div style="display:flex;justify-content:flex-end;font-size:13px;color:var(--text-secondary);margin-top:4px;">
           <button onclick="state.authRecover=false;authUi.error='';render();">Cancelar</button>
@@ -2745,7 +2805,7 @@
 
         ${registering ? '' : `
           <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:13px;color:var(--text-secondary);">
-            <button class="link-btn" onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">¿Iniciaste con Google? Crear contraseña</button>
+            <button class="link-btn" onclick="state.authRecover=true;state.authRecoverMode='CREATE_GOOGLE_PASS';state.authRecoverStep=1;authUi.error='';render();">Crear contraseña</button>
             <button onclick="state.authRecover=true;state.authRecoverMode='RESET';state.authRecoverStep=1;authUi.error='';render();" class="link-btn">Olvidé mi clave</button>
           </div>
         `}
@@ -2761,13 +2821,13 @@
         <button id="facebook-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#0866FF;border:1px solid #0866FF;color:#ffffff;font-weight:600;font-size:14px;border-radius:4px;"
           onclick="startOAuthRedirect('facebook')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
-          <span>Continuar con Facebook</span>
+          <span>Facebook</span>
         </button>
 
         <button id="github-btn" type="button" class="btn" style="display:flex;width:100%;height:42px;align-items:center;justify-content:center;gap:10px;background:#24292F;border:1px solid var(--border-strong);color:#ffffff;font-weight:600;font-size:13px;border-radius:4px;"
           onclick="startOAuthRedirect('github')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
-          <span>Continuar con GitHub</span>
+          <span>GitHub</span>
         </button>
       `;
     }
@@ -2781,10 +2841,7 @@
               <h1 style="font-size:clamp(28px, 3.3vw, 42px);font-weight:700;">
                 Tu agencia y tus clientes,<br/>en un solo lugar.
               </h1>
-              <p style="color:var(--text-secondary);max-width:50ch;font-size:15px;">
-                Compartí el cronograma de cada semana, mostrá cada reel, carrusel o historia, y recibí comentarios y aprobaciones sin perderte entre chats y correos.
-              </p>
-              ${renderHowItWorks()}
+              ${detail('auth', `<p style="margin-bottom:12px;">Compartí el cronograma de cada semana, mostrá cada reel, carrusel o historia, y recibí comentarios y aprobaciones sin perderte entre chats y correos.</p>${renderHowItWorks()}`)}
             </div>
           </section>
 
@@ -2810,12 +2867,10 @@
           <div class="page-pad">
             <div style="border:1px solid var(--tally-warn);background:var(--stage);border-radius:6px;padding:28px;display:flex;flex-direction:column;gap:14px;">
               <h2 style="font-size:22px;font-weight:700;">Confirmá tu identidad para ver tu cronograma</h2>
-              <p style="color:var(--text-secondary);max-width:60ch;">
-                Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con <strong>${esc(state.pendingConfirmation.agency?.name || 'la agencia')}</strong>, necesitamos que presiones <strong>"Sí, soy yo"</strong> arriba o acá mismo.
-              </p>
+              ${detail('pending', `Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con <strong>${esc(state.pendingConfirmation.agency?.name || 'la agencia')}</strong>, necesitamos que confirmes que sos vos.`)}
               <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-                <button class="btn btn-signal" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'ACCEPT')">${icon('check')} Sí, soy yo — Activar mi cuenta</button>
-                <button class="btn btn-fault" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'REJECT')">${icon('x')} No soy yo — Rechazar</button>
+                <button class="btn btn-signal" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'ACCEPT')">${icon('check')} Sí, soy yo</button>
+                <button class="btn btn-fault" onclick="respondClientIdentity('${state.pendingConfirmation.id}', 'REJECT')">${icon('x')} No soy yo</button>
               </div>
             </div>
           </div>
@@ -2839,17 +2894,15 @@
               <h2 style="font-size:24px;font-weight:700;margin-top:3px;">
                 ${isClient ? 'Tu contenido de la semana' : 'Cronograma semanal'}
               </h2>
-              <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
-                ${isClient
-                  ? 'Mirá cada pieza, dejá tus comentarios y confirmá la semana cuando todo esté bien.'
-                  : 'Armá la semana con bloques de contenido, sumá fotos y videos, y compartilo con tu cliente para que lo revise y lo confirme.'}
-              </p>
+              ${detail('schedules', isClient
+                ? 'Mirá cada pieza, dejá tus comentarios y confirmá la semana cuando todo esté bien.'
+                : 'Armá la semana con bloques de contenido, sumá fotos y videos, y compartilo con tu cliente para que lo revise y lo confirme.')}
             </div>
 
             ${!isClient ? `
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="btn btn-signal" onclick="openNewWeekModal()">
-                  + Nueva semana
+                  + Semana
                 </button>
               </div>
             ` : ''}
@@ -2872,29 +2925,23 @@
           ${confirmedClients.length === 0 && !isClient ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
               <h3 style="font-size:18px;font-weight:600;margin-top:6px;">Agregá y confirmá un cliente para armar su cronograma</h3>
-              <p style="color:var(--text-secondary);margin-top:6px;max-width:56ch;">
-                Dirigite a la sección Clientes para dar de alta una marca. Una vez que el cliente confirme «Sí, soy yo», podrás crearle sus semanas de Lunes a Viernes.
-              </p>
-              <button class="btn btn-signal" style="margin-top:14px;" onclick="state.activeTab='accounts';render();">Ir a Clientes →</button>
+              ${detail('no-clients', 'En Clientes das de alta una marca. Cuando el cliente confirme «Sí, soy yo», vas a poder crearle sus semanas.')}
+              <button class="btn btn-signal" style="margin-top:14px;" onclick="state.activeTab='accounts';render();">Clientes</button>
             </div>
           ` : !activeSchedule ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;">
               <h3 style="font-size:18px;font-weight:600;margin-top:6px;">
                 ${isClient ? 'Tu agencia todavía no compartió un cronograma' : 'Todavía no hay semanas creadas para este cliente'}
               </h3>
-              <p style="color:var(--text-secondary);margin-top:6px;max-width:54ch;">
-                ${isClient
-                  ? 'Te vamos a avisar apenas tu agencia cargue el contenido de la semana.'
-                  : 'Creá la primera semana de lunes a domingo para empezar a cargar el contenido.'}
-              </p>
-              ${!isClient ? `<button class="btn btn-signal" style="margin-top:14px;" onclick="openNewWeekModal()">+ Crear primera semana →</button>` : ''}
+              ${isClient ? detail('no-week', 'Te vamos a avisar apenas tu agencia cargue el contenido de la semana.') : ''}
+              ${!isClient ? `<button class="btn btn-signal" style="margin-top:14px;" onclick="openNewWeekModal()">+ Semana</button>` : ''}
             </div>
           ` : `
             <!-- Barra de Semana Activa + Resumen -->
             <div class="week-toolbar">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <div class="field" style="min-width:260px;">
-                  <label>SEMANA SELECCIONADA</label>
+                  <label>SEMANA</label>
                   <select class="input mono" style="padding:7px 10px;font-size:13px;"
                     onchange="state.selectedScheduleId=this.value;render();">
                     ${clientSchedules.map(s => `
@@ -2914,7 +2961,7 @@
 
               ${!isClient ? `
                 <button class="btn btn-signal" onclick="openBlockModal(1, null)">
-                  + Agregar bloque
+                  + Bloque
                 </button>
               ` : ''}
             </div>
@@ -2924,7 +2971,7 @@
             <div class="stats-strip">
               <div class="stat-cell">
                 <div class="mono" style="font-size:19px;font-weight:700;">${items.length}</div>
-                <div class="eyebrow">BLOQUES EN LA SEMANA</div>
+                <div class="eyebrow">BLOQUES</div>
               </div>
               <div class="stat-cell">
                 <div class="mono" style="font-size:19px;font-weight:700;color:var(--tally-live);">${approvedCount}</div>
@@ -2932,7 +2979,7 @@
               </div>
               <div class="stat-cell">
                 <div class="mono" style="font-size:19px;font-weight:700;color:${blockedCount ? 'var(--tally-warn)' : 'var(--signal-subtle-fg)'};">${blockedCount ? blockedCount : reviewCount}</div>
-                <div class="eyebrow">${blockedCount ? 'CON CAMBIOS PEDIDOS' : 'EN REVISIÓN'}</div>
+                <div class="eyebrow">${blockedCount ? 'CON CAMBIOS' : 'EN REVISIÓN'}</div>
               </div>
               <div class="stat-cell">
                 <div class="mono" style="font-size:19px;font-weight:700;">Lun — Dom</div>
@@ -3003,7 +3050,7 @@
                             </div>
                             ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
                               <button class="btn btn-warn" style="width:100%;padding:6px 8px;font-size:12px;"
-                                onclick="event.stopPropagation();resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar a revisión</button>
+                                onclick="event.stopPropagation();resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar</button>
                             ` : ''}
                           </article>
                         `;
@@ -3014,7 +3061,7 @@
                       <div class="day-col-footer">
                         <button class="btn btn-outline" style="width:100%;padding:7px 8px;" title="Agregar bloque" aria-label="Agregar bloque al ${day.full.toLowerCase()}"
                           onclick="openBlockModal(${day.num}, null)">
-                          ${icon('plus')}
+                          ${iconSolid('plus')}
                         </button>
                       </div>
                     ` : ''}
@@ -3046,7 +3093,7 @@
         if (blockedCount) return '';
         return `
           <div style="border:1px solid var(--hairline);background:var(--stage);padding:11px 14px;border-radius:5px;font-size:13px;color:var(--text-secondary);">
-            ${hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.'}
+            ${hasItems ? 'Esperando la confirmación del cliente.' : 'Semana sin contenido todavía.'}
           </div>
         `;
       }
@@ -3055,8 +3102,8 @@
         <div style="border:1px solid var(--signal-subtle-fg);background:var(--signal-subtle-bg);padding:12px 14px;border-radius:5px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div style="font-size:13.5px;max-width:60ch;">
             ${blockedCount
-              ? `Pediste cambios en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}: vas a poder confirmar cuando tu agencia los resuelva.`
-              : '¿Revisaste todo? Al confirmar, lo que siga en revisión queda aprobado.'}
+              ? `Cambios pedidos en ${blockedCount === 1 ? 'un bloque' : blockedCount + ' bloques'}.${detail('confirm-blocked', 'Vas a poder confirmar la semana cuando tu agencia los resuelva.')}`
+              : detail('confirm', 'Al confirmar, lo que siga en revisión queda aprobado.')}
           </div>
           ${blockedCount ? '' : (state.confirmScheduleAsk ? `
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -3065,7 +3112,7 @@
               ${iconBtn('x', 'Cancelar', "state.confirmScheduleAsk=false;render();")}
             </div>
           ` : `
-            <button class="btn btn-signal" onclick="state.confirmScheduleAsk=true;render();">${icon('check')} Confirmar cronograma</button>
+            <button class="btn btn-signal" onclick="state.confirmScheduleAsk=true;render();">${icon('check')} Confirmar</button>
           `)}
         </div>
       `;
@@ -3078,32 +3125,32 @@
           <div class="modal-panel" style="max-width:480px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <div>
-                <h3 style="font-size:18px;font-weight:700;">Crear semana de lunes a domingo</h3>
+                <h3 style="font-size:18px;font-weight:700;">Nueva semana</h3>
               </div>
-              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.showNewWeekModal=false;render();">${icon('x')}</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.showNewWeekModal=false;render();">${iconSolid('x')}</button>
             </div>
 
             <div class="field">
-              <label>Fecha del lunes de inicio</label>
+              <label>Lunes</label>
               <input class="input mono" type="date" value="${esc(state.newWeekStart)}"
                 onchange="state.newWeekStart=this.value;render();" />
             </div>
 
             <div class="field">
-              <label>Título de la semana</label>
+              <label>Título</label>
               <input class="input" value="${esc(state.newWeekTitle)}"
                 oninput="state.newWeekTitle=this.value" />
             </div>
 
             <div class="field">
-              <label>Objetivo o nota general para el cliente (opcional)</label>
+              <label>Nota (opcional)</label>
               <textarea class="input" rows="2"
                 oninput="state.newWeekNotes=this.value">${esc(state.newWeekNotes)}</textarea>
             </div>
 
             <div style="display:flex;justify-content:flex-end;gap:10px;">
               ${iconBtn('x', 'Cancelar', "state.showNewWeekModal=false;render();")}
-              <button class="btn btn-signal" onclick="submitNewWeek()">Crear semana →</button>
+              <button class="btn btn-signal" onclick="submitNewWeek()">Crear</button>
             </div>
           </div>
         </div>
@@ -3137,10 +3184,10 @@
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--hairline);">
               <div>
                 <h3 style="font-size:19px;font-weight:700;">
-                  ${state.editingBlockId ? 'Editar contenido del día' : 'Agregar contenido al día'}
+                  ${state.editingBlockId ? 'Editar bloque' : 'Nuevo bloque'}
                 </h3>
               </div>
-              <button class="btn btn-outline btn-icon" aria-label="Cerrar" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">${icon('x')}</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" ${state.blkSaving ? 'disabled' : ''} onclick="closeBlockModal()">${iconSolid('x')}</button>
             </div>
 
             <div class="field">
@@ -3170,26 +3217,24 @@
             </div>
 
             <div class="field">
-              <label>Contenido: ¿de qué trata?</label>
+              <label>Contenido</label>
               <textarea class="input" rows="3"
                 oninput="state.blkNotes=this.value">${esc(state.blkNotes)}</textarea>
             </div>
 
             <div class="field">
-              <label>Texto de la publicación (opcional)</label>
+              <label>Texto (opcional)</label>
               <textarea class="input" rows="2"
                 oninput="state.blkCaption=this.value">${esc(state.blkCaption)}</textarea>
             </div>
 
             <div class="field">
-              <label>Fotos y videos para que el cliente los vea</label>
+              <label>Fotos y videos</label>
               <label class="dropzone-video">
                 <input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" style="display:none;"
                   onchange="handleBlockFilesSelected(this)" />
-                <div style="font-weight:600;color:var(--signal-subtle-fg);">+ Agregar fotos o videos</div>
-                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">
-                  JPG, PNG, WEBP, GIF, MP4, MOV o WebM${APP_CONFIG.uploadMaxMb ? ', hasta ' + Number(APP_CONFIG.uploadMaxMb) + ' MB cada uno' : ''}.
-                </div>
+                <div style="font-weight:600;color:var(--signal-subtle-fg);">+ Fotos o videos</div>
+                ${APP_CONFIG.uploadMaxMb ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Hasta ${Number(APP_CONFIG.uploadMaxMb)} MB</div>` : ''}
               </label>
             </div>
 
@@ -3206,9 +3251,9 @@
                         oninput="state.blkMedia[${i}].description=this.value">${esc(m.description)}</textarea>
                     </div>
                     <div style="flex:none;display:flex;flex-direction:column;gap:4px;">
-                      <button type="button" class="btn btn-outline btn-icon-sm" title="Subir" aria-label="Subir" ${i === 0 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, -1)">${icon('up')}</button>
-                      <button type="button" class="btn btn-outline btn-icon-sm" title="Bajar" aria-label="Bajar" ${i === state.blkMedia.length - 1 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, 1)">${icon('down')}</button>
-                      <button type="button" class="btn btn-outline btn-icon-sm" title="Quitar" aria-label="Quitar" onclick="removeBlockMedia(${i})">${icon('x')}</button>
+                      <button type="button" class="btn btn-outline btn-icon-sm" title="Subir" aria-label="Subir" ${i === 0 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, -1)">${iconSolid('up')}</button>
+                      <button type="button" class="btn btn-outline btn-icon-sm" title="Bajar" aria-label="Bajar" ${i === state.blkMedia.length - 1 ? 'disabled' : ''} onclick="moveBlockMedia(${i}, 1)">${iconSolid('down')}</button>
+                      <button type="button" class="btn btn-outline btn-icon-sm" title="Quitar" aria-label="Quitar" onclick="removeBlockMedia(${i})">${iconSolid('x')}</button>
                     </div>
                   </div>
                 `).join('')}
@@ -3257,7 +3302,7 @@
             <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:6px;border-top:1px solid var(--hairline);">
               ${iconBtn('x', 'Cancelar', 'closeBlockModal()', 'btn-outline', state.blkSaving ? 'disabled' : '')}
               <button class="btn btn-signal" ${state.blkSaving ? 'disabled' : ''} onclick="submitBlockModal()">
-                ${state.blkSaving ? 'Guardando…' : (state.editingBlockId ? 'Guardar cambios' : 'Guardar bloque')}
+                ${state.blkSaving ? 'Guardando…' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -3303,12 +3348,12 @@
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex:none;">
                 <span class="badge ${wf.cls}">${wf.label}</span>
-                <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.inspectBlockId=null;render();">${icon('x')}</button>
+                <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.inspectBlockId=null;render();">${iconSolid('x')}</button>
               </div>
             </div>
 
             ${!isClient && blk.reviewStatus === 'CHANGES_REQUESTED' ? `
-              <button class="btn btn-warn" style="align-self:flex-start;" onclick="resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar a revisión</button>
+              <button class="btn btn-warn" style="align-self:flex-start;" onclick="resubmitBlock('${blk.id}')">${icon('refresh')} Reenviar</button>
             ` : ''}
 
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3365,7 +3410,7 @@
               `).join('') : `<div style="font-size:13px;color:var(--text-muted);">Todavía no hay comentarios.</div>`}
 
               <div class="field">
-                <label>${isClient ? 'Tu comentario o los cambios que pedís' : 'Escribile al cliente'}</label>
+                <label>Comentario</label>
                 <div style="display:flex;gap:8px;">
                   <input id="inspect-review-note" class="input" maxlength="5000" value="${esc(inspectNoteOf(blk.id))}" oninput="setInspectNote('${blk.id}',this.value)" />
                   ${iconBtn('send', 'Comentar', `submitBlockComment('${blk.id}')`, 'btn-signal')}
@@ -3576,7 +3621,6 @@
         return `
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;text-align:center;">
             <div style="font-weight:600;font-size:16px;">No hay propuestas por responder</div>
-            <p style="color:var(--text-secondary);font-size:13px;margin-top:4px;">Las ideas que te manden tus clientes van a aparecer acá.</p>
           </div>
         `;
       }
@@ -3591,7 +3635,7 @@
                 ${renderProposalLink(p.referenceUrl)}
               </div>
               <div class="field">
-                <label>Guardar en la sección</label>
+                <label>Sección</label>
                 <select class="input" onchange="state.proposalSectionChoice['${p.id}']=this.value">
                   ${state.ideaSections.map(sec => `
                     <option value="${sec.id}" ${(state.proposalSectionChoice[p.id] || state.ideaSections[0]?.id) === sec.id ? 'selected' : ''}>${esc(sec.name)}</option>
@@ -3651,7 +3695,7 @@
         <div class="page-pad" style="display:flex;flex-direction:column;gap:18px;">
           <div style="padding-bottom:12px;border-bottom:1px solid var(--hairline);">
             <h2 style="font-size:24px;font-weight:700;margin-top:3px;">Proponé ideas a tu agencia</h2>
-            <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.</p>
+            ${detail('proposals', 'Contale qué te gustaría mostrar. Tu agencia la acepta, la ajusta o te responde que no.')}
           </div>
 
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
@@ -3660,14 +3704,14 @@
               <input id="proposal-title" class="input" maxlength="180" value="${esc(state.proposalTitle)}" oninput="state.proposalTitle=this.value" />
             </div>
             <div class="field">
-              <label for="proposal-content">¿De qué se trata?</label>
+              <label for="proposal-content">Desarrollo</label>
               <textarea id="proposal-content" class="input" rows="4" maxlength="5000" oninput="state.proposalContent=this.value">${esc(state.proposalContent)}</textarea>
             </div>
             <div class="field">
-              <label for="proposal-url">Enlace de referencia (opcional)</label>
+              <label for="proposal-url">Enlace (opcional)</label>
               <input id="proposal-url" class="input" maxlength="500" value="${esc(state.proposalRefUrl)}" oninput="state.proposalRefUrl=this.value" />
             </div>
-            <button class="btn btn-signal" style="align-self:flex-start;" onclick="submitClientProposal()">Enviar a mi agencia →</button>
+            <button class="btn btn-signal" style="align-self:flex-start;" onclick="submitClientProposal()">Enviar</button>
           </div>
 
           <div style="display:flex;flex-direction:column;gap:10px;">
@@ -3717,16 +3761,14 @@
                 <span class="badge badge-review">${icon('lock')} PRIVADO DE TU AGENCIA</span>
               </div>
               <h2 style="font-size:24px;font-weight:700;margin-top:4px;">Ideas de contenido</h2>
-              <p class="screen-desc" style="font-size:13px;color:var(--text-secondary);margin-top:3px;">
-                Guardá guiones, ganchos y formatos divididos en tus propias secciones (Entretenimiento, Educativo, Venta y más). Tus clientes nunca ven este espacio.
-              </p>
+              ${detail('ideas', 'Guardá guiones, ganchos y formatos divididos en tus propias secciones (Entretenimiento, Educativo, Venta y más). Tus clientes nunca ven este espacio.')}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-outline ${state.showNewSectionForm ? 'btn-icon' : ''}" aria-label="${state.showNewSectionForm ? 'Cerrar' : 'Crear sección'}" onclick="state.showNewSectionForm=!state.showNewSectionForm;state.newSectionColor=nextSectionColor();render();">
-                ${state.showNewSectionForm ? icon('x') : '+ Crear sección'}
+                ${state.showNewSectionForm ? iconSolid('x') : '+ Sección'}
               </button>
               <button class="btn btn-signal" onclick="openIdeaModal(null)">
-                + Nueva idea
+                + Idea
               </button>
             </div>
           </div>
@@ -3809,12 +3851,9 @@
           ${filteredIdeas.length === 0 ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:28px;text-align:center;">
               <div style="font-weight:600;font-size:16px;">No hay ideas que coincidan con este filtro</div>
-              <p style="color:var(--text-secondary);font-size:13px;margin-top:4px;">
-                Agregá una nueva idea en segundos o limpiá los filtros activos.
-              </p>
               <div style="margin-top:12px;display:flex;justify-content:center;gap:8px;">
                 <button class="btn btn-outline" onclick="state.ideaSectionFilter='ALL';state.ideaClientFilter='ALL';state.ideaSearch='';render();">Ver todas</button>
-                <button class="btn btn-signal" onclick="openIdeaModal(null)">+ Guardar idea</button>
+                <button class="btn btn-signal" onclick="openIdeaModal(null)">+ Idea</button>
               </div>
             </div>
           ` : `
@@ -3857,14 +3896,11 @@
                         </div>
                       ` : `
                         <div style="display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-                          <button class="btn btn-signal" style="padding:5px 9px;font-size:12px;"
-                            onclick="sendIdeaToPlan('${idea.id}')">
-                            Llevar al cronograma →
-                          </button>
+                          ${iconBtn('calendar', 'Llevar al cronograma', `sendIdeaToPlan('${idea.id}')`, 'btn-signal')}
                           <div style="display:flex;gap:6px;">
                             <button type="button" class="btn btn-outline btn-icon" title="Editar" aria-label="Editar"
                               onclick='openIdeaModal(${JSON.stringify(idea).replace(/'/g, "&#39;")})'>
-                              ${icon('edit')}
+                              ${iconSolid('edit')}
                             </button>
                             ${iconBtn('trash', 'Eliminar', `state.confirmDeleteIdeaId='${idea.id}';render();`, 'btn-fault')}
                           </div>
@@ -3891,9 +3927,9 @@
           <div class="modal-panel" style="max-width:560px;">
             <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--hairline);">
               <div>
-                <h3 style="font-size:19px;font-weight:700;">${state.acceptingProposalId ? 'Editar y aceptar' : state.editingIdeaId ? 'Editar idea de contenido' : 'Nueva idea de contenido'}</h3>
+                <h3 style="font-size:19px;font-weight:700;">${state.acceptingProposalId ? 'Editar y aceptar' : state.editingIdeaId ? 'Editar idea' : 'Nueva idea'}</h3>
               </div>
-              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.ideaModalOpen=false;render();">${icon('x')}</button>
+              <button class="btn btn-outline btn-icon" aria-label="Cerrar" onclick="state.ideaModalOpen=false;render();">${iconSolid('x')}</button>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -3907,7 +3943,7 @@
                 </select>
               </div>
               <div class="field">
-                <label>Marca / Cliente (opcional)</label>
+                <label>Cliente (opcional)</label>
                 <select class="input" ${state.acceptingProposalId ? 'disabled' : ''} onchange="state.ideaFormClientId=this.value">
                   <option value="" ${!state.ideaFormClientId ? 'selected' : ''}>General de mi agencia</option>
                   ${confirmedClients.map(c => `
@@ -3930,26 +3966,26 @@
                   <input id="idea-section-name" class="input" maxlength="100" value="${esc(state.ideaNewSectionName)}"
                     oninput="state.ideaNewSectionName=this.value" />
                 </div>
-                <button class="btn btn-signal" onclick="createSectionFromIdeaModal()">Crear sección</button>
+                <button class="btn btn-signal" onclick="createSectionFromIdeaModal()">Crear</button>
                 ${state.ideaSections.length ? iconBtn('x', 'Cancelar', 'chooseIdeaFormSection(state.ideaFormSectionId || state.ideaSections[0].id)') : ''}
                 ${state.ideaNewSectionError ? `<div style="width:100%;font-size:12.5px;color:var(--tally-fault);">${esc(state.ideaNewSectionError)}</div>` : ''}
               </div>
             ` : ''}
 
             <div class="field">
-              <label>Título o gancho principal</label>
+              <label>Título</label>
               <input class="input"
                 value="${esc(state.ideaFormTitle)}" oninput="state.ideaFormTitle=this.value" />
             </div>
 
             <div class="field">
-              <label>Desarrollo, estructura o guion</label>
+              <label>Desarrollo</label>
               <textarea class="input" rows="4"
                 oninput="state.ideaFormContent=this.value">${esc(state.ideaFormContent)}</textarea>
             </div>
 
             <div class="field">
-              <label>Enlace de referencia / inspiración (opcional)</label>
+              <label>Enlace (opcional)</label>
               <input class="input" value="${esc(state.ideaFormRefUrl)}"
                 oninput="state.ideaFormRefUrl=this.value" />
             </div>
@@ -3963,7 +3999,7 @@
 
             <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:8px;border-top:1px solid var(--hairline);">
               ${iconBtn('x', 'Cancelar', "state.ideaModalOpen=false;render();")}
-              <button class="btn btn-signal" onclick="submitIdeaModal()">${state.acceptingProposalId ? 'Aceptar con estos cambios →' : 'Guardar idea →'}</button>
+              <button class="btn btn-signal" onclick="submitIdeaModal()">${state.acceptingProposalId ? 'Aceptar' : 'Guardar'}</button>
             </div>
           </div>
         </div>
@@ -4011,20 +4047,18 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:12px;border-bottom:1px solid var(--hairline);flex-wrap:wrap;gap:10px;">
               <div>
                 <h2 style="font-size:24px;font-weight:700;margin-top:2px;">
-                  Clientes y verificación de identidad
+                  Clientes
                 </h2>
               </div>
               <button class="btn ${state.showNewClientForm ? 'btn-outline btn-icon' : 'btn-signal'}" aria-label="${state.showNewClientForm ? 'Cerrar' : 'Nuevo cliente'}" onclick="state.showNewClientForm=!state.showNewClientForm;render();">
-                ${state.showNewClientForm ? icon('x') : '+ Nuevo cliente'}
+                ${state.showNewClientForm ? iconSolid('x') : '+ Cliente'}
               </button>
             </div>
 
             ${state.showNewClientForm ? `
               <div class="feedback-enter" style="border:1px solid var(--border-strong);background:var(--stage);padding:18px;border-radius:5px;display:flex;flex-direction:column;gap:12px;">
-                <div style="font-weight:700;font-size:15px;">Invitar y registrar un nuevo Cliente</div>
-                <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;padding:10px 12px;border-radius:4px;background:var(--inspector);border-left:3px solid var(--signal-subtle-fg);">
-                  <strong>Medida de seguridad activa:</strong> Al guardar este formulario, enviaremos una notificación interna y un correo electrónico a la dirección indicada. El perfil permanecerá pendiente hasta que el titular presione <strong>«Sí, soy yo»</strong>, evitando que se creen perfiles con correos ajenos.
-                </div>
+                <div style="font-weight:700;font-size:15px;">Nuevo cliente</div>
+                ${detail('new-client', 'Le enviamos un aviso y un correo a esa dirección. El perfil queda pendiente hasta que el titular presione <strong>«Sí, soy yo»</strong>, para que nadie cree perfiles con correos ajenos.')}
                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
                   <div class="field">
                     <label>Empresa / Marca</label>
@@ -4045,7 +4079,7 @@
                 </div>
                 <div style="display:flex;gap:10px;justify-content:flex-end;">
                   ${iconBtn('x', 'Cancelar', "state.showNewClientForm=false;render();")}
-                  <button class="btn btn-signal" onclick="createClientFromForm()">Enviar solicitud «Sí, soy yo» →</button>
+                  <button class="btn btn-signal" onclick="createClientFromForm()">Invitar</button>
                 </div>
               </div>
             ` : ''}
@@ -4061,7 +4095,7 @@
                 <aside class="clients-pending" aria-label="Confirmaciones pendientes">
                   <div>
                     <div class="eyebrow">POR CONFIRMAR (${pending.length})</div>
-                    <div style="font-size:12.5px;color:var(--text-secondary);margin-top:3px;">Se activan cuando presionan «Sí, soy yo».</div>
+                    ${detail('pending-clients', 'Se activan cuando presionan «Sí, soy yo».')}
                   </div>
                   ${pending.length ? pending.map(cl => `
                     <div style="border:1px solid var(--tally-warn);border-radius:5px;padding:11px;display:flex;flex-direction:column;gap:8px;background:var(--canvas);">
@@ -4213,11 +4247,11 @@
             ${c.hasPassword ? field('current', 'Contraseña actual', 'current-password') : ''}
             ${field('next', 'Nueva contraseña', 'new-password')}
             ${field('repeat', 'Repetí la nueva contraseña', 'new-password')}
-            <div style="font-size:12px;color:var(--text-muted);">Entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo. Se cierra la sesión en tus otros dispositivos.</div>
+            ${detail('password', 'Entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo. Se cierra la sesión en tus otros dispositivos.')}
             ${c.error ? `<div style="font-size:13px;color:var(--tally-fault);">${esc(c.error)}</div>` : ''}
             <div style="display:flex;justify-content:flex-end;gap:8px;">
               ${iconBtn('x', 'Cancelar', 'closeChangePassword()', 'btn-outline', c.busy ? 'disabled' : '')}
-              <button class="btn btn-signal" onclick="submitChangePassword()" ${c.busy ? 'disabled' : ''}>${c.busy ? 'Guardando…' : 'Guardar contraseña'}</button>
+              <button class="btn btn-signal" onclick="submitChangePassword()" ${c.busy ? 'disabled' : ''}>${c.busy ? 'Guardando…' : 'Guardar'}</button>
             </div>
           </div>
         </div>
@@ -4330,7 +4364,7 @@
         <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:14px;">
           <div>
             <div class="eyebrow">CONFIGURACIÓN DE LA PLATAFORMA</div>
-            <p style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">Se aplica a todas las agencias, sin reiniciar el servidor.</p>
+            ${detail('platform', 'Se aplica a todas las agencias, sin reiniciar el servidor.')}
           </div>
           <div style="${grid}">
             <div class="field"><label>Nombre de la aplicación</label><input id="set-name" class="input" maxlength="60" value="${esc(c.appName)}" /></div>
@@ -4344,10 +4378,10 @@
             ${numberField('set-invite', 'Vigencia de invitaciones (horas)', c.clientInviteTtlHours, 1, 2160)}
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-signal" onclick="savePlatformSettings()">Guardar ajustes</button>
+            <button class="btn btn-signal" onclick="savePlatformSettings()">Guardar</button>
             ${state.confirmResetSettings
               ? '<button class="btn btn-fault" onclick="resetPlatformSettings()">Sí, restablecer</button>' + iconBtn('x', 'Cancelar', 'askResetPlatformSettings(false)')
-              : '<button class="btn btn-outline" onclick="askResetPlatformSettings(true)">Restablecer valores de fábrica</button>'}
+              : '<button class="btn btn-outline" onclick="askResetPlatformSettings(true)">Restablecer</button>'}
           </div>
           <div style="border-top:1px solid var(--hairline);padding-top:12px;display:grid;gap:6px;" class="mono">
             <div class="eyebrow">INTEGRACIONES (SE DEFINEN EN VARIABLES DE ENTORNO)</div>
@@ -4369,9 +4403,7 @@
         <div class="page-pad" style="display:flex;justify-content:center;">
           <div style="max-width:480px;width:100%;border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:24px;display:flex;flex-direction:column;gap:14px;">
             <h2 style="font-size:22px;font-weight:700;">${rejecting ? '¿Rechazar esta vinculación?' : '¿Reconocés esta solicitud?'}</h2>
-            <p style="font-size:14px;color:var(--text-secondary);line-height:1.5;">
-              Una agencia indicó tu correo para asociarte como cliente en ${esc(appName())}. El perfil solo se activa si confirmás que sos vos.
-            </p>
+            ${detail('invitation', `Una agencia indicó tu correo para asociarte como cliente en ${esc(appName())}. El perfil solo se activa si confirmás que sos vos.`)}
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-signal" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('ACCEPT')">${icon('check')} Sí, soy yo</button>
               <button class="btn btn-fault" ${state.inviteBusy ? 'disabled' : ''} onclick="answerInvitation('REJECT')">${icon('x')} No soy yo</button>
@@ -4434,7 +4466,7 @@
                 <input id="pf-agency" class="input" value="${esc(s.agencyName)}" maxlength="150" />
               </div>
             ` : ''}
-            <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar perfil</button>
+            <button class="btn btn-outline" style="align-self:flex-start;" onclick="saveProfile()">Guardar</button>
           </div>
 
           <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
@@ -4459,7 +4491,7 @@
           ${s.role !== 'ADMIN_GENERAL' ? `
             <div style="border:1px solid var(--hairline);background:var(--stage);border-radius:5px;padding:18px;display:flex;flex-direction:column;gap:10px;">
               <div class="eyebrow">ZONA DE RIESGO</div>
-              <div style="font-size:13px;color:var(--text-muted);">Eliminar tu cuenta borra tus datos y no se puede deshacer.</div>
+              ${detail('delete-account', 'Eliminar tu cuenta borra tus datos y no se puede deshacer.')}
               <button class="btn btn-fault" style="align-self:flex-start;" onclick="openDeleteAccount()">Eliminar cuenta</button>
             </div>
           ` : ''}
@@ -4688,7 +4720,6 @@
           <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="setup-title" style="max-width:460px;">
             <div>
               <h3 id="setup-title" style="font-size:19px;font-weight:700;margin-top:3px;">Completá tus datos</h3>
-              <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Los necesitamos para crear tu espacio. Te los pedimos una sola vez.</p>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
               ${field('setup-first-name', 'Nombre', 'firstName', 70)}

@@ -7,7 +7,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { apiFetch, friendlyError } from '../api/client';
 import { AuthResponse } from '../api/types';
 import { BannerBar, TopBar } from '../components/TopBar';
-import { Button, Card, Chip, ErrorText, Field, Input, LinkButton, T } from '../components/ui';
+import { Button, Card, Chip, Detail, ErrorText, Field, Input, LinkButton, T } from '../components/ui';
 import { EMAIL, STRONG_PASSWORD } from '../lib/format';
 import { useApp } from '../state/AppContext';
 import { useTheme } from '../theme/theme';
@@ -16,31 +16,6 @@ type Mode = 'login' | 'register' | 'verify' | 'recover';
 type RecoverKind = 'RESET' | 'CREATE';
 
 const PASSWORD_RULE = 'La contraseña debe tener entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo.';
-
-/** Los tres pasos que explican cómo funciona la plataforma. */
-function HowItWorks() {
-  const { colors } = useTheme();
-  const steps = [
-    ['1', 'La agencia arma el cronograma', 'Cada bloque dice qué es, de qué trata y lleva sus fotos o videos.'],
-    ['2', 'El cliente lo revisa', 'Ve todo desde la app, comenta y pide cambios.'],
-    ['3', 'El cliente confirma', 'La semana queda aprobada y todo queda registrado.'],
-  ];
-  return (
-    <View style={{ gap: 10 }}>
-      {steps.map(([n, title, text]) => (
-        <View key={n} style={{ flexDirection: 'row', gap: 10 }}>
-          <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.signalSubtleBg }}>
-            <T style={{ color: colors.signalSubtleFg, fontWeight: '700', fontSize: 12 }}>{n}</T>
-          </View>
-          <View style={{ flex: 1 }}>
-            <T style={{ fontWeight: '600' }}>{title}</T>
-            <T variant="small">{text}</T>
-          </View>
-        </View>
-      ))}
-    </View>
-  );
-}
 
 /** Pantalla de acceso. */
 export function AuthScreen() {
@@ -202,12 +177,10 @@ export function AuthScreen() {
     content = (
       <>
         <T variant="subtitle">Verificá tu correo</T>
-        <T variant="muted">
-          Enviamos un código de 6 dígitos{sender} a <T style={{ fontWeight: '700' }}>{email}</T> para comprobar que ese correo te pertenece.
-        </T>
+        <T variant="muted">Código enviado a {email}.</T>
         {codeInput(verifyRegistration)}
         <ErrorText message={error} />
-        <Button title="Verificar correo y activar mi cuenta" variant="signal" busy={busy} onPress={verifyRegistration} />
+        <Button title="Verificar" variant="signal" busy={busy} onPress={verifyRegistration} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <LinkButton title="Reenviar código" onPress={register} />
           <LinkButton title="Cambiar correo" onPress={() => go('register')} />
@@ -222,11 +195,7 @@ export function AuthScreen() {
         <>
           <T variant="eyebrow">{stepLabel}</T>
           <T variant="subtitle">{isCreate ? 'Crear contraseña' : 'Recuperar contraseña'}</T>
-          <T variant="muted">
-            {isCreate
-              ? `Tu cuenta todavía no tiene contraseña propia. Ingresá tu correo y te enviamos un código de 6 dígitos${sender} para crearla.`
-              : `Ingresá tu correo y te enviamos un código de verificación de 6 dígitos${sender}.`}
-          </T>
+          <T variant="muted">{isCreate ? 'Te enviamos un código para crearla.' : 'Te enviamos un código para recuperarla.'}</T>
           <Field label="Correo electrónico">
             <Input value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" onSubmitEditing={requestRecoveryCode} />
           </Field>
@@ -240,12 +209,10 @@ export function AuthScreen() {
         <>
           <T variant="eyebrow">{stepLabel}</T>
           <T variant="subtitle">Comprobá tu identidad</T>
-          <T variant="muted">
-            Enviamos un código de 6 dígitos{sender} a <T style={{ fontWeight: '700' }}>{email}</T>.
-          </T>
+          <T variant="muted">Código enviado a {email}.</T>
           {codeInput(verifyRecoveryCode)}
           <ErrorText message={error} />
-          <Button title="Verificar código" variant="signal" busy={busy} onPress={verifyRecoveryCode} />
+          <Button title="Verificar" variant="signal" busy={busy} onPress={verifyRecoveryCode} />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <LinkButton title="Reenviar código" onPress={requestRecoveryCode} />
             <LinkButton title="Cancelar" onPress={() => go('login')} />
@@ -256,14 +223,14 @@ export function AuthScreen() {
       content = (
         <>
           <T variant="eyebrow" style={{ color: colors.live }}>{stepLabel}</T>
-          <T variant="subtitle">Creá tu nueva contraseña</T>
-          <T variant="muted">Identidad comprobada para {email}. Esta será la contraseña para entrar con tu correo.</T>
+          <T variant="subtitle">Nueva contraseña</T>
+
           <Field label="Nueva contraseña">
             <Input value={newPassword} onChangeText={setNewPassword} secureTextEntry autoComplete="new-password" onSubmitEditing={savePassword} />
           </Field>
-          <T variant="small">{PASSWORD_RULE}</T>
+          <Detail text={PASSWORD_RULE} />
           <ErrorText message={error} />
-          <Button title="Guardar contraseña e ingresar" variant="signal" busy={busy} onPress={savePassword} />
+          <Button title="Guardar" variant="signal" busy={busy} onPress={savePassword} />
           <LinkButton title="Cancelar" onPress={() => go('login')} />
         </>
       );
@@ -307,7 +274,7 @@ export function AuthScreen() {
             onSubmitEditing={registering ? register : login}
           />
         </Field>
-        {registering ? <T variant="small">{PASSWORD_RULE}</T> : null}
+        {registering ? <Detail text={PASSWORD_RULE} /> : null}
         <ErrorText message={error} />
         <Button title={registering ? 'Crear cuenta' : 'Ingresar'} variant="signal" busy={busy} onPress={registering ? register : login} />
         {registering ? null : (
@@ -321,7 +288,7 @@ export function AuthScreen() {
               }}
             />
             <LinkButton
-              title="¿Entraste con Google, Facebook o GitHub? Creá una contraseña"
+              title="Crear contraseña"
               onPress={() => {
                 setRecoverKind('CREATE');
                 setRecoverStep(1);
@@ -342,10 +309,9 @@ export function AuthScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <View style={{ gap: 10 }}>
             <T variant="title" style={{ fontSize: 26 }}>Tu agencia y tus clientes, en un solo lugar.</T>
-            <T variant="muted">Compartí el cronograma de cada semana, mostrá cada pieza y recibí comentarios y aprobaciones sin perderte entre chats.</T>
+            <Detail text="Compartí el cronograma de cada semana, mostrá cada pieza y recibí comentarios y aprobaciones sin perderte entre chats. La agencia arma el cronograma, el cliente lo revisa y confirma." />
           </View>
           <Card style={{ gap: 14 }}>{content}</Card>
-          <HowItWorks />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

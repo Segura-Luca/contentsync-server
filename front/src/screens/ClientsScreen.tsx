@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { apiFetch, friendlyError } from '../api/client';
 import { Client } from '../api/types';
-import { Button, Card, ConfirmDialog, EmptyState, Field, IconButton, Input, Screen, ScreenHeader, T } from '../components/ui';
+import { Button, Card, ConfirmDialog, Detail, EmptyState, Field, IconButton, Input, Screen, ScreenHeader, T } from '../components/ui';
 import { EMAIL } from '../lib/format';
 import { useApiAction, useApp } from '../state/AppContext';
 import { useTheme } from '../theme/theme';
@@ -44,12 +44,8 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
 
   return (
     <Card style={{ borderColor: colors.borderStrong }}>
-      <T variant="subtitle">Invitar a un cliente nuevo</T>
-      <View style={{ borderLeftWidth: 3, borderLeftColor: colors.signalSubtleFg, backgroundColor: colors.inspector, padding: 10, borderRadius: 6 }}>
-        <T variant="small">
-          Le enviamos un aviso y un correo a esa dirección. El perfil queda pendiente hasta que el titular presione «Sí, soy yo», para que nadie cree perfiles con correos ajenos.
-        </T>
-      </View>
+      <T variant="subtitle">Nuevo cliente</T>
+      <Detail text="Le enviamos un aviso y un correo a esa dirección. El perfil queda pendiente hasta que el titular presione «Sí, soy yo», para que nadie cree perfiles con correos ajenos." />
       <Field label="Empresa / marca">
         <Input value={companyName} onChangeText={setCompanyName} />
       </Field>
@@ -62,7 +58,7 @@ function NewClientForm({ onDone }: { onDone: () => void }) {
       <Field label="Correo del cliente">
         <Input value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
       </Field>
-      <Button title="Enviar solicitud «Sí, soy yo»" variant="signal" busy={busy} onPress={submit} />
+      <Button title="Invitar" variant="signal" busy={busy} onPress={submit} />
     </Card>
   );
 }
@@ -94,7 +90,7 @@ export function ClientsScreen() {
             formOpen ? (
               <IconButton icon="x" label="Cerrar" onPress={() => setFormOpen(false)} size={46} />
             ) : (
-              <Button title="Nuevo cliente" icon="user-plus" variant="signal" onPress={() => setFormOpen(true)} />
+              <Button title="Cliente" icon="user-plus" variant="signal" onPress={() => setFormOpen(true)} />
             )
           }
         />
@@ -103,7 +99,7 @@ export function ClientsScreen() {
         {pending.length ? (
           <View style={{ gap: 10 }}>
             <T variant="eyebrow">{`POR CONFIRMAR (${pending.length})`}</T>
-            <T variant="small">Se activan cuando presionan «Sí, soy yo».</T>
+            <Detail text="Se activan cuando presionan «Sí, soy yo»." />
             {pending.map((c) => (
               <Card key={c.id} style={{ borderColor: colors.warn }}>
                 <T variant="subtitle">{c.companyName}</T>
@@ -139,7 +135,7 @@ export function ClientsScreen() {
               </Card>
             ))
           ) : (
-            <EmptyState title="Todavía no hay clientes activos" text="Invitá a tu primer cliente con «Nuevo cliente»." />
+            <EmptyState title="Todavía no hay clientes activos" />
           )}
         </View>
       </Screen>

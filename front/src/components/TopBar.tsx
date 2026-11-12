@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { apiFetch, friendlyError } from '../api/client';
 import { useApp } from '../state/AppContext';
 import { monoFont, useTheme } from '../theme/theme';
-import { Badge, Button, T } from './ui';
+import { Badge, Button, Detail, T } from './ui';
 
 /** El cliente responde "Sí, soy yo" o "No soy yo" a la vinculación con una agencia. */
 export function useRespondIdentity() {
@@ -123,7 +123,7 @@ export function TopBar() {
           <T style={{ fontWeight: '600' }}>
             La agencia «{pc.agency?.name || 'Agencia'}» quiere vincular tu correo ({pc.user?.email || session?.email}) como cliente de la marca «{pc.companyName}».
           </T>
-          <T variant="small">Confirmá si reconocés esta vinculación. Si no sos vos, rechazala para liberar tu correo.</T>
+          <Detail text="Confirmá si reconocés esta vinculación. Si no sos vos, rechazala para liberar tu correo." />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Button title="Sí, soy yo" icon="check" variant="signal" small style={{ flex: 1 }} onPress={() => respond(pc.id, 'ACCEPT')} />
             <Button title="No soy yo" icon="x" variant="fault" small style={{ flex: 1 }} onPress={() => respond(pc.id, 'REJECT')} />

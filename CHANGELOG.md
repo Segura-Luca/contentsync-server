@@ -14,7 +14,8 @@ Todos los cambios relevantes de este proyecto se documentan en este archivo sigu
 - **Ideas:** el botón "Nuevo color" ahora dice "Crear sección".
 - **Los avisos de actividad quedan solo en la sección Avisos.**
 - **Mensajes de éxito y de error:** aparecen en un pop up en el medio de la pantalla, por encima de cualquier ventana. Los de éxito se cierran a los 3,5 segundos y los de error a los 7; también se cierran al tocarlos.
-- **Botones con íconos:** cerrar, cancelar, editar, eliminar, fijar, ver, comentar, aceptar, rechazar y reenviar muestran un ícono en vez de texto.
+- **Botones con íconos:** cerrar, cancelar, editar, eliminar, fijar, ver, comentar, aceptar, rechazar y reenviar muestran un ícono relleno en vez de texto, en un botón con contorno claro para que se distinga del fondo oscuro.
+- **Menos texto:** botones, títulos y etiquetas más cortos ("+ Semana", "+ Bloque", "Guardar", "Invitar"...). Las explicaciones quedan ocultas detrás de un botón ⓘ "Ver detalle".
 - **Backend en TSX:** los archivos del backend pasan de `.ts` a `.tsx`, con el mismo contenido.
 
 ### Removed

@@ -53,12 +53,12 @@ export function NewWeekSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet
       visible
-      title="Crear semana de lunes a domingo"
+      title="Nueva semana"
       onClose={onClose}
       footer={
         <>
           <IconButton icon="x" label="Cancelar" onPress={onClose} size={46} />
-          <Button title="Crear semana" variant="signal" busy={busy} onPress={submit} style={{ flex: 1 }} />
+          <Button title="Crear" variant="signal" busy={busy} onPress={submit} style={{ flex: 1 }} />
         </>
       }
     >
@@ -71,10 +71,10 @@ export function NewWeekSheet({ onClose }: { onClose: () => void }) {
           <IconButton icon="chevron-right" label="Semana siguiente" onPress={() => move(1)} />
         </View>
       </Field>
-      <Field label="Título de la semana">
+      <Field label="Título">
         <Input value={title} onChangeText={setTitle} maxLength={160} />
       </Field>
-      <Field label="Objetivo o nota general para el cliente (opcional)">
+      <Field label="Nota (opcional)">
         <Input value={notes} onChangeText={setNotes} multiline />
       </Field>
     </Sheet>

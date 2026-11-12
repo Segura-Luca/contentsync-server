@@ -1,7 +1,7 @@
 /** Pantalla del cliente para proponerle ideas a su agencia y ver la respuesta de cada una. */
 import React, { useState } from 'react';
 import { Linking } from 'react-native';
-import { Badge, Button, Card, Field, Input, LinkButton, Screen, ScreenHeader, T } from '../components/ui';
+import { Badge, Button, Card, Detail, Field, Input, LinkButton, Screen, ScreenHeader, T } from '../components/ui';
 import { fmtDateTime, normalizeUrl } from '../lib/format';
 import { useApiAction, useApp } from '../state/AppContext';
 
@@ -41,18 +41,18 @@ export function ClientProposalsScreen() {
 
   return (
     <Screen onRefresh={() => app.hydrate()} refreshing={app.loadingData}>
-      <ScreenHeader title="Proponé ideas a tu agencia" />
+      <ScreenHeader title="Proponé ideas" badge={<Detail text="Contale a tu agencia qué te gustaría mostrar. La acepta, la ajusta o te responde que no." />} />
       <Card>
         <Field label="Título">
           <Input value={title} onChangeText={setTitle} maxLength={180} />
         </Field>
-        <Field label="¿De qué se trata?">
+        <Field label="Desarrollo">
           <Input value={content} onChangeText={setContent} multiline maxLength={5000} style={{ minHeight: 110 }} />
         </Field>
-        <Field label="Enlace de referencia (opcional)">
+        <Field label="Enlace (opcional)">
           <Input value={refUrl} onChangeText={setRefUrl} autoCapitalize="none" keyboardType="url" maxLength={500} />
         </Field>
-        <Button title="Enviar a mi agencia" icon="send" variant="signal" busy={busy} onPress={submit} />
+        <Button title="Enviar" icon="send" variant="signal" busy={busy} onPress={submit} />
       </Card>
 
       <T variant="eyebrow">{`LAS QUE YA ENVIASTE (${app.ideaProposals.length})`}</T>

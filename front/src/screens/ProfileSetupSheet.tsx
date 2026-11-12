@@ -50,7 +50,6 @@ function ProfileSetupForm({ fullName }: { fullName: string }) {
           keyboardShouldPersistTaps="handled"
         >
           <T variant="title">Completá tus datos</T>
-          <T variant="muted">Los necesitamos para crear tu espacio. Te los pedimos una sola vez.</T>
           <Field label="Nombre">
             <Input value={firstName} onChangeText={setFirstName} maxLength={70} />
           </Field>
@@ -61,7 +60,7 @@ function ProfileSetupForm({ fullName }: { fullName: string }) {
             <Input value={agencyName} onChangeText={setAgencyName} maxLength={150} onSubmitEditing={submit} />
           </Field>
           <ErrorText message={error} />
-          <Button title="Guardar y entrar" variant="signal" busy={busy} onPress={submit} />
+          <Button title="Guardar" variant="signal" busy={busy} onPress={submit} />
           <View style={{ alignItems: 'center' }}>
             <LinkButton title="Cerrar sesión" onPress={() => app.logout()} />
           </View>

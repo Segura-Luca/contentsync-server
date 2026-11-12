@@ -89,7 +89,7 @@ export function IdeaSheet({ target, onClose }: { target: IdeaSheetTarget; onClos
   };
 
   const isProposal = target.kind === 'proposal';
-  const heading = isProposal ? 'Editar y aceptar' : target.kind === 'edit' ? 'Editar idea' : 'Nueva idea de contenido';
+  const heading = isProposal ? 'Editar y aceptar' : target.kind === 'edit' ? 'Editar idea' : 'Nueva idea';
 
   return (
     <Sheet
@@ -99,7 +99,7 @@ export function IdeaSheet({ target, onClose }: { target: IdeaSheetTarget; onClos
       footer={
         <>
           <IconButton icon="x" label="Cancelar" onPress={onClose} size={46} />
-          <Button title={isProposal ? 'Aceptar' : 'Guardar idea'} variant="signal" busy={busy} onPress={submit} style={{ flex: 1 }} />
+          <Button title={isProposal ? 'Aceptar' : 'Guardar'} variant="signal" busy={busy} onPress={submit} style={{ flex: 1 }} />
         </>
       }
     >
@@ -123,7 +123,7 @@ export function IdeaSheet({ target, onClose }: { target: IdeaSheetTarget; onClos
 
       {newSectionOpen ? (
         <View style={{ borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 10, padding: 12, gap: 12 }}>
-          <Field label="Nombre de la sección">
+          <Field label="Nombre">
             <Input value={newSectionName} onChangeText={setNewSectionName} maxLength={100} />
           </Field>
           <Field label="Color">
@@ -131,15 +131,15 @@ export function IdeaSheet({ target, onClose }: { target: IdeaSheetTarget; onClos
           </Field>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {ideaSections.length ? <IconButton icon="x" label="Cancelar" onPress={() => setNewSectionOpen(false)} size={46} /> : null}
-            <Button title="Crear sección" variant="signal" onPress={createSection} style={{ flex: 1 }} />
+            <Button title="Crear" variant="signal" onPress={createSection} style={{ flex: 1 }} />
           </View>
         </View>
       ) : null}
 
       {isProposal ? null : (
-        <Field label="Marca / cliente (opcional)">
+        <Field label="Cliente (opcional)">
           <ChipRow>
-            <Chip label="General de mi agencia" active={!clientId} onPress={() => setClientId('')} />
+            <Chip label="General" active={!clientId} onPress={() => setClientId('')} />
             {confirmed.map((c) => (
               <Chip key={c.id} label={c.companyName} active={clientId === c.id} onPress={() => setClientId(c.id)} />
             ))}
@@ -147,19 +147,19 @@ export function IdeaSheet({ target, onClose }: { target: IdeaSheetTarget; onClos
         </Field>
       )}
 
-      <Field label="Título o gancho principal">
+      <Field label="Título">
         <Input value={title} onChangeText={setTitle} maxLength={180} />
       </Field>
-      <Field label="Desarrollo, estructura o guion">
+      <Field label="Desarrollo">
         <Input value={content} onChangeText={setContent} multiline style={{ minHeight: 120 }} />
       </Field>
-      <Field label="Enlace de referencia (opcional)">
+      <Field label="Enlace (opcional)">
         <Input value={refUrl} onChangeText={setRefUrl} autoCapitalize="none" keyboardType="url" maxLength={500} />
       </Field>
 
       {isProposal ? null : (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <T>Fijar como destacada</T>
+          <T>Fijada</T>
           <Switch value={pinned} onValueChange={setPinned} trackColor={{ true: colors.signal, false: colors.hairline }} />
         </View>
       )}

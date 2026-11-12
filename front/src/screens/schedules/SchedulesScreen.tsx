@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 import { Block, Schedule } from '../../api/types';
 import { useRespondIdentity } from '../../components/TopBar';
-import { Badge, Button, Card, Chip, ChipRow, ConfirmDialog, EmptyState, IconButton, Screen, ScreenHeader, T } from '../../components/ui';
+import { Badge, Button, Card, Chip, ChipRow, ConfirmDialog, Detail, EmptyState, IconButton, Screen, ScreenHeader, T } from '../../components/ui';
 import { contentTypeLabel, fmtDateTime, fmtShortDate, plural, productionLabel, WEEKDAYS, workflowMeta } from '../../lib/format';
 import { useApiAction, useApp } from '../../state/AppContext';
 import { monoFont, noteColors, useTheme } from '../../theme/theme';
@@ -92,19 +92,16 @@ function ConfirmBar({ schedule, isClient, blocked }: { schedule: Schedule; isCli
     if (blocked) return null;
     return (
       <Card>
-        <T variant="muted">{hasItems ? 'Esperando que el cliente revise y confirme la semana.' : 'Agregá el contenido de la semana para que el cliente pueda revisarlo.'}</T>
+<T variant="muted">{hasItems ? 'Esperando la confirmación del cliente.' : 'Semana sin contenido todavía.'}</T>
       </Card>
     );
   }
   if (!hasItems) return null;
   return (
     <Card tone="review">
-      <T>
-        {blocked
-          ? `Pediste cambios en ${blocked === 1 ? 'un bloque' : `${blocked} bloques`}: vas a poder confirmar cuando tu agencia los resuelva.`
-          : '¿Revisaste todo? Al confirmar, lo que siga en revisión queda aprobado.'}
-      </T>
-      {blocked ? null : <Button title="Confirmar cronograma" icon="check" variant="signal" onPress={() => setAsking(true)} />}
+      {blocked ? <T>{`Cambios pedidos en ${blocked === 1 ? 'un bloque' : `${blocked} bloques`}.`}</T> : null}
+      <Detail text={blocked ? 'Vas a poder confirmar la semana cuando tu agencia los resuelva.' : 'Al confirmar, lo que siga en revisión queda aprobado.'} />
+      {blocked ? null : <Button title="Confirmar" icon="check" variant="signal" onPress={() => setAsking(true)} />}
       <ConfirmDialog
         visible={asking}
         title="¿Confirmás toda la semana?"
@@ -154,11 +151,9 @@ export function SchedulesScreen() {
       <Screen>
         <Card tone="warn" style={{ gap: 14 }}>
           <T variant="title">Confirmá tu identidad para ver tu cronograma</T>
-          <T variant="muted">
-            Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con {pendingConfirmation.agency?.name || 'la agencia'}, confirmá que sos vos.
-          </T>
-          <Button title="Sí, soy yo — Activar mi cuenta" icon="check" variant="signal" onPress={() => respond(pendingConfirmation.id, 'ACCEPT')} />
-          <Button title="No soy yo — Rechazar" icon="x" variant="fault" onPress={() => respond(pendingConfirmation.id, 'REJECT')} />
+          <Detail text={`Por tu seguridad, antes de mostrarte contenido o vincular tu cuenta con ${pendingConfirmation.agency?.name || 'la agencia'}, confirmá que sos vos.`} />
+          <Button title="Sí, soy yo" icon="check" variant="signal" onPress={() => respond(pendingConfirmation.id, 'ACCEPT')} />
+          <Button title="No soy yo" icon="x" variant="fault" onPress={() => respond(pendingConfirmation.id, 'REJECT')} />
         </Card>
       </Screen>
     );
@@ -169,7 +164,7 @@ export function SchedulesScreen() {
       <Screen onRefresh={() => app.hydrate()} refreshing={loadingData}>
         <ScreenHeader
           title={isClient ? 'Tu contenido de la semana' : 'Cronograma semanal'}
-          actions={isClient ? undefined : <Button title="Nueva semana" icon="plus" variant="signal" onPress={openNewWeek} />}
+          actions={isClient ? undefined : <Button title="Semana" icon="plus" variant="signal" onPress={openNewWeek} />}
         />
 
         {!isClient && confirmed.length > 0 ? (
@@ -186,16 +181,15 @@ export function SchedulesScreen() {
         {!isClient && confirmed.length === 0 ? (
           <EmptyState
             title="Agregá y confirmá un cliente para armar su cronograma"
-            text="En Clientes das de alta una marca. Cuando el cliente confirme «Sí, soy yo», vas a poder crearle sus semanas."
           >
-            <Button title="Ir a Clientes" icon="users" variant="signal" onPress={() => app.goToTab('accounts')} />
+            <Detail text="En Clientes das de alta una marca. Cuando el cliente confirme «Sí, soy yo», vas a poder crearle sus semanas." />
+            <Button title="Clientes" icon="users" variant="signal" onPress={() => app.goToTab('accounts')} />
           </EmptyState>
         ) : !active ? (
           <EmptyState
             title={isClient ? 'Tu agencia todavía no compartió un cronograma' : 'Todavía no hay semanas para este cliente'}
-            text={isClient ? 'Te vamos a avisar apenas tu agencia cargue el contenido de la semana.' : 'Creá la primera semana para empezar a cargar el contenido.'}
           >
-            {isClient ? null : <Button title="Crear primera semana" icon="plus" variant="signal" onPress={openNewWeek} />}
+            {isClient ? <Detail text="Te vamos a avisar apenas tu agencia cargue el contenido de la semana." /> : <Button title="Semana" icon="plus" variant="signal" onPress={openNewWeek} />}
           </EmptyState>
         ) : (
           <>
@@ -218,7 +212,7 @@ export function SchedulesScreen() {
               {active.summaryNotes ? <T variant="muted">{active.summaryNotes}</T> : null}
             </View>
 
-            {!isClient ? <Button title="Agregar bloque" icon="plus" variant="signal" onPress={() => app.openBlockEditor({ blockId: null, day: 1 })} /> : null}
+            {!isClient ? <Button title="Bloque" icon="plus" variant="signal" onPress={() => app.openBlockEditor({ blockId: null, day: 1 })} /> : null}
 
             <ConfirmBar schedule={active} isClient={isClient} blocked={blocked} />
 

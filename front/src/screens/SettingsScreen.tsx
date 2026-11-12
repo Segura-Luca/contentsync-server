@@ -6,7 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
 import { apiFetch, friendlyError } from '../api/client';
 import { PlatformIntegrations, PlatformSettings } from '../api/types';
-import { Button, Card, ErrorText, Field, IconButton, InfoRow, Input, Screen, ScreenHeader, Sheet, T } from '../components/ui';
+import { Button, Card, Detail, ErrorText, Field, IconButton, InfoRow, Input, Screen, ScreenHeader, Sheet, T } from '../components/ui';
 import { STRONG_PASSWORD } from '../lib/format';
 import { useApp } from '../state/AppContext';
 import { useTheme } from '../theme/theme';
@@ -61,7 +61,7 @@ function ChangePasswordSheet({ hasPassword, onClose }: { hasPassword: boolean; o
       <Field label="Repetí la nueva contraseña">
         <Input value={repeat} onChangeText={setRepeat} secureTextEntry autoComplete="new-password" maxLength={128} onSubmitEditing={submit} />
       </Field>
-      <T variant="small">Entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo. Se cierra la sesión en tus otros dispositivos.</T>
+      <Detail text="Entre 8 y 64 caracteres, con mayúscula, minúscula, número y un símbolo. Se cierra la sesión en tus otros dispositivos." />
       <ErrorText message={error} />
     </Sheet>
   );
@@ -109,8 +109,7 @@ function DeleteAccountSheet({ hasPassword, onClose }: { hasPassword: boolean; on
         </>
       }
     >
-      <T>{consequence}</T>
-      <T variant="muted">No se puede deshacer.</T>
+      <Detail text={`${consequence} No se puede deshacer.`} />
       {hasPassword ? (
         <Field label="Tu contraseña">
           <Input value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" maxLength={128} />
@@ -197,7 +196,7 @@ function PlatformSettingsForm({ s, i }: { s: PlatformSettings; i: PlatformIntegr
   return (
     <Card>
       <T variant="eyebrow">CONFIGURACIÓN DE LA PLATAFORMA</T>
-      <T variant="small">Se aplica a todas las agencias, sin reiniciar el servidor.</T>
+      <Detail text="Se aplica a todas las agencias, sin reiniciar el servidor." />
       <Field label="Nombre de la aplicación">
         <Input value={form.appName} onChangeText={(v) => setForm((f) => ({ ...f, appName: v }))} maxLength={60} />
       </Field>
@@ -210,14 +209,14 @@ function PlatformSettingsForm({ s, i }: { s: PlatformSettings; i: PlatformIntegr
       {numberField('otpMaxAttempts', 'Intentos por código')}
       {numberField('otpResendCooldownSeconds', 'Espera para reenviar (segundos)')}
       {numberField('clientInviteTtlHours', 'Vigencia de invitaciones (horas)')}
-      <Button title="Guardar ajustes" variant="signal" busy={busy} onPress={save} />
+      <Button title="Guardar" variant="signal" busy={busy} onPress={save} />
       {askReset ? (
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button title="Sí, restablecer" variant="fault" onPress={reset} style={{ flex: 1 }} />
           <IconButton icon="x" label="Cancelar" onPress={() => setAskReset(false)} size={46} />
         </View>
       ) : (
-        <Button title="Restablecer valores de fábrica" onPress={() => setAskReset(true)} />
+        <Button title="Restablecer" onPress={() => setAskReset(true)} />
       )}
       <View style={{ borderTopWidth: 1, borderTopColor: colors.hairline, paddingTop: 12, gap: 6 }}>
         <T variant="eyebrow">INTEGRACIONES (VARIABLES DE ENTORNO)</T>
@@ -292,12 +291,12 @@ export function SettingsScreen() {
               <Input value={agencyName} onChangeText={setAgencyName} maxLength={150} />
             </Field>
           ) : null}
-          <Button title="Guardar perfil" busy={saving} onPress={saveProfile} />
+          <Button title="Guardar" busy={saving} onPress={saveProfile} />
         </Card>
 
         <Card>
           <T variant="eyebrow">SEGURIDAD</T>
-          <Button title="Cambiar contraseña" icon="lock" onPress={() => openSheet('password')} />
+          <Button title="Contraseña" icon="lock" onPress={() => openSheet('password')} />
         </Card>
 
         {session.role === 'ADMIN_GENERAL' ? <PlatformSettingsPanel /> : null}
@@ -315,7 +314,6 @@ export function SettingsScreen() {
         {session.role !== 'ADMIN_GENERAL' ? (
           <Card>
             <T variant="eyebrow">ZONA DE RIESGO</T>
-            <T variant="small">Eliminar tu cuenta borra tus datos y no se puede deshacer.</T>
             <Button title="Eliminar cuenta" variant="fault" onPress={() => openSheet('delete')} />
           </Card>
         ) : null}

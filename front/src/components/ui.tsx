@@ -16,11 +16,37 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { monoFont, useTheme } from '../theme/theme';
 
 export type IconName = React.ComponentProps<typeof Feather>['name'];
+type SolidName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** Versión rellena (Ionicons) de cada ícono de línea (Feather) que se usa en los botones de ícono. */
+const SOLID_ICONS: Partial<Record<IconName, SolidName>> = {
+  x: 'close',
+  check: 'checkmark',
+  plus: 'add',
+  'trash-2': 'trash',
+  'edit-2': 'pencil',
+  send: 'send',
+  eye: 'eye',
+  bookmark: 'bookmark',
+  mail: 'mail',
+  calendar: 'calendar',
+  'arrow-up': 'arrow-up',
+  'arrow-down': 'arrow-down',
+  'chevron-left': 'chevron-back',
+  'chevron-right': 'chevron-forward',
+  info: 'information-circle',
+};
+
+/** Dibuja el ícono relleno; si no hay versión rellena, usa el de línea. */
+function SolidIcon({ name, size, color }: { name: IconName; size: number; color: string }) {
+  const solid = SOLID_ICONS[name];
+  return solid ? <Ionicons name={solid} size={size} color={color} /> : <Feather name={name} size={size} color={color} />;
+}
 type Tone = 'live' | 'warn' | 'fault' | 'review' | 'neutral';
 
 /** Colores de texto, fondo y borde de cada tono. */
@@ -156,9 +182,10 @@ export function IconButton({
   size?: number;
 }) {
   const { colors } = useTheme();
+  // El contorno claro y el fondo un poco más claro que la pantalla hacen que el botón se distinga del fondo oscuro.
   const palette = {
     signal: { bg: colors.signal, fg: colors.onSignal, border: colors.signal },
-    outline: { bg: 'transparent', fg: colors.textPrimary, border: colors.borderStrong },
+    outline: { bg: colors.elevated, fg: colors.textPrimary, border: colors.textMuted },
     fault: { bg: colors.faultBg, fg: colors.fault, border: colors.fault },
     warn: { bg: colors.warnBg, fg: colors.warn, border: colors.warn },
   }[variant];
@@ -174,7 +201,7 @@ export function IconButton({
         width: size,
         height: size,
         borderRadius: 8,
-        borderWidth: 1,
+        borderWidth: 1.5,
         borderColor: palette.border,
         backgroundColor: palette.bg,
         alignItems: 'center',
@@ -182,7 +209,7 @@ export function IconButton({
         opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
       })}
     >
-      <Feather name={icon} size={19} color={palette.fg} />
+      <SolidIcon name={icon} size={21} color={palette.fg} />
     </Pressable>
   );
 }
@@ -409,6 +436,36 @@ export function ScreenHeader({ title, badge, actions }: { title: string; badge?:
       {badge}
       <T variant="title">{title}</T>
       {actions ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{actions}</View> : null}
+    </View>
+  );
+}
+
+/** Botón ⓘ "Ver detalle": muestra la explicación de una parte de la pantalla solo si se toca. */
+export function Detail({ text }: { text: string }) {
+  const { colors } = useTheme();
+  const [open, setOpen] = React.useState(false);
+  return (
+    <View style={{ gap: 6, alignItems: 'flex-start' }}>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        accessibilityRole="button"
+        accessibilityLabel={open ? 'Ocultar detalle' : 'Ver detalle'}
+        accessibilityState={{ expanded: open }}
+        hitSlop={8}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          borderWidth: 1.5,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderColor: open ? colors.signalSubtleFg : colors.textMuted,
+          backgroundColor: open ? colors.signalSubtleBg : colors.elevated,
+        }}
+      >
+        <SolidIcon name="info" size={19} color={open ? colors.signalSubtleFg : colors.textSecondary} />
+      </Pressable>
+      {open ? <T variant="muted">{text}</T> : null}
     </View>
   );
 }

@@ -125,7 +125,7 @@ export function BlockInspectorSheet() {
 
       {!isClient && block.reviewStatus === 'CHANGES_REQUESTED' ? (
         <Button
-          title="Reenviar a revisión"
+          title="Reenviar"
           variant="warn"
           icon="refresh-cw"
           onPress={() => action(`/schedules/blocks/${block.id}/resubmit`, { method: 'POST' }, 'Listo: le avisamos al cliente que ya puede revisarlo.')}
@@ -186,7 +186,7 @@ export function BlockInspectorSheet() {
         ) : (
           <T variant="small">Todavía no hay comentarios.</T>
         )}
-        <Field label={isClient ? 'Tu comentario o los cambios que pedís' : 'Escribile al cliente'}>
+        <Field label="Comentario">
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
             <Input value={note} onChangeText={setNote} multiline maxLength={5000} style={{ minHeight: 70, flex: 1 }} />
             <IconButton icon="send" label="Comentar" variant="signal" disabled={busy} onPress={comment} />

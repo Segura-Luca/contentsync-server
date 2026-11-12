@@ -5,7 +5,7 @@
 import React, { useState } from 'react';
 import { Linking, View } from 'react-native';
 import { Idea, IdeaProposal } from '../../api/types';
-import { Badge, Button, Card, Chip, ChipRow, ConfirmDialog, EmptyState, Field, IconButton, Input, LinkButton, Screen, ScreenHeader, T } from '../../components/ui';
+import { Badge, Button, Card, Chip, ChipRow, ConfirmDialog, Detail, EmptyState, Field, IconButton, Input, LinkButton, Screen, ScreenHeader, T } from '../../components/ui';
 import { useApiAction, useApp } from '../../state/AppContext';
 import { noteColors, useTheme } from '../../theme/theme';
 import { ColorPicker, nextFreeColor } from './ColorPicker';
@@ -27,7 +27,7 @@ function ProposalsList({ onEdit }: { onEdit: (proposal: IdeaProposal, sectionId?
   const pending = ideaProposals.filter((p) => p.status === 'PENDING');
 
   if (!pending.length) {
-    return <EmptyState title="No hay propuestas por responder" text="Las ideas que te manden tus clientes van a aparecer acá." />;
+    return <EmptyState title="No hay propuestas por responder" />;
   }
 
   return (
@@ -41,7 +41,7 @@ function ProposalsList({ onEdit }: { onEdit: (proposal: IdeaProposal, sectionId?
             <T variant="muted">{p.content}</T>
             {p.referenceUrl ? <LinkButton title="Ver referencia" onPress={() => openLink(p.referenceUrl!)} /> : null}
             {ideaSections.length ? (
-              <Field label="Guardar en la sección">
+              <Field label="Sección">
                 <ChipRow>
                   {ideaSections.map((s) => (
                     <Chip
@@ -110,7 +110,8 @@ function IdeaCard({ idea, onEdit, onDelete, onSendToPlan }: { idea: Idea; onEdit
       {idea.referenceUrl ? <LinkButton title="Ver referencia" onPress={() => openLink(idea.referenceUrl!)} /> : null}
       <T variant="mono">{idea.client?.companyName || 'General de la agencia'}</T>
       <View style={{ borderTopWidth: 1, borderTopColor: colors.hairline, paddingTop: 10, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-        <Button title="Al cronograma" icon="calendar" variant="signal" small onPress={onSendToPlan} style={{ flex: 1 }} />
+        <IconButton icon="calendar" label="Llevar al cronograma" variant="signal" onPress={onSendToPlan} />
+        <View style={{ flex: 1 }} />
         <IconButton icon="edit-2" label="Editar" onPress={onEdit} />
         <IconButton icon="trash-2" label="Eliminar" variant="fault" onPress={onDelete} />
       </View>
@@ -180,16 +181,16 @@ export function IdeasScreen() {
       <Screen onRefresh={() => app.hydrate()} refreshing={loadingData}>
         <ScreenHeader
           title="Ideas de contenido"
-          badge={<Badge label="🔒 PRIVADO DE TU AGENCIA" tone="review" />}
+          badge={<Detail text="Guardá guiones, ganchos y formatos en tus propias secciones. Tus clientes nunca ven este espacio." />}
           actions={
             <>
               {newSectionOpen ? (
                 <IconButton icon="x" label="Cerrar" onPress={openNewSection} size={46} />
               ) : (
-                <Button title="Crear sección" icon="plus" onPress={openNewSection} />
+                <Button title="Sección" icon="plus" onPress={openNewSection} />
               )}
               <Button
-                title="Nueva idea"
+                title="Idea"
                 icon="plus"
                 variant="signal"
                 onPress={() => setSheet({ kind: 'new', sectionId: activeSection?.id, clientId: clientFilter === 'ALL' || clientFilter === 'GENERAL' ? undefined : clientFilter })}
@@ -206,7 +207,7 @@ export function IdeasScreen() {
             <Field label="Color">
               <ColorPicker value={sectionColor} onChange={setSectionColor} used={ideaSections.map((s) => s.color)} />
             </Field>
-            <Button title="Guardar sección" variant="signal" onPress={createSection} />
+            <Button title="Guardar" variant="signal" onPress={createSection} />
           </Card>
         ) : null}
 
@@ -247,7 +248,7 @@ export function IdeasScreen() {
             ) : null}
 
             {filtered.length === 0 ? (
-              <EmptyState title="No hay ideas que coincidan con este filtro" text="Agregá una idea nueva o limpiá los filtros.">
+              <EmptyState title="No hay ideas con este filtro">
                 <Button
                   title="Ver todas"
                   onPress={() => {

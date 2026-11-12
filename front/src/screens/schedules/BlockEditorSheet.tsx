@@ -170,12 +170,12 @@ export function BlockEditorSheet({ seed, onClose }: { seed: BlockEditorSeed; onC
   return (
     <Sheet
       visible
-      title={seed.blockId ? 'Editar contenido del día' : 'Agregar contenido al día'}
+      title={seed.blockId ? 'Editar bloque' : 'Nuevo bloque'}
       onClose={close}
       footer={
         <>
           <IconButton icon="x" label="Cancelar" onPress={close} disabled={saving} size={46} />
-          <Button title={seed.blockId ? 'Guardar cambios' : 'Guardar bloque'} variant="signal" busy={saving} onPress={submit} style={{ flex: 1 }} />
+          <Button title="Guardar" variant="signal" busy={saving} onPress={submit} style={{ flex: 1 }} />
         </>
       }
     >
@@ -198,21 +198,21 @@ export function BlockEditorSheet({ seed, onClose }: { seed: BlockEditorSeed; onC
       <Field label="Título">
         <Input value={title} onChangeText={setTitle} maxLength={160} />
       </Field>
-      <Field label="Contenido: ¿de qué trata?">
+      <Field label="Contenido">
         <Input value={notes} onChangeText={setNotes} multiline />
       </Field>
-      <Field label="Texto de la publicación (opcional)">
+      <Field label="Texto (opcional)">
         <Input value={caption} onChangeText={setCaption} multiline />
       </Field>
 
-      <Field label="Fotos y videos para que el cliente los vea">
+      <Field label="Fotos y videos">
         <Pressable
           onPress={pickMedia}
           accessibilityRole="button"
           style={{ borderWidth: 1, borderStyle: 'dashed', borderColor: colors.signalSubtleFg, borderRadius: 10, padding: 18, alignItems: 'center', gap: 4 }}
         >
-          <T style={{ color: colors.signalSubtleFg, fontWeight: '700' }}>+ Agregar fotos o videos</T>
-          <T variant="small">{maxMb ? `Hasta ${maxMb} MB cada uno.` : 'JPG, PNG, WEBP, GIF, MP4, MOV o WebM.'}</T>
+          <T style={{ color: colors.signalSubtleFg, fontWeight: '700' }}>+ Fotos o videos</T>
+          {maxMb ? <T variant="small">{`Hasta ${maxMb} MB`}</T> : null}
         </Pressable>
       </Field>
 
@@ -261,7 +261,7 @@ export function BlockEditorSheet({ seed, onClose }: { seed: BlockEditorSeed; onC
         </View>
       </Field>
 
-      <Field label="Hora prevista (HH:MM)">
+      <Field label="Hora">
         <Input value={time} onChangeText={(v) => setTime(v.replace(/[^\d:]/g, '').slice(0, 5))} keyboardType="numbers-and-punctuation" maxLength={5} />
       </Field>
 
